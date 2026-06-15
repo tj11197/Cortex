@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cortex — Gehirntraining</title>
+
+<!-- ===== PWA / Home-Screen ===== -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#E9ECF2">
+<meta name="color-scheme" content="light">
+<meta name="description" content="Persönliches Gehirntraining: Kopfrechnen, Logik, GMAT und Working Memory mit adaptiver Schwierigkeit.">
+<!-- iOS: als Vollbild-App vom Home-Screen starten -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Cortex">
+<meta name="application-name" content="Cortex">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E9ECF2; --surface:#FFFFFF; --ink:#141B2D; --muted:#5B6577; --faint:#8B94A6;
+    --accent:#2F4BFF; --accent-soft:#E5E9FF; --good:#0E9F6E; --good-soft:#E2F5ED;
+    --bad:#E11D48; --bad-soft:#FCE4EA; --warn:#B7791F; --warn-soft:#FBF1DD; --line:#D7DCE6;
+    --display:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    --body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  html{-webkit-text-size-adjust:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);display:flex;justify-content:center;
+    padding:max(20px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(48px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+    min-height:100%;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none;
+    -webkit-user-select:none;user-select:none}
+  /* Eingaben & Erklärtexte bleiben markierbar */
+  input,.q-text,.explain,.tip-text{-webkit-user-select:text;user-select:text}
+  button{touch-action:manipulation}
+  .app{width:100%;max-width:560px}
+  .bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px}
+  .brand{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:-.01em}
+  .brand span{color:var(--accent)}
+  .bar-right{display:flex;align-items:center;gap:12px}
+  .tag{font-size:12px;color:var(--faint);font-family:var(--mono);letter-spacing:.04em}
+  .home-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;
+    padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .14s;white-space:nowrap}
+  .home-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px;
+    box-shadow:0 1px 2px rgba(20,27,45,.04),0 12px 28px -18px rgba(20,27,45,.18)}
+
+  .lede{font-size:15px;line-height:1.55;color:var(--muted);margin-bottom:22px}
+  .lede b{color:var(--ink);font-weight:600}
+  .cat-list{display:flex;flex-direction:column;gap:12px}
+  .cat{width:100%;text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:16px;
+    transition:border-color .15s,transform .12s,box-shadow .15s;font:inherit;color:inherit}
+  .cat:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 10px 22px -16px rgba(47,75,255,.5)}
+  .cat:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .cat-mark{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--accent);background:var(--accent-soft);
+    border-radius:9px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .cat-body{flex:1;min-width:0}
+  .cat-title{font-family:var(--display);font-weight:600;font-size:15.5px}
+  .cat-desc{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .cat-stat{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;flex:0 0 auto}
+  .cat-stat b{display:block;color:var(--good);font-size:14px}
+
+  .head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .back{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:34px;height:34px;
+    cursor:pointer;font-size:16px;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:border-color .15s}
+  .back:hover{border-color:var(--accent);color:var(--accent)}
+  .head h2{font-family:var(--display);font-size:18px;font-weight:600}
+
+  .seclabel{font-size:11px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+  .modes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+  .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 15px;font-size:13px;
+    cursor:pointer;font:inherit;color:var(--muted);transition:all .15s}
+  .chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .topics{display:flex;flex-direction:column;gap:9px}
+  .topic{border:1px solid var(--line);border-radius:13px;padding:13px 15px;display:flex;align-items:center;gap:12px}
+  .topic-info{flex:1;min-width:0}
+  .topic-info b{font-family:var(--display);font-weight:600;font-size:14.5px}
+  .topic-info span{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+  .topic-actions{display:flex;gap:7px;flex:0 0 auto}
+  .mini{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 13px;font-size:12.5px;min-height:40px;
+    cursor:pointer;font-family:var(--body);color:var(--muted);transition:all .14s;white-space:nowrap}
+  .mini:hover{border-color:var(--accent);color:var(--accent)}
+  .mini.solid{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  .mini.solid:hover{filter:brightness(1.07);color:#fff}
+  .mini.done{border-color:var(--good);color:var(--good)}
+
+  .primer{border:1px solid var(--line);border-radius:13px;padding:18px;margin-bottom:18px;background:#FBFCFE}
+  .primer .pk{font-size:11px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+  .primer p{font-size:14.5px;line-height:1.6;color:var(--ink);margin-bottom:16px}
+  .primer p:last-child{margin-bottom:0}
+  .primer .ex{font-family:var(--mono);font-size:13.5px;background:var(--accent-soft);border-radius:9px;padding:11px 13px;color:var(--ink)}
+
+  .dots{display:flex;gap:6px;justify-content:center;margin-bottom:20px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--line);transition:background .2s}
+  .dot.on{background:var(--accent)}
+  .tut-ex{font-family:var(--mono);font-size:clamp(20px,6vw,30px);text-align:center;margin:4px 0 16px;word-break:break-word}
+  .step{display:flex;gap:11px;align-items:flex-start;font-size:14.5px;line-height:1.5;padding:11px 0;border-bottom:1px solid var(--line);animation:rise .25s ease both}
+  .step:last-child{border-bottom:none}
+  .step .sn{font-family:var(--mono);font-weight:700;color:var(--accent);flex:0 0 auto}
+  .done-badge{text-align:center;font-size:44px;color:var(--good);margin:6px 0 4px}
+
+  .btn{width:100%;border:none;border-radius:12px;padding:15px;cursor:pointer;font-family:var(--display);font-weight:600;
+    font-size:15px;background:var(--accent);color:#fff;transition:filter .15s,transform .1s}
+  .btn:hover{filter:brightness(1.07)}
+  .btn:active{transform:scale(.99)}
+  .btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent);filter:none}
+  .btn-row{display:flex;gap:10px;margin-top:14px}
+
+  .session-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:14px}
+  .streak{color:var(--accent)} .streak.cold{color:var(--faint)}
+  .progress{height:5px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:24px}
+  .progress > i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .35s}
+
+  .qwrap{animation:rise .28s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .qkind{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin-bottom:12px}
+  .q-math{font-family:var(--mono);font-weight:500;font-size:clamp(26px,8vw,44px);line-height:1.2;text-align:center;margin:14px 0 24px;word-break:break-word}
+  .q-math sup{font-size:.6em} .q-math sub{font-size:.55em}
+  .q-text{font-size:16px;line-height:1.55;margin-bottom:20px}
+  .q-text sup{font-size:.7em}
+  .q-text .stmt{display:block;margin-top:10px;padding-left:14px;border-left:2px solid var(--accent-soft)}
+
+  .num-input{width:100%;text-align:center;font-family:var(--mono);font-size:30px;font-weight:500;border:1.5px solid var(--line);
+    border-radius:14px;padding:16px;color:var(--ink);transition:border-color .15s;background:#fff}
+  .num-input:focus{outline:none;border-color:var(--accent)}
+
+  .opts{display:flex;flex-direction:column;gap:9px}
+  .opt{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:13px 15px;
+    cursor:pointer;font:inherit;font-size:14.5px;color:var(--ink);display:flex;gap:12px;align-items:flex-start;
+    transition:border-color .12s,background .12s;line-height:1.45}
+  .opt:hover{border-color:var(--accent)}
+  .opt .key{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--accent);flex:0 0 auto;margin-top:1px}
+  .opt.correct{border-color:var(--good);background:var(--good-soft)} .opt.correct .key{color:var(--good)}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-soft)} .opt.wrong .key{color:var(--bad)}
+  .opt:disabled{cursor:default}
+
+  .tiprow{margin-top:14px}
+  .tip-btn{border:1px solid var(--warn);background:var(--warn-soft);color:var(--warn);border-radius:10px;
+    padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:filter .14s}
+  .tip-btn:hover{filter:brightness(.97)}
+  .tip-text{margin-top:10px;font-size:13.5px;line-height:1.5;color:var(--warn);background:var(--warn-soft);border-radius:10px;padding:11px 13px}
+  .tip-text:empty{display:none}
+  .tip-text b{color:var(--warn)}
+
+  .feedback{min-height:24px;margin-top:16px;font-size:14px;font-weight:500;text-align:center}
+  .feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+  .explain{font-size:13px;color:var(--muted);line-height:1.5;margin-top:6px;font-weight:400}
+
+  .res-score{font-family:var(--mono);font-weight:700;font-size:60px;text-align:center;line-height:1;letter-spacing:-.02em}
+  .res-score small{font-size:24px;color:var(--faint)}
+  .res-label{text-align:center;color:var(--muted);font-size:14px;margin:6px 0 4px}
+  .res-note{text-align:center;color:var(--accent);font-size:13px;font-family:var(--mono);margin-bottom:22px}
+  .res-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px}
+  .res-cell{border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+  .res-cell b{font-family:var(--mono);font-size:20px;display:block}
+  .res-cell span{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+  .best{text-align:center;font-size:13px;color:var(--accent);margin-bottom:18px;font-weight:500}
+  .area-row{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:11px;padding:11px 14px;margin-bottom:8px;font-size:13.5px}
+  .area-row.strong{border-color:var(--good);background:var(--good-soft)}
+  .area-row.weak{border-color:var(--warn);background:var(--warn-soft)}
+  .area-name{font-weight:600} .area-meta{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  .rec{font-size:13.5px;line-height:1.55;color:var(--ink);background:var(--accent-soft);border-radius:11px;padding:13px 15px;margin:8px 0 18px}
+  .foot{text-align:center;margin-top:20px;font-size:11px;color:var(--faint);font-family:var(--mono)}
+
+  .overlay{position:fixed;inset:0;background:rgba(20,27,45,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal{background:var(--surface);border-radius:16px;padding:22px;max-width:340px;width:100%;box-shadow:0 20px 50px -20px rgba(0,0,0,.4)}
+  .modal h3{font-family:var(--display);font-weight:600;font-size:16px;margin-bottom:6px}
+  .modal p{font-size:13.5px;color:var(--muted);line-height:1.5;margin-bottom:18px}
+  .modal .btn-row{margin-top:0}
+
+  /* ===== Streak-Banner ===== */
+  .streak-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);
+    border-radius:14px;padding:13px 16px;margin-bottom:18px;background:#FBFCFE}
+  .streak-banner .sk-main{display:flex;align-items:center;gap:12px}
+  .streak-flame{font-size:24px;line-height:1}
+  .streak-num{font-family:var(--display);font-weight:600;font-size:15.5px}
+  .streak-sub{font-size:12px;color:var(--muted);margin-top:1px}
+  .streak-status{font-family:var(--mono);font-weight:700;font-size:16px}
+  .streak-status.done{color:var(--good)} .streak-status.open{color:var(--faint)}
+  .day-row{display:flex;flex-wrap:wrap;gap:7px}
+  .day-chip{font-family:var(--mono);font-size:12px;color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:6px 10px}
+
+  /* ===== Toast ===== */
+  .toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13px;font-weight:500;z-index:60;
+    box-shadow:0 12px 32px -10px rgba(0,0,0,.5);animation:rise .25s ease both;max-width:88vw;text-align:center}
+
+  /* ===== Mobile / App-Feeling ===== */
+  @media (max-width:600px){
+    .card{padding:20px 18px;border-radius:16px}
+    .res-grid{gap:8px} .res-cell{padding:11px}
+    .topic-actions{flex-wrap:wrap;justify-content:flex-end}
+  }
+  @media (display-mode:standalone){ /* als installierte App geöffnet */
+    body{padding-top:max(14px,env(safe-area-inset-top))}
+  }
+  /* ===== Fehlerübersicht in der Auswertung ===== */
+  .review{display:flex;flex-direction:column;gap:9px;margin-bottom:18px}
+  .rev-item{border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:11px;padding:12px 14px;background:#FFFCFD}
+  .rev-q{font-size:14.5px;line-height:1.4;margin-bottom:7px}
+  .rev-ans{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:12.5px;margin-bottom:4px}
+  .rev-bad{color:var(--bad)} .rev-good{color:var(--good)}
+  .rev-item .explain{margin-top:4px}
+  .all-correct{text-align:center;color:var(--good);font-weight:500;font-size:13.5px;background:var(--good-soft);border-radius:11px;padding:12px;margin-bottom:18px}
+
+  @media (prefers-reduced-motion:reduce){.qwrap,.step,.toast{animation:none}.progress>i{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <div class="brand">Cor<span>tex</span></div>
+    <div class="bar-right"><button id="homeBtn" class="home-btn" hidden>🏠 Home</button><div class="tag" id="tag">dein training</div></div>
+  </div>
+  <div id="root"></div>
+  <div class="foot">Cortex · Daten lokal auf diesem Gerät</div>
+</div>
+
+<script>
+/* ========= Helfer ========= */
+const APP_VERSION='1.1.0';   // einzige Quelle der Versionsnummer (Footer, Einstellungen, Service-Worker-Cache)
+const fmt = n => (typeof n==='number') ? n.toLocaleString('de-DE') : n;
+const rnd = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(v=>v[1]);
+const clamp = (x,lo,hi)=>Math.max(lo,Math.min(hi,x));
+const gcd = (a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a||1;};
+const fracStr=(n,d)=>{const g=gcd(n,d);n/=g;d/=g;return d===1?`${n}`:`${n}/${d}`;};
+const fact=n=>{let r=1;for(let i=2;i<=n;i++)r*=i;return r;};
+const norm=s=>s.replace(/[\s,]/g,'').toUpperCase();
+
+/* =========================================================
+   ZENTRALE SPEICHERUNG
+   Alles läuft über EINEN Store, der beim Start einmal geladen
+   und danach synchron benutzt wird. Persistiert wird die ganze
+   App-State als ein JSON-Blob unter einem Schlüssel.
+========================================================= */
+const STORE_KEY='cortex:data:v1';
+const MEM={};                                  // Fallback, falls localStorage gesperrt ist (Privatmodus)
+
+/* ---- Persistenz-Backend -------------------------------------------------
+   >>> EINZIGE Stelle, die für Capacitor (Phase 2) angepasst wird. <<<
+   Aktuell: localStorage. Später Capacitor Preferences – die App bleibt
+   unverändert, weil load()/save() schon async sind:
+
+     import { Preferences } from '@capacitor/preferences';
+     const Backend = {
+       async load(){ const { value } = await Preferences.get({ key: STORE_KEY }); return value; },
+       async save(str){ await Preferences.set({ key: STORE_KEY, value: str }); }
+     };
+   Kein weiterer Umbau nötig.
+-------------------------------------------------------------------------- */
+const Backend = {
+  async load(){ try{ const v=localStorage.getItem(STORE_KEY); return v!=null?v:(MEM[STORE_KEY]??null); }catch(e){ return MEM[STORE_KEY]??null; } },
+  async save(str){ try{ localStorage.setItem(STORE_KEY,str); }catch(e){ MEM[STORE_KEY]=str; } }
+};
+
+function defaultData(){return{version:1,best:{},profile:{},tut:{},streak:{last:null,current:0,best:0,history:[]},settings:{}};}
+function safeParse(s){try{const d=JSON.parse(s);return (d&&typeof d==='object')?d:null;}catch(e){return null;}}
+
+// Alt-Daten (frühere Einzelschlüssel) einmalig in den Blob übernehmen – kein Datenverlust beim Update.
+function migrateLegacy(){
+  try{
+    const d=defaultData();let found=false;
+    const prof=localStorage.getItem('cortex:profile:v1');if(prof){const p=safeParse(prof);if(p){d.profile=p;found=true;}}
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);
+      if(k&&k.startsWith('cortex:best:')){const v=safeParse(localStorage.getItem(k));if(v){d.best[k.slice(12)]=v;found=true;}}
+      else if(k&&k.startsWith('cortex:tut:')){if(localStorage.getItem(k)==='1'){d.tut[k.slice(11)]=true;found=true;}}
+    }
+    return found?d:null;
+  }catch(e){return null;}
+}
+
+const Store = {
+  data:null,_t:null,
+  async init(){
+    const raw=await Backend.load();
+    let d=raw?safeParse(raw):null;
+    if(!d){ d=migrateLegacy()||defaultData(); }
+    // fehlende Felder ergänzen (Vorwärtskompatibilität)
+    const base=defaultData(); for(const k in base) if(d[k]===undefined) d[k]=base[k];
+    if(!d.streak) d.streak=base.streak;
+    this.data=d; await this._save();
+  },
+  persist(){ clearTimeout(this._t); this._t=setTimeout(()=>this._save(),150); },   // gedrosselt, ein einziger Timer
+  async _save(){ await Backend.save(JSON.stringify(this.data)); },
+  exportString(){ return JSON.stringify(this.data,null,2); },
+  async importString(str){ const d=safeParse(str); if(!d||typeof d!=='object'||!('profile'in d||'best'in d)) throw new Error('invalid');
+    const base=defaultData(); for(const k in base) if(d[k]===undefined) d[k]=base[k];
+    this.data=d; await this._save(); }
+};
+
+/* ---- Typisierte Helfer (lesen/schreiben synchron aus dem Blob) ---- */
+function loadBest(k){ return Store.data.best[k]||null; }
+function saveBest(k,v){ Store.data.best[k]=v; Store.persist(); }
+function tutDone(k){ return !!Store.data.tut[k]; }
+function markTut(k){ Store.data.tut[k]=true; Store.persist(); }
+
+/* ---- Streak- / Tagesmodell (echte Kalendertage, YYYY-MM-DD) ---- */
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+const Streak = {
+  today(){ return ymd(new Date()); },
+  state(){ return Store.data.streak; },
+  doneToday(){ return Store.data.streak.last===this.today(); },
+  effectiveCurrent(){ const s=Store.data.streak,t=this.today(),y=ymd(addDays(new Date(),-1)); return (s.last===t||s.last===y)?s.current:0; },
+  // zählt höchstens EINMAL pro Kalendertag
+  registerToday(){
+    const s=Store.data.streak,t=this.today();
+    if(s.last===t) return;                       // heute schon gezählt
+    const y=ymd(addDays(new Date(),-1));
+    s.current=(s.last===y)?s.current+1:1;        // gestern trainiert → +1, sonst Neustart bei 1
+    s.best=Math.max(s.best||0,s.current);
+    s.last=t;
+    s.history=[...(s.history||[]),t].slice(-60); // letzte 60 Trainingstage
+    Store.persist();
+  }
+};
+
+/* ---- Export / Import --------------------------------------------------
+   Browser/PWA: Download via Blob, Import via <input type=file>.
+   CAPACITOR (Phase 2): hier stattdessen @capacitor/filesystem + @capacitor/share
+   bzw. einen File-Picker nutzen – Logik (Store.exportString/importString) bleibt gleich.
+-------------------------------------------------------------------------- */
+function exportData(){
+  try{
+    const blob=new Blob([Store.exportString()],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='cortex-backup-'+Streak.today()+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast('Backup heruntergeladen');
+  }catch(e){ toast('Export nicht möglich'); }
+}
+function importData(file){
+  const r=new FileReader();
+  r.onload=async()=>{ try{ await Store.importString(String(r.result)); loadProfile(); toast('Daten importiert'); home(); }
+    catch(e){ toast('Ungültige Datei'); } };
+  r.onerror=()=>toast('Datei konnte nicht gelesen werden');
+  r.readAsText(file);
+}
+function toast(msg){
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),320);},1900);
+}
+
+/* ========= MATHE =========
+   gen(L) → {prompt, answer, hints:[t1,t2], explain, disp?, text?}
+   tut    → {concept, ex, example, steps[]}  (didaktische Einführung)
+*/
+const MATH = {
+  chain:{name:"Add./Sub.-Ketten", teaser:"Mehrere Plus/Minus in Folge",
+    tut:{concept:"Beim Kettenrechnen wertest du mehrere Plus- und Minus-Schritte nacheinander aus. Es gibt keine Vorrangregeln – du arbeitest strikt von links nach rechts und führst dabei ein laufendes Zwischenergebnis mit.",ex:"48 + 27 − 13 = 62",example:"48 + 27 − 13",steps:["Nimm die erste Zahl: 48.","Addiere 27 → 75.","Ziehe 13 ab → 62. Fertig."]},
+    gen:(L)=>{const c={1:{n:3,lo:5,hi:30},2:{n:3,lo:10,hi:60},3:{n:4,lo:10,hi:90},4:{n:5,lo:15,hi:120}}[L];
+      let t=rnd(c.lo,c.hi),parts=[''+t];for(let i=1;i<c.n;i++){let v=rnd(c.lo,c.hi);if(t-v>=0&&Math.random()<.5){t-=v;parts.push('− '+v);}else{t+=v;parts.push('+ '+v);}}
+      const p=parts.join(' ');return{prompt:p,answer:t,hints:["Arbeite strikt von links nach rechts.","Rechne nur die ersten beiden Zahlen aus, merke dir das Ergebnis, dann die nächste – nie alles auf einmal."],explain:`Von links: ${p} = ${fmt(t)}.`};}},
+  mulS:{name:"Kleines 1×1", teaser:"Faktoren 1–10",
+    tut:{concept:"Das kleine Einmaleins sind alle Produkte der Zahlen 1 bis 10. Sitzt es sicher, wird fast jede andere Rechnung schneller. Schwierige Paare lassen sich elegant zerlegen.",ex:"7 × 8 = 56",example:"7 × 8",steps:["Direkt schwer? Zerlege: 7 × 8 = 7 × (10 − 2).","7 × 10 = 70, 7 × 2 = 14.","70 − 14 = 56."]},
+    gen:(L)=>{const r={1:[2,5],2:[2,9],3:[6,10],4:[2,12]}[L];const a=rnd(r[0],r[1]),b=rnd(r[0],r[1]);return{prompt:`${a} × ${b}`,answer:a*b,hints:["Zerlege den größeren Faktor in 10er.","z. B. 7 × 8 = 7 × 10 − 7 × 2 = 70 − 14."],explain:`${a} × ${b} = ${a*b}.`};}},
+  mulB:{name:"Großes 1×1", teaser:"Faktoren 11–25",
+    tut:{concept:"Beim großen Einmaleins zerlegst du einen Faktor in Zehner + Rest und addierst die beiden Teilprodukte. So bleibt jede einzelne Multiplikation klein.",ex:"14 × 16 = 224",example:"14 × 16",steps:["Zerlege 16 in 10 + 6.","14 × 10 = 140, 14 × 6 = 84.","140 + 84 = 224."]},
+    gen:(L)=>{const hi={1:15,2:18,3:20,4:25}[L];const a=rnd(11,hi),b=rnd(11,hi);return{prompt:`${a} × ${b}`,answer:a*b,hints:["Zerlege einen Faktor in 10 + Rest.",`${a} × ${b} = ${a} × 10 + ${a} × ${b-10}.`],explain:`${a} × ${b} = ${a*b}.`};}},
+  sqrt:{name:"Wurzeln", teaser:"Quadrat- & Kubikwurzel",
+    tut:{concept:"Die Quadratwurzel √a fragt: Welche Zahl ergibt mit sich selbst multipliziert a? Bei Quadratzahlen ist das Ergebnis ganzzahlig. Die Kubikwurzel ∛a fragt nach dem Faktor, der dreimal multipliziert a ergibt.",ex:"√196 = 14",example:"√196",steps:["Welche Zahl mal sich selbst ergibt 196?","13² = 169 (zu klein), 14² = 196.","Also √196 = 14."]},
+    gen:(L)=>{if(L>=3&&Math.random()<(L===4?.5:1)){const n=rnd(2,L===4?7:6);return{prompt:`∛${n*n*n}`,answer:n,hints:["Welche Zahl ergibt dreimal multipliziert das Radikand?","Probiere kleine Zahlen: 2³=8, 3³=27, 4³=64 …"],explain:`${n}³ = ${n*n*n}, also ∛${n*n*n} = ${n}.`};}
+      const n=rnd(2,{1:10,2:15,3:18,4:25}[L]);return{prompt:`√${n*n}`,answer:n,hints:["Welche Zahl mit sich selbst ergibt das Radikand?","Schätze: 10×10=100, 12×12=144, 14×14=196 – nähere dich an."],explain:`${n}² = ${n*n}, also √${n*n} = ${n}.`};}},
+  pow:{name:"Potenzen", teaser:"Basis hoch Exponent",
+    tut:{concept:"Eine Potenz a^n bedeutet: die Basis a wird n-mal mit sich selbst multipliziert. Der Exponent zählt also die Faktoren.",ex:"2⁴ = 16",example:"2⁴",steps:["Exponent 4 = vier Faktoren der Basis 2.","2 × 2 = 4, × 2 = 8, × 2 = 16.","2⁴ = 16."]},
+    gen:(L)=>{let a,b;if(L===1){a=rnd(2,9);b=2;}else if(L===2){a=rnd(2,9);b=rnd(2,3);}else if(L===3){a=rnd(2,6);b=rnd(2,4);}else{a=2;b=rnd(5,10);}
+      return{prompt:`${a}<sup>${b}</sup>`,answer:Math.pow(a,b),hints:["Basis so oft multiplizieren, wie der Exponent angibt.",`Schrittweise: ${a} × ${a} = ${a*a}, dann weiter mit ${a}.`],explain:`${Array(b).fill(a).join(' × ')} = ${fmt(Math.pow(a,b))}.`};}},
+  frac:{name:"Brüche", teaser:"Addieren, multiplizieren, kürzen",
+    tut:{concept:"Brüche addierst du nur bei gleichem Nenner – sonst bringst du sie zuvor auf einen gemeinsamen Nenner. Multipliziert wird Zähler × Zähler und Nenner × Nenner. Ergebnisse kürzt man so weit wie möglich.",ex:"1/4 + 1/6 = 5/12",example:"1/4 + 1/6",steps:["Gemeinsamer Nenner: 4 × 6 = 24.","1/4 = 6/24, 1/6 = 4/24.","6/24 + 4/24 = 10/24 = 5/12."]},
+    gen:(L)=>{if(L<=2){let d1,d2;if(L===1){d1=d2=rnd(2,9);}else{d1=rnd(2,6);d2=rnd(2,6);}const n1=rnd(1,d1-1),n2=rnd(1,d2-1),num=n1*d2+n2*d1,den=d1*d2;
+        return{prompt:`${n1}/${d1} + ${n2}/${d2}`,answer:num/den,disp:fracStr(num,den),hints:[d1===d2?"Gleicher Nenner – nur die Zähler addieren.":"Auf einen gemeinsamen Nenner bringen.",d1===d2?"Am Ende kürzen, falls möglich.":`Gemeinsamer Nenner ${d1*d2}: erweitere beide Brüche darauf.`],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}
+      const d1=rnd(2,6),d2=rnd(2,6),n1=rnd(1,d1-1),n2=rnd(1,d2-1);
+      if(L===3){const num=n1*n2,den=d1*d2;return{prompt:`${n1}/${d1} × ${n2}/${d2}`,answer:num/den,disp:fracStr(num,den),hints:["Zähler × Zähler, Nenner × Nenner.","Danach kürzen: suche gemeinsame Teiler von Zähler und Nenner."],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}
+      let A=[n1,d1],B=[n2,d2];if(n1/d1<n2/d2){A=[n2,d2];B=[n1,d1];}const num=A[0]*B[1]-B[0]*A[1],den=A[1]*B[1];
+      return{prompt:`${A[0]}/${A[1]} − ${B[0]}/${B[1]}`,answer:num/den,disp:fracStr(num,den),hints:["Auf gemeinsamen Nenner bringen, dann die Zähler subtrahieren.",`Gemeinsamer Nenner ${A[1]*B[1]}; erst erweitern, dann abziehen.`],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}},
+  pct:{name:"Prozent", teaser:"Anteile von hundert",
+    tut:{concept:"Prozent heißt „von hundert“. p % einer Zahl findest du, indem du die Zahl durch 100 teilst (das ist 1 %) und dann mit p multiplizierst.",ex:"20 % von 80 = 16",example:"20 % von 80",steps:["1 % von 80 = 0,8.","20 % = 20 × 0,8.","= 16."]},
+    gen:(L)=>{if(L===4){const base=pick([40,60,80,120,160,200,240]),p=pick([10,20,25,50]),val=base*p/100;return{prompt:`${fmt(val)} ist ${p}% von ?`,answer:base,hints:["Hier ist der Anteil bekannt, gesucht ist das Ganze.",`${fmt(val)} sind ${p} %. Teile durch ${p} → 1 %, dann × 100.`],explain:`${fmt(val)} ÷ ${p} × 100 = ${fmt(base)}.`};}
+      const s={1:{p:[10,25,50],b:[40,60,80,120,200]},2:{p:[5,15,20,75],b:[60,80,120,160,240,200]},3:{p:[5,10,15,20,25,30,40],b:[20,40,60,80,120,160,240,300]}}[L];const p=pick(s.p),base=pick(s.b);
+      return{prompt:`${p}% von ${base}`,answer:base*p/100,hints:["1 % ist der Hundertstel der Zahl.",`1 % von ${base} = ${base/100}; davon ${p}-mal.`],explain:`${base} ÷ 100 × ${p} = ${fmt(base*p/100)}.`};}},
+  area:{name:"Flächen", teaser:"Rechteck, Dreieck, mehr",
+    tut:{concept:"Die Fläche misst, wie viel Raum eine Figur einnimmt. Jede Grundform hat ihre Formel: Rechteck = Länge × Breite, Quadrat = Seite², Dreieck = ½ × Grundseite × Höhe, Parallelogramm = Grundseite × Höhe.",ex:"Dreieck, Grundseite 6, Höhe 4 → 12",example:"Dreieck · Grundseite 6 · Höhe 4",steps:["Formel: ½ × Grundseite × Höhe.","½ × 6 × 4 = ½ × 24.","= 12."]},
+    gen:(L)=>{const sh={rect:()=>{const l=rnd(3,14),w=rnd(2,12);return{p:`Rechteck mit Länge ${l} und Breite ${w}`,a:l*w,h:"Fläche = Länge × Breite.",e:`${l} × ${w} = ${l*w}.`};},
+        square:()=>{const s=rnd(3,15);return{p:`Quadrat mit Seitenlänge ${s}`,a:s*s,h:"Fläche = Seite × Seite.",e:`${s}² = ${s*s}.`};},
+        tri:()=>{let b=rnd(3,16),h=rnd(2,12);if((b*h)%2)h++;return{p:`Dreieck mit Grundseite ${b} und Höhe ${h}`,a:b*h/2,h:"Fläche = ½ × Grundseite × Höhe.",e:`½ × ${b} × ${h} = ${b*h/2}.`};},
+        para:()=>{const b=rnd(4,14),h=rnd(3,10);return{p:`Parallelogramm mit Grundseite ${b} und Höhe ${h}`,a:b*h,h:"Fläche = Grundseite × Höhe.",e:`${b} × ${h} = ${b*h}.`};}};
+      const pool={1:['rect'],2:['rect','square'],3:['rect','square','tri'],4:['rect','square','tri','para']}[L];const s=sh[pick(pool)]();
+      return{text:true,prompt:s.p,answer:s.a,hints:["Welche Formel passt zur genannten Figur?",s.h],explain:s.e};}},
+  log:{name:"Logarithmus", teaser:"Umkehrung der Potenz",
+    tut:{concept:"Der Logarithmus ist die Umkehrung der Potenz. log_b(x) fragt: Mit welchem Exponenten muss ich die Basis b potenzieren, um x zu erhalten?",ex:"log₂(32) = 5",example:"log₂(32)",steps:["Frage: 2 hoch was = 32?","2, 4, 8, 16, 32 → fünf Verdopplungen.","2⁵ = 32, also log₂(32) = 5."]},
+    gen:(L)=>{let b,k;if(L===1){b=2;k=rnd(1,6);}else if(L===2){b=10;k=rnd(1,4);}else if(L===3){b=pick([2,3,5]);k=rnd(2,4);}else{b=pick([2,3,5,10]);k=rnd(2,4);}
+      const val=Math.pow(b,k);return{prompt:`log<sub>${b}</sub>(${fmt(val)})`,answer:k,hints:["Die Basis hoch wie viel ergibt das Argument?",`Liste die Potenzen von ${b} auf: ${b}, ${b*b}, ${b*b*b} … bis du ${fmt(val)} triffst.`],explain:`${b}^${k} = ${fmt(val)}, also log_${b}(${fmt(val)}) = ${k}.`};}},
+  factorial:{name:"Fakultät", teaser:"n! = 1 × 2 × … × n",
+    tut:{concept:"Die Fakultät n! ist das Produkt aller ganzen Zahlen von 1 bis n. Sie zählt z. B., auf wie viele Arten man n Dinge anordnen kann.",ex:"5! = 120",example:"5!",steps:["5! = 1 × 2 × 3 × 4 × 5.","1×2=2, ×3=6, ×4=24, ×5=120.","5! = 120."]},
+    gen:(L)=>{const n=rnd({1:2,2:2,3:3,4:5}[L],{1:5,2:6,3:7,4:9}[L]);const chain=Array.from({length:n},(_,i)=>i+1).join(' × ');return{prompt:`${n}!`,answer:fact(n),hints:["n! = 1 × 2 × … × n.","Multipliziere fortlaufend: Zwischenergebnis × nächste Zahl."],explain:`${chain} = ${fmt(fact(n))}.`};}},
+  sum:{name:"Summen (Σ)", teaser:"Reihen aufsummieren",
+    tut:{concept:"Das Summenzeichen Σ steht für die Addition vieler Glieder. Für 1 bis n gibt es die Gauß-Formel: (erste + letzte) × Anzahl ÷ 2.",ex:"1 + … + 10 = 55",example:"1 + 2 + … + 10",steps:["Gauß: (erste + letzte) × Anzahl ÷ 2.","(1 + 10) × 10 ÷ 2.","110 ÷ 2 = 55."]},
+    gen:(L)=>{if(L===3){const a=rnd(3,12),b=a+rnd(4,12),cnt=b-a+1,s=(a+b)*cnt/2;return{text:true,prompt:`${a} + ${a+1} + … + ${b}`,answer:s,hints:["(erste + letzte) × Anzahl ÷ 2.",`Anzahl der Glieder = ${b} − ${a} + 1 = ${cnt}.`],explain:`(${a} + ${b}) × ${cnt} ÷ 2 = ${fmt(s)}.`};}
+      if(L===4){const n=rnd(4,10),s=n*(n+1);return{text:true,prompt:`2 + 4 + 6 + … + ${2*n}`,answer:s,hints:["Gerade Zahlen: klammere die 2 aus.",`= 2 × (1 + 2 + … + ${n}).`],explain:`2 × ${n*(n+1)/2} = ${fmt(s)}.`};}
+      const n=rnd(L===1?4:10,L===1?10:20),s=n*(n+1)/2;return{text:true,prompt:`1 + 2 + 3 + … + ${n}`,answer:s,hints:["Nutze die Gauß-Formel statt einzeln zu addieren.",`n × (n+1) ÷ 2 mit n = ${n}.`],explain:`${n} × ${n+1} ÷ 2 = ${fmt(s)}.`};}},
+  prod:{name:"Produkte (Π)", teaser:"Faktorenfolgen",
+    tut:{concept:"Das Produktzeichen Π steht für die Multiplikation mehrerer Faktoren. Du multiplizierst schrittweise; die Reihenfolge spielt keine Rolle.",ex:"3 × 4 × 5 = 60",example:"3 × 4 × 5",steps:["Multipliziere schrittweise.","3 × 4 = 12.","12 × 5 = 60."]},
+    gen:(L)=>{let terms;if(L===3){const a=rnd(1,3);terms=[2*a,2*a+2,2*a+4];}else{const len={1:3,2:4,3:3,4:5}[L],start=rnd(2,{1:6,2:5,3:5,4:4}[L]);terms=Array.from({length:len},(_,i)=>start+i);}
+      const ans=terms.reduce((x,y)=>x*y,1);return{prompt:terms.join(' × '),answer:ans,hints:["Schrittweise multiplizieren, Reihenfolge egal.","Erst die ersten beiden, das Ergebnis mit dem nächsten."],explain:`${terms.join(' × ')} = ${fmt(ans)}.`};}},
+  func:{name:"Funktionen", teaser:"f(x) auswerten",
+    tut:{concept:"Eine Funktion f ordnet jedem Eingabewert x genau einen Ausgabewert zu. Um f an einer Stelle auszuwerten, setzt du die Zahl überall für x ein und rechnest aus.",ex:"f(x)=3x+2 → f(4)=14",example:"f(x) = 3x + 2,  f(4) = ?",steps:["Setze 4 für x ein: 3 × 4 + 2.","3 × 4 = 12.","12 + 2 = 14."]},
+    gen:(L)=>{if(L<=2){const a=rnd(2,L===1?5:9),b=(L===2&&Math.random()<.4)?-rnd(1,9):rnd(1,9),x=rnd(2,L===1?6:9),y=a*x+b,bs=b<0?`− ${-b}`:`+ ${b}`;
+        return{text:true,prompt:`f(x) = ${a}x ${bs},&nbsp;&nbsp; f(${x}) = ?`,answer:y,hints:["Setze den Zahlenwert überall für x ein.",`Erst ${a} × ${x}, dann ${bs.replace('−','minus').replace('+','plus')}.`],explain:`f(${x}) = ${a}·${x} ${bs} = ${y}.`};}
+      const a=rnd(1,3),b=rnd(1,4)*(Math.random()<.3?-1:1),c=rnd(0,6),x=L===4?rnd(-3,4):rnd(1,4),y=a*x*x+b*x+c,bs=b<0?`− ${-b}`:`+ ${b}`;
+      return{text:true,prompt:`f(x) = ${a}x² ${bs}x + ${c},&nbsp;&nbsp; f(${x}) = ?`,answer:y,hints:["Setze x ein; achte beim Quadrieren aufs Vorzeichen.","Punkt vor Strich: erst das x², dann die Multiplikationen, dann addieren."],explain:`f(${x}) = ${a}·(${x})² ${bs}·(${x}) + ${c} = ${y}.`};}},
+};
+
+/* ========= LOGIK ========= */
+const LOGIC = {
+  series:{name:"Zahlenreihen", teaser:"Nächste Zahl finden",
+    tut:{concept:"Bei Zahlenreihen suchst du die Regel hinter der Abfolge. Hilfreich ist, die Differenzen oder Verhältnisse benachbarter Zahlen zu betrachten: konstant = fester Zuwachs oder Faktor, wachsend deutet auf Quadrate oder Summenmuster.",ex:"2, 5, 8, 11 → 14",example:"2 , 5 , 8 , 11 , ?",steps:["Differenzen ansehen: +3, +3, +3.","Das Muster ist konstant +3.","11 + 3 = 14."]},
+    gen:(L)=>{const types=['arith'];if(L>=2)types.push('geo');if(L>=3)types.push('square','fib');if(L>=4)types.push('incdiff');
+      const t=pick(types);let seq=[],rule="";
+      if(t==='arith'){const a=rnd(1,9),d=rnd(2,L>=3?9:6);for(let i=0;i<6;i++)seq.push(a+i*d);rule=`konstante Differenz +${d}`;}
+      else if(t==='geo'){const a=rnd(2,4),r=rnd(2,3);for(let i=0;i<6;i++)seq.push(a*r**i);rule=`konstanter Faktor ×${r}`;}
+      else if(t==='square'){const k=rnd(1,4);for(let i=0;i<6;i++)seq.push((k+i)**2);rule="aufeinanderfolgende Quadratzahlen";}
+      else if(t==='fib'){let x=rnd(1,4),y=rnd(2,5);seq=[x,y];for(let i=2;i<6;i++)seq.push(seq[i-1]+seq[i-2]);rule="jede Zahl = Summe der beiden davor";}
+      else{const a=rnd(1,6);let d=rnd(2,4);seq=[a];for(let i=1;i<6;i++){seq.push(seq[i-1]+d);d++;}rule="Differenz wächst um je 1";}
+      const ans=seq[5],shown=seq.slice(0,5).join(' , ');return{prompt:`${shown} , ?`,answer:ans,hints:["Untersuche die Differenzen benachbarter Zahlen.","Schreibe die Differenzen darunter – sind sie gleich (+), wachsend, oder steckt ein Faktor (×) dahinter?"],explain:`Muster: ${rule}. Die nächste Zahl ist ${fmt(ans)}.`};}},
+  letters:{name:"Buchstabenreihen", teaser:"Nächsten Buchstaben finden",
+    tut:{concept:"Buchstabenreihen funktionieren wie Zahlenreihen, nur über die Position im Alphabet (A = 1, B = 2, …). Zähle, wie viele Buchstaben jeweils übersprungen werden.",ex:"A, C, E, G → I",example:"A , C , E , G , ?",steps:["Positionen: 1, 3, 5, 7 → Schrittweite 2.","Nächste Position: 7 + 2 = 9.","Buchstabe Nr. 9 = I."]},
+    gen:(L)=>{const step=rnd(1,{1:2,2:3,3:4,4:5}[L]),start=rnd(0,12);const at=i=>String.fromCharCode(65+((start+i*step)%26));
+      const shown=[0,1,2,3,4].map(at).join(' , ');return{prompt:`${shown} , ?`,answer:at(5),hints:["Denke in Alphabet-Positionen statt in Buchstaben.","Zähle die Schritte zwischen den ersten beiden und setze sie fort."],explain:`Schrittweite ${step} im Alphabet → der nächste Buchstabe ist ${at(5)}.`};}},
+};
+
+/* ========= WORKING MEMORY ========= */
+const WM = {
+  span:{name:"Zahlenspanne",
+    tut:{concept:"Bei der Zahlenspanne merkst du dir eine wachsende Ziffernfolge und gibst sie wieder – vorwärts oder rückwärts. Rückwärts ist anspruchsvoller, weil du die Folge im Kopf umdrehen musst. Die Länge passt sich automatisch an deine Leistung an.",ex:"4 7 2 9 → rückwärts 9 2 7 4",example:"4 7 2 9",steps:["Bilde Blöcke: „47“ und „29“.","Sprich sie innerlich rhythmisch mit, während sie erscheinen.","Vorwärts: 4 7 2 9 · Rückwärts: 9 2 7 4."]}},
+  nback:{name:"N-Back",
+    tut:{concept:"Beim N-Back erscheint ein Strom von Buchstaben. Du meldest „Treffer“, wenn der aktuelle Buchstabe demjenigen N Schritte zuvor gleicht. Das fordert das aktive Vorhalten und ständige Aktualisieren im Arbeitsgedächtnis – die klassische WM-Übung.",ex:"N = 2:  C · H · C → Treffer",example:"C · H · C   (N = 2)",steps:["Halte immer die letzten N Buchstaben im Kopf.","Vergleiche den aktuellen mit dem von vor N Schritten.","Das zweite C gleicht dem C zwei Schritte zuvor → Treffer."]}},
+};
+
+/* ========= GMAT ========= */
+const bankPS=[
+  {q:"Ein Hemd kostet nach 20 % Rabatt 40 €. Wie hoch war der Originalpreis?",o:["48 €","50 €","52 €","56 €","60 €"],c:1,h:"Der reduzierte Preis sind 80 % des Originals.",e:"40 ÷ 0,8 = 50 €."},
+  {q:"Wenn 3x + 7 = 22, dann ist x =",o:["3","4","5","6","7"],c:2,h:"Bringe die 7 zuerst auf die andere Seite.",e:"3x = 15 → x = 5."},
+  {q:"Der Durchschnitt von 5 Zahlen ist 12. Entfernt man die Zahl 20, wie hoch ist der neue Durchschnitt?",o:["8","9","10","11","12"],c:2,h:"Bestimme zuerst die Gesamtsumme.",e:"Summe = 60; (60 − 20) ÷ 4 = 10."},
+  {q:"Ein Zug fährt 240 km in 3 Stunden. Durchschnittsgeschwindigkeit?",o:["60 km/h","70 km/h","75 km/h","80 km/h","90 km/h"],c:3,h:"Geschwindigkeit = Strecke ÷ Zeit.",e:"240 ÷ 3 = 80 km/h."},
+  {q:"Wenn a : b = 2 : 3 und b : c = 4 : 5, dann ist a : c =",o:["2 : 5","8 : 15","6 : 5","3 : 5","8 : 5"],c:1,h:"Mach den gemeinsamen Teil b in beiden Verhältnissen gleich groß.",e:"a:b = 8:12, b:c = 12:15 → a:c = 8:15."},
+  {q:"1000 € werden mit 10 % p. a. über 2 Jahre verzinst (Zinseszins). Endbetrag?",o:["1100 €","1200 €","1210 €","1220 €","1320 €"],c:2,h:"Jedes Jahr wird mit 1,1 multipliziert.",e:"1000 × 1,1² = 1210 €."},
+  {q:"Wie viele unterschiedliche Anordnungen hat das Wort LEVEL?",o:["20","24","30","60","120"],c:2,h:"Zwei Buchstaben kommen je doppelt vor.",e:"5! ÷ (2! × 2!) = 120 ÷ 4 = 30."},
+  {q:"Ein Rechteck ist doppelt so lang wie breit, Umfang 36 cm. Fläche?",o:["72 cm²","64 cm²","54 cm²","81 cm²","96 cm²"],c:0,h:"Drücke Länge über die Breite aus und nutze den Umfang.",e:"2(2b + b) = 36 → b = 6, l = 12 → 72 cm²."},
+];
+const DS_OPTS=["Aussage (1) allein reicht, (2) allein nicht.","Aussage (2) allein reicht, (1) allein nicht.","Beide zusammen reichen, keine allein.","Jede Aussage allein reicht.","Auch zusammen reichen sie nicht."];
+const bankDS=[
+  {q:"Ist x > 0?",s1:"x² = 16",s2:"x³ = 64",c:1,h:"Prüfe jede Aussage einzeln: Welche lässt x noch negativ zu?",e:"(1): x = ±4 → unklar. (2): x = 4 > 0 → reicht. Antwort B."},
+  {q:"Welchen Wert hat x?",s1:"x + y = 10",s2:"x − y = 4",c:2,h:"Eine Gleichung mit zwei Unbekannten legt x noch nicht fest.",e:"Einzeln je 2 Unbekannte; zusammen x = 7. Antwort C."},
+  {q:"Ist die ganze Zahl n gerade?",s1:"n² ist gerade",s2:"n + 1 ist ungerade",c:3,h:"Was sagt jede Aussage über die Teilbarkeit durch 2?",e:"(1) ⇒ n gerade. (2) ⇒ n gerade. Jede allein reicht. Antwort D."},
+  {q:"Wie groß ist die Fläche des Rechtecks?",s1:"Länge = 5",s2:"Umfang = 16",c:2,h:"Für die Fläche brauchst du zwei Maße.",e:"(1) allein: keine Breite. (2) allein: l+w=8. Zusammen w=3 → Fläche 15. Antwort C."},
+  {q:"x, y sind positive ganze Zahlen. Ist x > y?",s1:"x = y + 2",s2:"x ÷ y > 1",c:3,h:"Beide Aussagen vergleichen x direkt mit y.",e:"(1) ⇒ x>y. (2) ⇒ x>y (beide positiv). Jede allein reicht. Antwort D."},
+];
+const bankCR=[
+  {q:"Eine Firma führte ein Gesundheitsprogramm ein; im Folgejahr sanken die Krankheitstage um 15 %. Das Management schließt: Das Programm hat die Gesundheit verbessert. Welche Aussage schwächt diesen Schluss am stärksten?",o:["Das Programm war beliebt.","Im selben Jahr wurde bezahlter Krankenurlaub gekürzt, was Krankmeldungen entmutigte.","Andere Firmen haben ähnliche Programme.","Das Programm war günstiger als geplant.","Die Versicherungsbeiträge stiegen."],c:1,h:"Suche eine andere Erklärung für die weniger gemeldeten Krankheitstage.",e:"B liefert eine alternative Ursache (weniger Meldungen ≠ mehr Gesundheit) und schwächt den Kausalschluss."},
+  {q:"Um Verkehr zu reduzieren, will die Stadt die Parkgebühren in der Innenstadt erhöhen und erwartet weniger Autos. Welche Annahme liegt dem Plan zugrunde?",o:["Autofahrer haben Alternativen, die sie statt der höheren Gebühr wählen.","Parkgebühren sind aktuell niedrig.","Geschäfte lehnen den Plan ab.","Der Nahverkehr ist kostenlos.","Der Verkehr ist innen schlimmer als außen."],c:0,h:"Was muss zutreffen, damit tatsächlich weniger Autos kommen?",e:"Ohne Ausweichmöglichkeit würden Fahrer trotzdem fahren – A ist die notwendige Annahme."},
+  {q:"Eine Studie zeigt: Schüler, die frühstücken, schneiden in Tests besser ab. Eine Schule will kostenloses Frühstück anbieten, um Noten zu heben. Welche Aussage stärkt den Plan am meisten?",o:["Frühstück macht Freude.","In einem kontrollierten Versuch verbesserte eine Frühstücksgruppe ihre Ergebnisse gegenüber einer Vergleichsgruppe.","Manche Schüler frühstücken nicht.","Frühstück ist günstig.","Tests finden morgens statt."],c:1,h:"Was würde einen echten Ursache-Wirkungs-Beleg liefern?",e:"B zeigt den kausalen Effekt im kontrollierten Vergleich – das stärkt den Schluss am stärksten."},
+];
+const BANKS={ps:{title:"GMAT · Problem Solving",type:"choice",bank:bankPS},ds:{title:"GMAT · Data Sufficiency",type:"ds",bank:bankDS},cr:{title:"GMAT · Critical Reasoning",type:"choice",bank:bankCR}};
+const GTUT={
+  ps:{lede:"Quantitative Aufgaben mit fünf Optionen, von denen genau eine stimmt.",
+    concept:"Beim Problem Solving löst du eine Rechenaufgabe und wählst aus fünf Optionen die einzig richtige. Tempo entsteht durch ein sauberes Vorgehen statt durch Raten – oft hilft Rückwärtsrechnen oder das Einsetzen der Optionen.",
+    example:"Ein Hemd kostet nach 20 % Rabatt 40 €. Originalpreis?",steps:["Der reduzierte Preis sind 80 % (100 − 20) des Originals.","Also: Original × 0,8 = 40.","Original = 40 ÷ 0,8 = 50 €."]},
+  ds:{lede:"Das GMAT-spezifische Format: Reicht die Information aus – ja oder nein?",
+    concept:"Data Sufficiency ist GMAT-spezifisch: Du löst die Frage NICHT, sondern entscheidest nur, ob die gegebenen Aussagen ausreichen, sie zu beantworten. Die fünf Antwortoptionen sind dabei immer dieselben.",
+    example:"Frage: Ist x > 0?   (1) x² = 16   (2) x³ = 64",steps:["Teste (1) allein: x = +4 oder −4 → nicht eindeutig.","Teste (2) allein: x³ = 64 → nur x = 4 → x > 0, reicht.","Eine allein reicht (die zweite) → Antwort B."]},
+  cr:{lede:"Argumente lesen und logisch bewerten.",
+    concept:"Critical Reasoning prüft Argumente. Trenne Prämisse (Beleg) und Schlussfolgerung und finde die unausgesprochene Annahme dazwischen – genau dort setzen „schwächen“ und „stärken“ an.",
+    example:"Nach Einführung eines Programms sanken Krankheitstage um 15 %. Schluss: Das Programm verbesserte die Gesundheit.",steps:["Prämisse: weniger Krankmeldungen. Schluss: bessere Gesundheit.","Annahme: nichts anderes erklärt den Rückgang.","Schwächen heißt: eine andere Ursache zeigen – z. B. gekürzter Krankenurlaub."]},
+};
+const DAILY_TUT={concept:"Das Tagestraining mischt Aufgaben aus allen Bereichen – Kopfrechnen, Logik, GMAT und Working Memory – und wählt sie automatisch nach deinem Leistungsprofil aus.",
+  example:"Schwach in Brüchen, stark im 1×1?",steps:["Schwächere Bereiche tauchen etwas häufiger auf, damit du dort aufholst.","Starke Bereiche bleiben dabei, werden aber schwerer.","Nach jeder Runde siehst du stärksten und schwächsten Bereich plus eine Empfehlung."]};
+const ROUND=8;
+const GROUP_LABEL={math:'Kopfrechnen',logic:'Logik',gmat:'GMAT',wm:'Working Memory'};
+
+/* ========= ADAPTIVES LEISTUNGSPROFIL (localStorage) ========= */
+let PROFILE={};
+function loadProfile(){ PROFILE=Store.data.profile; }      // Referenz auf den Blob – Mutationen sind sofort im Store
+function saveProfile(){ Store.persist(); }
+function getProf(key){return PROFILE[key]||{attempts:0,correct:0,lastDiff:2,curDiff:2,errorRate:0,avgTime:0};}
+function curLevel(key){return clamp(Math.round((PROFILE[key]?.curDiff)??2),1,4);}
+function updateAdaptiveProfile(result){
+  const {key,ok,difficulty,timeMs}=result; if(!key)return;
+  const p=PROFILE[key]||{attempts:0,correct:0,lastDiff:difficulty||2,curDiff:difficulty||2,errorRate:0,avgTime:0};
+  p.attempts++; if(ok)p.correct++;
+  p.errorRate=+(1-p.correct/p.attempts).toFixed(3);
+  if(difficulty!=null)p.lastDiff=difficulty;
+  let d=(p.curDiff!=null?p.curDiff:(difficulty||2));
+  d += ok ? 0.30 : -0.45;                 // sanft hoch, etwas schneller runter
+  p.curDiff=+clamp(d,1,4).toFixed(3);
+  if(timeMs){p.avgTime=p.avgTime?Math.round(p.avgTime*0.7+timeMs*0.3):Math.round(timeMs);}
+  PROFILE[key]=p; saveProfile();
+}
+function allCategories(){
+  const list=[];
+  Object.keys(MATH).forEach(id=>list.push({key:'math:'+id,group:'math',gen:MATH[id].gen,name:MATH[id].name}));
+  Object.keys(LOGIC).forEach(id=>list.push({key:'logic:'+id,group:'logic',gen:LOGIC[id].gen,name:LOGIC[id].name}));
+  ['ps','ds','cr'].forEach(id=>list.push({key:id,group:'gmat',bank:id,name:BANKS[id].title}));
+  list.push({key:'wm:span',group:'wm',span:true,name:'Zahlenspanne'});
+  return list;
+}
+function groupLevel(group){
+  const keys=allCategories().filter(c=>c.group===group).map(c=>c.key);
+  const vals=keys.map(k=>PROFILE[k]?.curDiff).filter(v=>v!=null);
+  if(!vals.length)return null;
+  return clamp(Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),1,4);
+}
+function weightedPick(weighted){const tot=weighted.reduce((s,x)=>s+x.w,0);let r=Math.random()*tot;for(const x of weighted){r-=x.w;if(r<=0)return x.c;}return weighted[weighted.length-1].c;}
+function makeDailyItem(cat,L){
+  let it;
+  if(cat.span){const dir=Math.random()<.5?'fwd':'bwd';it=makeSpan(clamp(2+L,3,8),dir);}
+  else if(cat.bank){it=normItem(BANKS[cat.bank].type,pick(BANKS[cat.bank].bank));}
+  else {it={render:'input',...cat.gen(L)};}
+  it.cat=cat.key; it.group=cat.group; it.diff=L; return it;
+}
+function generateDailyAdaptivePool(duration){
+  const count={5:12,10:24,15:36}[duration]||12;
+  const cats=allCategories();
+  const weighted=cats.map(c=>{const p=getProf(c.key);const tried=p.attempts>0;const err=tried?p.errorRate:0.4;
+    return {c,w:1 + 1.8*err + (tried?0:0.3)};});
+  const items=[];
+  for(let i=0;i<count;i++){const c=weightedPick(weighted);items.push(makeDailyItem(c,curLevel(c.key)));}
+  return shuffle(items);
+}
+
+/* ========= UI / ENGINE ========= */
+const root=document.getElementById('root'),tag=document.getElementById('tag');
+let state={}, lastLevel=2, wmDir='fwd', wmN=2, SESSION_TOKEN=0;
+function setHomeBtn(v){const b=document.getElementById('homeBtn');if(b)b.hidden=!v;}
+function teardown(){SESSION_TOKEN++; state={};}
+function resetToHome(){teardown(); home();}
+function goHome(){
+  const started = state && (state.i>0 || state.correct>0 || state.answered || state.kind==='nback');
+  if(started) confirmLeave(resetToHome); else resetToHome();
+}
+function confirmLeave(onYes){
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal"><h3>Training wirklich verlassen?</h3>
+    <p>Dein bisheriger Fortschritt in dieser Runde wird verworfen. Deine Leistungsdaten bleiben gespeichert.</p>
+    <div class="btn-row"><button class="btn ghost" id="cv-no">Weiter üben</button><button class="btn" id="cv-yes">Verlassen</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#cv-no').onclick=()=>ov.remove();
+  ov.querySelector('#cv-yes').onclick=()=>{ov.remove();onYes();};
+}
+
+/* ---- HOME ---- */
+function home(){
+  setHomeBtn(false); tag.textContent="dein training";
+  const top=[
+    {mark:"◷",title:"Tagestraining",desc:"Adaptiv & gemischt · 5 / 10 / 15 min",fn:dailyHub},
+    {mark:"Σ",title:"Kopfrechnen",desc:"13 Themen · 4 Level · adaptiv",fn:mathHub},
+    {mark:"⋯",title:"Logik",desc:"Zahlen- & Buchstabenreihen",fn:logicHub},
+    {mark:"WM",title:"Working Memory",desc:"Zahlenspanne & N-Back",fn:wmHub},
+  ];
+  let html="";
+  top.forEach((c,idx)=>{html+=`<button class="cat" data-top="${idx}"><span class="cat-mark">${c.mark}</span><span class="cat-body"><span class="cat-title">${c.title}</span><span class="cat-desc">${c.desc}</span></span><span class="cat-stat">öffnen ›</span></button>`;});
+  for(const id of ['ps','ds','cr']){const b=BANKS[id],best=loadBest(id);const stat=best?`<span class="cat-stat">Best<b>${best.acc}%</b></span>`:`<span class="cat-stat">öffnen ›</span>`;
+    html+=`<button class="cat" data-bank="${id}"><span class="cat-mark">${id.toUpperCase()}</span><span class="cat-body"><span class="cat-title">${b.title}</span><span class="cat-desc">${GTUT[id].lede}</span></span>${stat}</button>`;}
+  html+=`<button class="cat" id="settingsRow"><span class="cat-mark">⚙</span><span class="cat-body"><span class="cat-title">Einstellungen & Daten</span><span class="cat-desc">Streak ansehen · Fortschritt sichern</span></span><span class="cat-stat">öffnen ›</span></button>`;
+  const cur=Streak.effectiveCurrent(),best=Store.data.streak.best||0,done=Streak.doneToday();
+  const banner=`<div class="streak-banner"><div class="sk-main"><span class="streak-flame">${cur>0?'🔥':'✨'}</span><div><div class="streak-num">${cur} Tag${cur===1?'':'e'} Streak</div><div class="streak-sub">Bester: ${best} · ${done?'heute erledigt':'heute noch offen'}</div></div></div><span class="streak-status ${done?'done':'open'}">${done?'✓':'•'}</span></div>`;
+  root.innerHTML=`<div class="card">${banner}<p class="lede">Wähle einen Bereich. Jeder Aufgabentyp hat eine kurze <b>Einführung</b>, die du abschließen kannst, um ihn kennenzulernen.</p><div class="cat-list">${html}</div></div>`;
+  document.querySelectorAll('[data-top]').forEach(b=>b.onclick=()=>top[+b.dataset.top].fn());
+  document.querySelectorAll('[data-bank]').forEach(b=>b.onclick=()=>bankLanding(b.dataset.bank));
+  document.getElementById('settingsRow').onclick=settingsScreen;
+}
+
+/* ---- EINSTELLUNGEN & DATENSICHERUNG ---- */
+function settingsScreen(){
+  setHomeBtn(false); tag.textContent="einstellungen";
+  const s=Store.data.streak,cur=Streak.effectiveCurrent(),done=Streak.doneToday();
+  const hist=(s.history||[]).slice(-7).reverse();
+  const histHTML=hist.length?hist.map(d=>`<span class="day-chip">${d.slice(5)}</span>`).join(''):'<span class="streak-sub">noch keine Trainingstage</span>';
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Einstellungen & Daten</h2></div>
+    <div class="seclabel">Streak</div>
+    <div class="res-grid" style="margin-bottom:18px">
+      <div class="res-cell"><b>${cur}</b><span>aktuell</span></div>
+      <div class="res-cell"><b>${s.best||0}</b><span>bester</span></div>
+      <div class="res-cell"><b>${done?'Ja':'Nein'}</b><span>heute</span></div></div>
+    <div class="seclabel">Letzte Trainingstage</div><div class="day-row">${histHTML}</div>
+    <div class="seclabel" style="margin-top:20px">Fortschritt sichern</div>
+    <p class="lede" style="margin-bottom:14px">Lade ein Backup als Datei herunter oder stelle es wieder her. <b>Import überschreibt</b> die aktuellen Daten.</p>
+    <div class="btn-row" style="margin-top:0"><button class="btn ghost" id="exp">⬇ Backup exportieren</button><button class="btn ghost" id="imp">⬆ Backup importieren</button></div>
+    <input type="file" id="impFile" accept="application/json,.json" hidden>
+    <div class="foot" style="margin-top:22px">Cortex v${APP_VERSION} · PWA · Daten lokal auf diesem Gerät</div></div>`;
+  document.getElementById('bk').onclick=home;
+  document.getElementById('exp').onclick=exportData;
+  const fileInput=document.getElementById('impFile');
+  document.getElementById('imp').onclick=()=>fileInput.click();
+  fileInput.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f)importData(f); };
+}
+
+/* ---- LEVEL-CHIPS ---- */
+function levelChips(){
+  const opts=[1,2,3,4,'A'];
+  return `<div class="seclabel">Schwierigkeit</div><div class="modes" id="lv">
+    ${opts.map(l=>`<button class="chip" data-lv="${l}" aria-pressed="${String(l)===String(lastLevel)}">${l==='A'?'Adaptiv':'Level '+l}</button>`).join("")}</div>`;
+}
+function wireChips(){document.querySelectorAll('[data-lv]').forEach(c=>c.onclick=()=>{const v=c.dataset.lv;lastLevel=v==='A'?'A':+v;
+  document.querySelectorAll('[data-lv]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.lv)===String(lastLevel)));});}
+
+function hub(group,reg,title){
+  setHomeBtn(false); tag.textContent=title.toLowerCase();
+  const rows=Object.entries(reg).map(([id,t])=>{const done=tutDone(group+':'+id);
+    return `<div class="topic"><div class="topic-info"><b>${t.name}</b><span>${t.teaser}</span></div>
+      <div class="topic-actions"><button class="mini${done?' done':''}" data-tut="${id}">Einführung${done?' ✓':''}</button><button class="mini solid" data-train="${id}">Üben ›</button></div></div>`;}).join("");
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>${title}</h2></div>
+    ${levelChips()}<div class="seclabel">Themen</div><div class="topics">${rows}</div></div>`;
+  document.getElementById('bk').onclick=home; wireChips();
+  document.querySelectorAll('[data-tut]').forEach(b=>b.onclick=()=>launchTut(group,b.dataset.tut));
+  document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>trainGen(group,b.dataset.train,lastLevel));
+}
+const mathHub=()=>hub('math',MATH,'Kopfrechnen');
+const logicHub=()=>hub('logic',LOGIC,'Logik');
+
+/* ---- WORKING MEMORY HUB ---- */
+function wmHub(){
+  setHomeBtn(false); tag.textContent="working memory";
+  if(PROFILE['wm:span'])wmN=clamp(Math.round((PROFILE['wm:span'].curDiff)/1.4),1,3);
+  const ds=tutDone('wm:span'), dn=tutDone('wm:nback');
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Working Memory</h2></div>
+    <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div class="topic-info"><b>${WM.span.name}</b><span>Ziffernfolge merken & wiedergeben — Länge passt sich an</span></div>
+      <div class="modes" style="margin:0"><button class="chip" data-dir="fwd" aria-pressed="${wmDir==='fwd'}">Vorwärts</button><button class="chip" data-dir="bwd" aria-pressed="${wmDir==='bwd'}">Rückwärts</button></div>
+      <div class="topic-actions"><button class="mini${ds?' done':''}" data-wtut="span">Einführung${ds?' ✓':''}</button><button class="mini solid" id="goSpan">Üben ›</button></div>
+    </div><div style="height:14px"></div>
+    <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div class="topic-info"><b>${WM.nback.name}</b><span>Treffer melden, wenn der Buchstabe dem N Schritte zuvor gleicht</span></div>
+      <div class="modes" style="margin:0">${[1,2,3].map(n=>`<button class="chip" data-n="${n}" aria-pressed="${wmN===n}">N = ${n}</button>`).join("")}</div>
+      <div class="topic-actions"><button class="mini${dn?' done':''}" data-wtut="nback">Einführung${dn?' ✓':''}</button><button class="mini solid" id="goNb">Üben ›</button></div>
+    </div></div>`;
+  document.getElementById('bk').onclick=home;
+  document.querySelectorAll('[data-dir]').forEach(c=>c.onclick=()=>{wmDir=c.dataset.dir;document.querySelectorAll('[data-dir]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.dir===wmDir));});
+  document.querySelectorAll('[data-n]').forEach(c=>c.onclick=()=>{wmN=+c.dataset.n;document.querySelectorAll('[data-n]').forEach(x=>x.setAttribute('aria-pressed',+x.dataset.n===wmN));});
+  document.querySelectorAll('[data-wtut]').forEach(b=>b.onclick=()=>launchWmTut(b.dataset.wtut));
+  document.getElementById('goSpan').onclick=()=>startSpan(wmDir);
+  document.getElementById('goNb').onclick=()=>startNback(wmN);
+}
+
+/* ---- GMAT LANDING ---- */
+function bankLanding(id){
+  setHomeBtn(false); tag.textContent="gmat";
+  const b=BANKS[id],best=loadBest(id),done=tutDone(id);
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>${b.title}</h2></div>
+    <p class="lede">${GTUT[id].lede}</p>
+    <div class="topic"><div class="topic-info"><b>Einführung</b><span>Aufgabentyp verstehen — mit Beispiel</span></div>
+      <div class="topic-actions"><button class="mini${done?' done':''}" id="tut">Einführung${done?' ✓':''}</button></div></div>
+    <div style="height:14px"></div>
+    <button class="btn" id="train">Üben ›${best?` · Best ${best.acc}%`:''}</button></div>`;
+  document.getElementById('bk').onclick=home;
+  document.getElementById('tut').onclick=()=>launchGmatTut(id);
+  document.getElementById('train').onclick=()=>trainBank(id);
+}
+
+/* ---- TAGESTRAINING HUB ---- */
+function dailyHub(){
+  setHomeBtn(false); tag.textContent="tagestraining";
+  const opts=[{m:5,d:"≈ 12 Aufgaben"},{m:10,d:"≈ 24 Aufgaben"},{m:15,d:"≈ 36 Aufgaben"}];const done=tutDone('daily');
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Tagestraining</h2></div>
+    <p class="lede">Ein <b>selbst-adaptives</b> Set aus allen Bereichen – schwächere Themen kommen häufiger, starke werden schwerer.</p>
+    <div class="topic"><div class="topic-info"><b>Einführung</b><span>Wie das adaptive Tagestraining funktioniert</span></div>
+      <div class="topic-actions"><button class="mini${done?' done':''}" id="dtut">Einführung${done?' ✓':''}</button></div></div>
+    <div style="height:16px"></div><div class="seclabel">Wie viel Zeit hast du?</div>
+    <div class="cat-list">${opts.map(o=>`<button class="cat" data-min="${o.m}"><span class="cat-mark">${o.m}'</span><span class="cat-body"><span class="cat-title">${o.m} Minuten</span><span class="cat-desc">${o.d}</span></span><span class="cat-stat">start ›</span></button>`).join("")}</div></div>`;
+  document.getElementById('bk').onclick=home;
+  document.getElementById('dtut').onclick=launchDailyTut;
+  document.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startDaily(+b.dataset.min));
+}
+
+/* =========================================================
+   EINFÜHRUNG / TUTORIAL-ENGINE
+========================================================= */
+function launchTut(group,id){const reg=group==='math'?MATH:LOGIC,t=reg[id];
+  runTutorial({key:group+':'+id,title:t.name,concept:t.tut.concept,ex:t.tut.ex,example:t.tut.example,steps:t.tut.steps,
+    practice:{type:'qa',make:()=>({render:'input',...t.gen(1)})},
+    startReal:()=>trainGen(group,id,1),backTo:()=>group==='math'?mathHub():logicHub()});}
+function launchWmTut(id){const t=WM[id];
+  runTutorial({key:'wm:'+id,title:t.name,concept:t.tut.concept,ex:t.tut.ex,example:t.tut.example,steps:t.tut.steps,
+    practice:id==='span'?{type:'span'}:null,
+    startReal:()=>id==='span'?startSpan(wmDir):startNback(wmN),backTo:wmHub});}
+function launchGmatTut(id){const g=GTUT[id];
+  runTutorial({key:id,title:BANKS[id].title,concept:g.concept,ex:'',example:g.example,steps:g.steps,
+    practice:{type:'qa',make:()=>normItem(BANKS[id].type,pick(BANKS[id].bank))},
+    startReal:()=>trainBank(id),backTo:()=>bankLanding(id)});}
+function launchDailyTut(){runTutorial({key:'daily',title:'Tagestraining',concept:DAILY_TUT.concept,ex:'',example:DAILY_TUT.example,steps:DAILY_TUT.steps,practice:null,startReal:dailyHub,backTo:dailyHub});}
+
+function runTutorial(cfg){
+  state={kind:'tutorial',token:++SESSION_TOKEN}; const myToken=state.token; setHomeBtn(true); tag.textContent="einführung";
+  const slides=['concept','walk']; if(cfg.practice)slides.push('practice'); slides.push('done');
+  let idx=0;
+  const dots=()=>`<div class="dots">${slides.map((_,i)=>`<span class="dot ${i<=idx?'on':''}"></span>`).join('')}</div>`;
+  const go=i=>{idx=i;renderSlide();};
+  function shell(inner){root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>${cfg.title}</h2></div>${dots()}${inner}</div>`;
+    document.getElementById('bk').onclick=()=>idx>0?go(idx-1):cfg.backTo();}
+  function renderSlide(){const s=slides[idx];if(s==='concept')slideConcept();else if(s==='walk')slideWalk();else if(s==='practice')slidePractice();else slideDone();}
+  function slideConcept(){
+    shell(`<div class="primer"><div class="pk">Worum geht's?</div><p>${cfg.concept}</p>${cfg.ex?`<div class="pk">Beispiel</div><p class="ex">${cfg.ex}</p>`:''}</div>
+      <button class="btn" id="nx">Lösungsweg ansehen ›</button>`);
+    document.getElementById('nx').onclick=()=>go(idx+1);}
+  function slideWalk(){
+    shell(`<div class="seclabel">So gehst du vor</div><div class="tut-ex">${cfg.example}</div><div id="steps"></div><div id="walkbtn"></div>`);
+    const steps=cfg.steps||[];let shown=0;const cont=document.getElementById('steps');
+    function showNext(){if(shown<steps.length){const d=document.createElement('div');d.className='step';d.innerHTML=`<span class="sn">${shown+1}</span><span>${steps[shown]}</span>`;cont.appendChild(d);shown++;}
+      const wb=document.getElementById('walkbtn');
+      if(shown<steps.length){wb.innerHTML=`<button class="btn ghost" id="sn" style="margin-top:14px">Nächster Schritt</button>`;document.getElementById('sn').onclick=showNext;}
+      else {wb.innerHTML=`<button class="btn" id="nx" style="margin-top:14px">${cfg.practice?'Selbst probieren ›':'Verstanden ›'}</button>`;document.getElementById('nx').onclick=()=>go(idx+1);}}
+    showNext();}
+  function finishRow(){document.getElementById('nextrow').innerHTML=`<button class="btn" id="nx" style="margin-top:16px">Weiter ›</button>`;document.getElementById('nx').onclick=()=>go(idx+1);}
+  function slidePractice(){
+    if(cfg.practice.type==='span')return slideSpanPractice(makeSpan(4,'fwd'));
+    const q=cfg.practice.make();let inner;
+    if(q.render==='input') inner=(q.text?`<div class="q-text">${q.prompt}</div>`:`<div class="q-math">${q.prompt}</div>`)+`<input class="num-input" id="ans" placeholder="?"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
+    else {const keys="ABCDE",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
+      inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;}
+    shell(`<div class="seclabel">Geführter Versuch — der Tipp ist schon da</div>${inner}
+      <div class="tip-text" style="margin-top:14px"><b>Tipp:</b> ${qHints(q)[0]||''}</div><div class="feedback" id="fb"></div><div id="nextrow"></div>`);
+    if(q.render==='input'){const inp=document.getElementById('ans');inp.setAttribute('inputmode',typeof q.answer==='string'?'text':'numeric');inp.focus();
+      const chk=()=>{const raw=inp.value.trim();if(!raw)return;inp.disabled=true;const ok=typeof q.answer==='string'?norm(raw)===norm(q.answer):Math.abs(parseNum(raw)-q.answer)<1e-6;
+        inp.style.borderColor=ok?'var(--good)':'var(--bad)';document.getElementById('sub').style.display='none';const fb=document.getElementById('fb');fb.className='feedback '+(ok?'good':'bad');fb.innerHTML=(ok?'Richtig.':`Korrekt ist ${dispAns(q)}.`)+`<div class="explain">${q.explain||''}</div>`;finishRow();};
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter')chk();});document.getElementById('sub').onclick=chk;}
+    else document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const k=+b.dataset.k;document.querySelectorAll('.opt').forEach((x,xi)=>{x.disabled=true;if(xi===q.c)x.classList.add('correct');if(xi===k&&k!==q.c)x.classList.add('wrong');});
+      const fb=document.getElementById('fb');fb.className='feedback '+(k===q.c?'good':'bad');fb.innerHTML=(k===q.c?'Richtig.':'Nicht ganz.')+`<div class="explain">${q.explain||''}</div>`;finishRow();});}
+  function slideSpanPractice(q){
+    shell(`<div class="seclabel">Geführter Versuch — der Tipp ist schon da</div>
+      <div class="q-text" style="text-align:center;color:var(--muted);margin-bottom:6px">Ziffern merken (vorwärts)</div>
+      <div class="q-math" id="stage" style="min-height:60px">•</div>
+      <div id="recall" hidden><input class="num-input" id="ans" inputmode="numeric" placeholder="Ziffern"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button></div>
+      <div class="tip-text" style="margin-top:14px"><b>Tipp:</b> ${qHints(q)[0]}</div><div class="feedback" id="fb"></div><div id="nextrow"></div>`);
+    const stage=document.getElementById('stage');let i2=0;const alive=()=>myToken===SESSION_TOKEN&&document.body.contains(stage);
+    function step(){if(!alive())return;if(i2<q.digits.length){stage.textContent=q.digits[i2];i2++;setTimeout(()=>{if(!alive())return;stage.textContent='';setTimeout(step,180);},720);}else rec();}
+    function rec(){if(!alive())return;stage.textContent='?';stage.style.opacity=.3;document.getElementById('recall').hidden=false;const inp=document.getElementById('ans');inp.focus();
+      const chk=()=>{const raw=inp.value.trim();if(!raw)return;inp.disabled=true;const ok=norm(raw)===norm(q.answer);inp.style.borderColor=ok?'var(--good)':'var(--bad)';document.getElementById('sub').style.display='none';
+        const fb=document.getElementById('fb');fb.className='feedback '+(ok?'good':'bad');fb.innerHTML=(ok?'Richtig.':`Korrekt: ${dispAns(q)}.`)+`<div class="explain">${q.explain}</div>`;finishRow();};
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter')chk();});document.getElementById('sub').onclick=chk;}
+    setTimeout(step,450);}
+  function slideDone(){
+    markTut(cfg.key);
+    shell(`<div class="done-badge">✓</div><div class="res-label" style="margin-bottom:18px">Einführung abgeschlossen. Du hast jetzt ein Gefühl für den Aufgabentyp.</div>
+      <div class="btn-row"><button class="btn ghost" id="bk2">Zur Übersicht</button><button class="btn" id="go2">Jetzt üben ›</button></div>`);
+    document.getElementById('bk2').onclick=cfg.backTo;
+    document.getElementById('go2').onclick=cfg.startReal;}
+  renderSlide();
+}
+
+/* ---- SESSION-START ---- */
+function trainGen(group,id,level){
+  const reg=group==='math'?MATH:LOGIC,t=reg[id],key=group+':'+id;
+  if(level==='A') startSession({kind:'agen',gen:t.gen,group,aLevel:2,goodStreak:0,total:ROUND,label:t.name+' · adaptiv',key,restart:()=>trainGen(group,id,'A')});
+  else startSession({kind:'list',list:Array.from({length:ROUND},()=>{const q={render:'input',...t.gen(level)};q.cat=key;q.group=group;q.diff=level;return q;}),total:ROUND,label:t.name+' · L'+level,key,restart:()=>trainGen(group,id,level)});
+}
+function trainBank(id){const b=BANKS[id];const list=shuffle(b.bank.slice()).slice(0,ROUND).map(it=>{const o=normItem(b.type,it);o.cat=id;o.group='gmat';o.diff=2;return o;});
+  startSession({kind:'list',list,total:list.length,label:b.title,key:id,restart:()=>trainBank(id)});}
+function startSpan(dir){startSession({kind:'span',spanDir:dir,spanLen:clamp(2+curLevel('wm:span'),3,8),maxSpan:0,total:ROUND,label:'Zahlenspanne '+(dir==='bwd'?'rückwärts':'vorwärts'),key:'wm:span:'+dir,restart:()=>startSpan(dir)});}
+function startDaily(min){const list=generateDailyAdaptivePool(min);startSession({kind:'list',daily:true,duration:min,list,total:list.length,label:`Tagestraining · ${min}′`,key:'daily:'+min,restart:()=>startDaily(min)});}
+
+function normItem(type,it){const base=type==='ds'
+  ? {render:'choice',q:it.q,stmts:[it.s1,it.s2],opts:DS_OPTS,c:it.c,explain:it.e}
+  : {render:'choice',q:it.q,opts:it.o,c:it.c,explain:it.e};
+  base.hints=[it.h]; if(type==='ds')base.hints.push("Teste (1) allein, dann (2) allein, dann beide zusammen.");
+  else base.hints.push("Schließe zuerst die klar unplausiblen Optionen aus.");
+  return base;}
+function makeSpan(len,dir){const digits=Array.from({length:len},()=>rnd(0,9));const expected=(dir==='bwd'?[...digits].reverse():digits).join('');
+  return{render:'span',dir,digits,len,answer:expected,disp:(dir==='bwd'?[...digits].reverse():digits).join(' '),
+    hints:["Bilde 2–3er-Blöcke und sprich sie innerlich mit.",dir==='bwd'?"Rückwärts: „spiele“ die Blöcke von hinten ab – letzter Block zuerst.":"Bei der Eingabe die Blöcke der Reihe nach „abspielen“."],
+    explain:`Gezeigt: ${digits.join(' ')}.`+(dir==='bwd'?` Rückwärts: ${[...digits].reverse().join(' ')}.`:'')};}
+
+function startSession(cfg){state={i:0,correct:0,streak:0,t0:Date.now(),answered:false,list:[],areaLog:{},review:[],token:++SESSION_TOKEN,...cfg};renderQ();}
+// Merkt sich pro Aufgabe Antwort + Lösung für die Auswertung ("Was lag daneben?").
+function pushReview(q,ok,given,correct){
+  (state.review||(state.review=[])).push({
+    label: q.render==='span' ? ('Ziffern: '+q.digits.join(' ')) : (q.q||q.prompt),
+    given, correct, explain:q.explain||'', ok
+  });
+}
+function currentQuestion(){
+  if(state.list[state.i])return state.list[state.i];
+  let q;
+  if(state.kind==='agen'){q={render:'input',...state.gen(state.aLevel)};q.cat=state.key;q.group=state.group;q.diff=state.aLevel;}
+  else if(state.kind==='span'){q=makeSpan(state.spanLen,state.spanDir);q.cat='wm:span';q.group='wm';q.diff=clamp(state.spanLen-2,1,4);}
+  state.list[state.i]=q;return q;
+}
+
+/* ---- TIPP-CONTROLLER (gestufte Tipps) ---- */
+function qHints(q){return q.hints?q.hints:(q.hint?[q.hint]:[]);}
+function tipController(q){
+  const tb=document.getElementById('tip'),tt=document.getElementById('tiptext');if(!tb)return;
+  const hints=qHints(q);if(!hints.length){tb.style.display='none';return;}
+  let i=0;
+  tb.onclick=()=>{tt.hidden=false;const d=document.createElement('div');d.style.marginTop=i?'8px':'0';d.innerHTML=`<b>Tipp ${i+1}:</b> ${hints[i]}`;tt.appendChild(d);i++;
+    if(i>=hints.length)tb.style.display='none'; else tb.textContent='💡 Noch ein Tipp';};
+}
+
+/* ---- RENDER ---- */
+function renderQ(){
+  setHomeBtn(true);
+  const q=currentQuestion(),n=state.i+1;state.answered=false;state.qStart=Date.now();tag.textContent=state.label;
+  const prog=Math.round(state.i/state.total*100),sc=state.streak>=2?"streak":"streak cold";
+  root.innerHTML=`<div class="card">
+    <div class="session-top"><span>Aufgabe ${n} / ${state.total}</span><span class="${sc}">${state.streak>=2?"🔥 "+state.streak+" in Folge":"Serie "+state.streak}</span></div>
+    <div class="progress"><i style="width:${prog}%"></i></div><div class="qwrap" id="qbody"></div></div>`;
+  if(q.render==='span')return fillSpan(q);
+  fillQA(q);
+}
+function fillQA(q){
+  const body=document.getElementById('qbody');let inner;
+  if(q.render==='input'){
+    inner=(q.text?`<div class="q-text">${q.prompt}</div>`:`<div class="q-math">${q.prompt}</div>`)
+      +`<input class="num-input" id="ans" autocomplete="off" placeholder="?"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
+  } else {
+    const keys="ABCDE",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
+    inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;
+  }
+  body.innerHTML=`<div class="qkind">${state.label}</div>${inner}
+    <div class="tiprow">${qHints(q).length?`<button class="tip-btn" id="tip">💡 Tipp anzeigen</button><div class="tip-text" id="tiptext" hidden></div>`:""}</div>
+    <div class="feedback" id="fb"></div><div id="nextrow"></div>`;
+  tipController(q);
+  if(q.render==='input'){const inp=document.getElementById('ans');inp.setAttribute('inputmode',typeof q.answer==='string'?'text':'numeric');inp.focus();
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});
+    document.getElementById('sub').onclick=()=>state.answered?next():checkInput();}
+  else document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>checkChoice(+b.dataset.k));
+}
+function fillSpan(q){
+  const myToken=state.token;
+  const body=document.getElementById('qbody');
+  body.innerHTML=`<div class="qkind">${state.label}</div>
+    <div class="q-text" style="text-align:center;color:var(--muted);margin-bottom:6px">${q.dir==='bwd'?'Ziffern merken — Eingabe dann RÜCKWÄRTS':'Ziffern merken'}</div>
+    <div class="q-math" id="stage" style="min-height:64px">•</div>
+    <div id="recall" hidden><input class="num-input" id="ans" inputmode="numeric" autocomplete="off" placeholder="Ziffern eingeben"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button></div>
+    <div class="tiprow" id="tiprow"></div><div class="feedback" id="fb"></div><div id="nextrow"></div>`;
+  const stage=document.getElementById('stage');let idx=0;const showMs=Math.max(520,900-q.len*45);
+  const alive=()=>myToken===SESSION_TOKEN && document.body.contains(stage);
+  function step(){if(!alive())return;
+    if(idx<q.digits.length){stage.textContent=q.digits[idx];idx++;setTimeout(()=>{if(!alive())return;stage.textContent='';setTimeout(step,170);},showMs);}
+    else recall();}
+  function recall(){if(!alive())return;stage.style.opacity=.3;stage.textContent='?';state.qStart=Date.now();document.getElementById('recall').hidden=false;
+    document.getElementById('tiprow').innerHTML=`<button class="tip-btn" id="tip">💡 Tipp anzeigen</button><div class="tip-text" id="tiptext" hidden></div>`;tipController(q);
+    const inp=document.getElementById('ans');inp.focus();inp.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});
+    document.getElementById('sub').onclick=()=>state.answered?next():checkInput();}
+  setTimeout(step,450);
+}
+
+function parseNum(raw){raw=raw.replace(',','.').trim();if(raw.includes('/')){const[a,b]=raw.split('/');return parseFloat(a)/parseFloat(b);}return parseFloat(raw);}
+function dispAns(q){return q.disp??(typeof q.answer==='string'?q.answer:fmt(q.answer));}
+function maybeAdaptInSession(ok){
+  if(state.kind==='agen'){if(ok){state.goodStreak++;if(state.goodStreak>=2&&state.aLevel<4){state.aLevel++;state.goodStreak=0;}}else{state.aLevel=Math.max(1,state.aLevel-1);state.goodStreak=0;}}
+  else if(state.kind==='span'){const cur=state.list[state.i];if(ok){state.maxSpan=Math.max(state.maxSpan,cur.len);state.spanLen=clamp(state.spanLen+1,3,9);}else state.spanLen=clamp(state.spanLen-1,3,9);}
+}
+function record(q,ok){
+  const timeMs=Date.now()-(state.qStart||Date.now());
+  if(q.cat)updateAdaptiveProfile({key:q.cat,group:q.group,ok,difficulty:q.diff,timeMs});
+  maybeAdaptInSession(ok);
+  if(state.daily){const g=q.group;(state.areaLog[g]||(state.areaLog[g]={att:0,cor:0}));state.areaLog[g].att++;if(ok)state.areaLog[g].cor++;}
+}
+function showFeedback(ok,explain){
+  const fb=document.getElementById('fb');fb.className="feedback "+(ok?"good":"bad");
+  fb.innerHTML=(ok?"Richtig.":"Nicht ganz.")+(explain?`<div class="explain">${explain}</div>`:"");
+  const sb=document.getElementById('sub');if(sb)sb.style.display='none';
+  const last=state.i>=state.total-1;
+  document.getElementById('nextrow').innerHTML=`<button class="btn" id="nx" style="margin-top:16px">${last?"Auswertung":"Weiter"}</button>`;
+  const nx=document.getElementById('nx');nx.onclick=next;nx.focus();
+}
+function checkInput(){
+  if(state.answered)return;const q=state.list[state.i];
+  const raw=document.getElementById('ans').value.trim();if(raw==="")return;state.answered=true;
+  const ok=typeof q.answer==='string'?norm(raw)===norm(q.answer):Math.abs(parseNum(raw)-q.answer)<1e-6;
+  const inp=document.getElementById('ans');inp.disabled=true;inp.style.borderColor=ok?"var(--good)":"var(--bad)";
+  ok?(state.correct++,state.streak++):(state.streak=0);record(q,ok);
+  pushReview(q,ok,raw,dispAns(q));
+  showFeedback(ok,ok?q.explain:`Korrekt wäre <b>${dispAns(q)}</b>. ${q.explain||""}`);
+}
+function checkChoice(k){
+  if(state.answered)return;state.answered=true;const q=state.list[state.i],ok=k===q.c;
+  document.querySelectorAll('.opt').forEach((b,idx)=>{b.disabled=true;if(idx===q.c)b.classList.add('correct');if(idx===k&&!ok)b.classList.add('wrong');});
+  ok?(state.correct++,state.streak++):(state.streak=0);record(q,ok);
+  const L="ABCDE";
+  pushReview(q,ok,`${L[k]}) ${q.opts[k]}`,`${L[q.c]}) ${q.opts[q.c]}`);
+  showFeedback(ok,q.explain);
+}
+function next(){if(state.i>=state.total-1)return results();state.i++;renderQ();}
+
+/* ---- N-BACK ---- */
+function startNback(n){
+  const myToken=++SESSION_TOKEN; state={token:myToken}; setHomeBtn(true); tag.textContent=`n-back · N=${n}`;
+  const total=18,letters="CHKLQRST".split('');let seq=[];
+  for(let i=0;i<total;i++){if(i>=n&&Math.random()<.33)seq.push(seq[i-n]);else{let c=pick(letters);if(i>=n){while(c===seq[i-n])c=pick(letters);}seq.push(c);}}
+  const decisions=total-n;const T0=Date.now();let i=-1,hits=0,fa=0,responded=false,locked=false;
+  root.innerHTML=`<div class="card"><div class="session-top"><span>N-Back · N = ${n}</span><span id="nbc" class="streak cold">—</span></div>
+    <div class="progress"><i id="nbar" style="width:0%"></i></div><div class="qwrap">
+      <div class="qkind">Gleich der Buchstabe dem von vor ${n} Schritten?</div>
+      <div class="q-math" id="stage" style="min-height:70px">Bereit…</div>
+      <button class="btn" id="hit">Treffer ✓</button>
+      <div class="explain" style="text-align:center;margin-top:12px">Tippe „Treffer“, sobald der aktuelle Buchstabe dem ${n} Schritte zuvor gleicht.</div></div></div>`;
+  const stage=document.getElementById('stage'),bar=document.getElementById('nbar'),cnt=document.getElementById('nbc');
+  const alive=()=>myToken===SESSION_TOKEN && document.body.contains(stage);
+  document.getElementById('hit').onclick=()=>{if(locked||i<n||responded)return;responded=true;
+    if(seq[i]===seq[i-n]){hits++;cnt.textContent='✓ Treffer';cnt.className='streak';}else{fa++;cnt.textContent='✗ Fehlalarm';cnt.className='streak cold';}};
+  function adv(){if(!alive())return;i++;if(i>=total)return finish();
+    responded=false;stage.textContent=seq[i];bar.style.width=Math.round((i+1)/total*100)+'%';
+    setTimeout(()=>{if(!alive())return;stage.textContent='·';setTimeout(adv,360);},2200);}
+  function finish(){if(!alive())return;locked=true;let targets=0;for(let k=n;k<total;k++)if(seq[k]===seq[k-n])targets++;
+    const correctRej=Math.max(0,(decisions-targets)-fa),correct=hits+correctRej;
+    updateAdaptiveProfile({key:'wm:nback',group:'wm',ok:correct/decisions>=0.6,difficulty:n});
+    state={key:'wm:nback',label:`N-Back · N=${n}`,t0:T0,correct,total:decisions,kind:'nback',restart:()=>startNback(n),note:`${hits}/${targets} Treffer · ${fa} Fehlalarme`,token:myToken};
+    results();}
+  setTimeout(adv,800);
+}
+
+/* ---- RESULTS ---- */
+// Übersicht der falsch beantworteten Aufgaben (leer bei N-Back, da kein Item-Format).
+function reviewHTML(){
+  const all=state.review||[];
+  if(!all.length) return '';
+  const wrong=all.filter(r=>!r.ok);
+  if(!wrong.length) return `<div class="all-correct">✓ Alles richtig — kein Fehler in dieser Runde.</div>`;
+  const items=wrong.map(r=>`<div class="rev-item">
+      <div class="rev-q">${r.label}</div>
+      <div class="rev-ans"><span class="rev-bad">Deine Antwort: ${r.given||'—'}</span><span class="rev-good">Richtig: ${r.correct}</span></div>
+      ${r.explain?`<div class="explain">${r.explain}</div>`:''}</div>`).join('');
+  return `<div class="seclabel" style="margin-top:4px">Das lag daneben (${wrong.length})</div><div class="review">${items}</div>`;
+}
+function results(){
+  setHomeBtn(false); tag.textContent="auswertung";
+  Streak.registerToday();                          // ein Trainingstag, max. 1× pro Kalendertag
+  if(state.daily)return dailyResults();
+  const total=state.total,acc=Math.round(state.correct/total*100),secs=Math.round((Date.now()-state.t0)/1000),per=(secs/total).toFixed(1);
+  const prev=loadBest(state.key);let best=false;
+  if(!prev||acc>prev.acc||(acc===prev.acc&&secs<prev.secs)){best=true;saveBest(state.key,{acc,secs});}
+  let note=state.note||'';
+  if(!note&&state.kind==='span')note=`Höchste Spanne: ${state.maxSpan} Ziffern`;
+  if(!note&&state.kind==='agen')note=`Erreichtes Level: ${state.aLevel}`;
+  const v=acc>=90?"Stark.":acc>=70?"Solide.":acc>=50?"Geht voran.":"Dranbleiben.";
+  root.innerHTML=`<div class="card"><div class="res-score">${state.correct}<small>/${total}</small></div>
+    <div class="res-label">${v} ${state.label}</div>${note?`<div class="res-note">${note}</div>`:'<div style="height:18px"></div>'}
+    <div class="res-grid"><div class="res-cell"><b>${acc}%</b><span>Trefferquote</span></div><div class="res-cell"><b>${secs}s</b><span>Gesamtzeit</span></div><div class="res-cell"><b>${per}s</b><span>pro Aufgabe</span></div></div>
+    ${best?'<div class="best">★ Neuer Bestwert</div>':''}
+    ${reviewHTML()}
+    <div class="btn-row"><button class="btn ghost" id="hm">Startseite</button><button class="btn" id="rt">Nochmal</button></div></div>`;
+  document.getElementById('hm').onclick=resetToHome;
+  document.getElementById('rt').onclick=state.restart||home;
+}
+function dailyResults(){
+  const total=state.total,acc=Math.round(state.correct/total*100),secs=Math.round((Date.now()-state.t0)/1000);
+  const prev=loadBest(state.key);let best=false;if(!prev||acc>prev.acc){best=true;saveBest(state.key,{acc,secs});}
+  const rows=Object.keys(state.areaLog).map(g=>{const a=state.areaLog[g];return {g,ga:Math.round(a.cor/a.att*100),att:a.att,lvl:groupLevel(g)};}).sort((x,y)=>y.ga-x.ga);
+  const strong=rows[0],weak=rows[rows.length-1];
+  let rec;
+  if(rows.length>1 && weak.ga<strong.ga) rec=`Beim nächsten Mal lohnt sich etwas mehr <b>${GROUP_LABEL[weak.g]}</b> – dort liegt aktuell dein größter Hebel. Deine starken Bereiche werden automatisch schwerer.`;
+  else rec=`Ausgewogener Lauf. Die Schwierigkeit zieht in deinen sicheren Bereichen langsam an – bleib dran.`;
+  const areaHTML=rows.map(r=>{const cls=rows.length>1?(r.g===strong.g?' strong':(r.g===weak.g?' weak':'')):'';
+    const tagTxt=rows.length>1?(r.g===strong.g?' · stärkster':(r.g===weak.g?' · schwächster':'')):'';
+    return `<div class="area-row${cls}"><span class="area-name">${GROUP_LABEL[r.g]}${tagTxt}</span><span class="area-meta">${r.ga}% · Level ${r.lvl??'–'}</span></div>`;}).join("");
+  root.innerHTML=`<div class="card"><div class="res-score">${state.correct}<small>/${total}</small></div>
+    <div class="res-label">Tagestraining · ${state.duration} min · ${secs}s</div>
+    <div class="res-grid">
+      <div class="res-cell"><b>${acc}%</b><span>Gesamtscore</span></div>
+      <div class="res-cell"><b>${rows.length>1?GROUP_LABEL[strong.g].split(' ')[0]:'—'}</b><span>stärkster</span></div>
+      <div class="res-cell"><b>${rows.length>1?GROUP_LABEL[weak.g].split(' ')[0]:'—'}</b><span>schwächster</span></div></div>
+    <div class="seclabel">Angepasstes Level pro Bereich</div>${areaHTML}
+    <div class="rec">${rec}</div>${best?'<div class="best">★ Neuer Bestwert</div>':''}
+    ${reviewHTML()}
+    <div class="btn-row"><button class="btn ghost" id="hm">Startseite</button><button class="btn" id="rt">Nochmal</button></div></div>`;
+  document.getElementById('hm').onclick=resetToHome;
+  document.getElementById('rt').onclick=state.restart||home;
+}
+
+/* ---- INIT ---- */
+// Service Worker registrieren (genau einmal, blockiert den Start nicht).
+// CAPACITOR (Phase 2): Im nativen Build wird KEIN Service Worker gebraucht –
+// die Assets liegen lokal im Bundle. Dieser Block schadet dort aber nicht.
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js?v='+APP_VERSION).catch(()=>{}); });
+}
+// Erst Store laden (async, Capacitor-ready), dann App rendern.
+(async ()=>{
+  await Store.init();
+  loadProfile();
+  const foot=document.querySelector('.foot'); if(foot) foot.textContent='Cortex v'+APP_VERSION+' · Daten lokal auf diesem Gerät';
+  document.getElementById('homeBtn').onclick=goHome;   // einmalig, kein doppelter Listener
+  home();
+})();
+</script>
+</body>
+</html>

@@ -228,7 +228,7 @@
 
 <script>
 /* ========= Helfer ========= */
-const APP_VERSION='1.1.1';   // einzige Quelle der Versionsnummer (Footer, Einstellungen, Service-Worker-Cache)
+const APP_VERSION='1.11.0';   // einzige Quelle der Versionsnummer (Footer, Einstellungen, Service-Worker-Cache)
 const fmt = n => (typeof n==='number') ? n.toLocaleString('de-DE') : n;
 const rnd = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const pick = a => a[Math.floor(Math.random()*a.length)];
@@ -265,7 +265,7 @@ const Backend = {
   async save(str){ try{ localStorage.setItem(STORE_KEY,str); }catch(e){ MEM[STORE_KEY]=str; } }
 };
 
-function defaultData(){return{version:1,best:{},profile:{},tut:{},streak:{last:null,current:0,best:0,history:[]},settings:{}};}
+function defaultData(){return{version:1,best:{},profile:{},tut:{},streak:{last:null,current:0,best:0,history:[]},settings:{},mathProfile:null,cfaProfile:null};}
 function safeParse(s){try{const d=JSON.parse(s);return (d&&typeof d==='object')?d:null;}catch(e){return null;}}
 
 // Alt-Daten (frühere Einzelschlüssel) einmalig in den Blob übernehmen – kein Datenverlust beim Update.
@@ -293,6 +293,7 @@ const Store = {
     this.data=d; await this._save();
   },
   persist(){ clearTimeout(this._t); this._t=setTimeout(()=>this._save(),150); },   // gedrosselt, ein einziger Timer
+  flush(){ clearTimeout(this._t); this._t=null; return this._save(); },               // sofort schreiben (Backgrounding)
   async _save(){ await Backend.save(JSON.stringify(this.data)); },
   exportString(){ return JSON.stringify(this.data,null,2); },
   async importString(str){ const d=safeParse(str); if(!d||typeof d!=='object'||!('profile'in d||'best'in d)) throw new Error('invalid');
@@ -421,9 +422,197 @@ const MATH = {
         return{text:true,prompt:`f(x) = ${a}x ${bs},&nbsp;&nbsp; f(${x}) = ?`,answer:y,hints:["Setze den Zahlenwert überall für x ein.",`Erst ${a} × ${x}, dann ${bs.replace('−','minus').replace('+','plus')}.`],explain:`f(${x}) = ${a}·${x} ${bs} = ${y}.`};}
       const a=rnd(1,3),b=rnd(1,4)*(Math.random()<.3?-1:1),c=rnd(0,6),x=L===4?rnd(-3,4):rnd(1,4),y=a*x*x+b*x+c,bs=b<0?`− ${-b}`:`+ ${b}`;
       return{text:true,prompt:`f(x) = ${a}x² ${bs}x + ${c},&nbsp;&nbsp; f(${x}) = ?`,answer:y,hints:["Setze x ein; achte beim Quadrieren aufs Vorzeichen.","Punkt vor Strich: erst das x², dann die Multiplikationen, dann addieren."],explain:`f(${x}) = ${a}·(${x})² ${bs}·(${x}) + ${c} = ${y}.`};}},
+  dreisatz:{name:"Dreisatz", teaser:"Proportionales Schließen",
+    tut:{concept:"Beim Dreisatz schließt du von einer Anzahl auf eine andere. Gerader (proportionaler) Dreisatz: mehr → mehr – du rechnest erst auf 1 Einheit herunter und dann hoch. Umgekehrter Dreisatz: mehr → weniger (z. B. mehr Arbeiter, weniger Zeit).",ex:"3 Hefte kosten 6 €. 5 Hefte → 10 €",example:"3 Hefte kosten 6 €.   5 Hefte = ?",steps:["Auf 1 herunter: 6 € ÷ 3 = 2 € pro Heft.","Auf 5 hoch: 5 × 2 €.","= 10 €."]},
+    gen:(L)=>{
+      const inverse=(L===4)||(L===3&&Math.random()<0.5);
+      if(inverse){const who=pick(["Arbeiter","Pumpen","Bagger","Maschinen"]),unit=pick(["Tagen","Stunden","Minuten"]);
+        const a=rnd(2,9);let b;do{b=rnd(2,9);}while(b===a);const k=rnd(2,{3:4,4:6}[L]||4),d=b*k,ans=a*k;
+        return{text:true,prompt:`${a} ${who} schaffen eine Arbeit in ${d} ${unit}. Wie lange brauchen ${b} ${who} (in ${unit})?`,answer:ans,
+          hints:["Umgekehrter Dreisatz: mehr Helfer → weniger Zeit. Bestimme zuerst die Gesamtarbeit.",`Gesamtarbeit = ${a} × ${d} = ${a*d}; das durch ${b} Helfer teilen.`],
+          explain:`${a} × ${d} = ${a*d} (Helfer·${unit}); ${a*d} ÷ ${b} = ${ans} ${unit}.`};}
+      const cfg={1:[2,6,2,4,2,6],2:[2,9,2,6,2,9],3:[2,12,2,8,2,12]}[L]||[2,9,2,6,2,9];
+      const u=rnd(cfg[0],cfg[1]),a=rnd(cfg[2],cfg[3]);let b;do{b=rnd(cfg[4],cfg[5]);}while(b===a);
+      const given=a*u,ans=b*u;
+      const C=[
+        {q:`${a} Hefte kosten ${fmt(given)} €. Was kosten ${b} Hefte (in €)?`,unit:"€"},
+        {q:`${a} kg Äpfel kosten ${fmt(given)} €. Was kosten ${b} kg (in €)?`,unit:"€"},
+        {q:`Ein Auto fährt mit ${a} Litern ${fmt(given)} km weit. Wie weit kommt es mit ${b} Litern (in km)?`,unit:"km"},
+        {q:`${a} gleiche Maschinen schaffen ${fmt(given)} Teile pro Stunde. Wie viele schaffen ${b} Maschinen (Teile)?`,unit:"Teile"},
+        {q:`${a} Pakete wiegen zusammen ${fmt(given)} kg. Wie viel wiegen ${b} Pakete (in kg)?`,unit:"kg"}
+      ];
+      const c=pick(C);
+      return{text:true,prompt:c.q,answer:ans,
+        hints:["Gerader Dreisatz: erst auf 1 Einheit herunterrechnen, dann auf die gesuchte Anzahl hoch.",`${fmt(given)} ÷ ${a} = ${fmt(u)} je Einheit; davon ${b}-mal.`],
+        explain:`${fmt(given)} ÷ ${a} = ${fmt(u)}; ${b} × ${fmt(u)} = ${fmt(ans)} ${c.unit}.`};}},
+  geometrie:{name:"Geometrie", teaser:"Umfang, Kreis, Volumen, Pythagoras",
+    tut:{concept:"Hier berechnest du Umfang, Kreis- und Körpergrößen und nutzt den Satz des Pythagoras. Bei Kreisen und Zylindern bleibt π als Faktor stehen – gefragt ist dann nur die Zahl vor π.",ex:"Katheten 3 und 4 → Hypotenuse 5",example:"Rechtwinkliges Dreieck mit Katheten 3 und 4 — Hypotenuse?",steps:["Satz des Pythagoras: a² + b² = c².","3² + 4² = 9 + 16 = 25.","c = √25 = 5."]},
+    gen:(L)=>{
+      const tri=[[3,4,5],[5,12,13],[8,15,17],[6,8,10],[9,12,15],[7,24,25],[20,21,29]];
+      const types={1:["urect","usquare"],2:["urect","usquare","circU","circA","pyth"],3:["usquare","circA","volBox","volCube","pyth"],4:["circA","circU","volBox","volCube","volCyl","pyth","pythLeg"]}[L];
+      const t=pick(types);
+      if(t==="urect"){const l=rnd(3,15),w=rnd(2,12);return{text:true,prompt:`Umfang eines Rechtecks mit Länge ${l} und Breite ${w}?`,answer:2*(l+w),hints:["Umfang = einmal rund um die Figur.","Umfang = 2 × (Länge + Breite)."],explain:`2 × (${l} + ${w}) = ${2*(l+w)}.`};}
+      if(t==="usquare"){const sq=rnd(3,20);return{text:true,prompt:`Umfang eines Quadrats mit Seitenlänge ${sq}?`,answer:4*sq,hints:["Vier gleich lange Seiten.","Umfang = 4 × Seite."],explain:`4 × ${sq} = ${4*sq}.`};}
+      if(t==="circU"){const r=rnd(2,12);return{text:true,prompt:`Umfang eines Kreises mit Radius ${r} — als Vielfaches von π (nur die Zahl vor π)?`,answer:2*r,hints:["Umfang = 2 · π · r.","Gesucht ist die Zahl vor π, also 2 · r."],explain:`U = 2·π·${r} = ${2*r}π → Antwort ${2*r}.`};}
+      if(t==="circA"){const r=rnd(2,12);return{text:true,prompt:`Fläche eines Kreises mit Radius ${r} — als Vielfaches von π (nur die Zahl vor π)?`,answer:r*r,hints:["Fläche = π · r².","Gesucht ist r²."],explain:`A = π·${r}² = ${r*r}π → Antwort ${r*r}.`};}
+      if(t==="volBox"){const l=rnd(2,9),w=rnd(2,9),h=rnd(2,9);return{text:true,prompt:`Volumen eines Quaders ${l} × ${w} × ${h}?`,answer:l*w*h,hints:["Volumen = Länge × Breite × Höhe.","Erst zwei Kanten multiplizieren, dann mal die dritte."],explain:`${l} × ${w} × ${h} = ${l*w*h}.`};}
+      if(t==="volCube"){const sq=rnd(2,9);return{text:true,prompt:`Volumen eines Würfels mit Kantenlänge ${sq}?`,answer:sq*sq*sq,hints:["Volumen = Kante³.","Kante × Kante × Kante."],explain:`${sq}³ = ${sq*sq*sq}.`};}
+      if(t==="volCyl"){const r=rnd(2,8),h=rnd(2,10);return{text:true,prompt:`Volumen eines Zylinders mit Radius ${r} und Höhe ${h} — als Vielfaches von π (nur die Zahl vor π)?`,answer:r*r*h,hints:["Volumen = π · r² · h.","Gesucht ist r² · h."],explain:`V = π·${r}²·${h} = ${r*r*h}π → Antwort ${r*r*h}.`};}
+      if(t==="pyth"){const x=pick(tri);return{text:true,prompt:`Rechtwinkliges Dreieck mit Katheten ${x[0]} und ${x[1]}. Wie lang ist die Hypotenuse?`,answer:x[2],hints:["Satz des Pythagoras: a² + b² = c².","Erst a² + b² rechnen, dann die Wurzel ziehen."],explain:`${x[0]}² + ${x[1]}² = ${x[0]*x[0]} + ${x[1]*x[1]} = ${x[2]*x[2]}; √${x[2]*x[2]} = ${x[2]}.`};}
+      const x=pick(tri);return{text:true,prompt:`Rechtwinkliges Dreieck mit Hypotenuse ${x[2]} und einer Kathete ${x[0]}. Wie lang ist die andere Kathete?`,answer:x[1],hints:["Pythagoras umgestellt: b² = c² − a².","Erst c² − a², dann die Wurzel."],explain:`${x[2]}² − ${x[0]}² = ${x[2]*x[2]} − ${x[0]*x[0]} = ${x[1]*x[1]}; √${x[1]*x[1]} = ${x[1]}.`};}},
+  trig:{name:"Trigonometrie", teaser:"Sinus, Kosinus, Tangens",
+    tut:{concept:"Im rechtwinkligen Dreieck verbinden Sinus, Kosinus und Tangens Winkel und Seiten: sin = Gegenkathete/Hypotenuse, cos = Ankathete/Hypotenuse, tan = Gegenkathete/Ankathete (Merkhilfe SOH-CAH-TOA). Für 30°, 45° und 60° lohnt es sich, die Werte zu kennen.",ex:"Gegenkathete 3, Hypotenuse 5 → sin α = 3/5 = 0,6",example:"Gegenkathete 3, Ankathete 4, Hypotenuse 5 — sin(α) = ?",steps:["SOH: sin = Gegenkathete ÷ Hypotenuse.","Gegenkathete 3, Hypotenuse 5.","sin α = 3/5 = 0,6."]},
+    gen:(L)=>{
+      const tri=[[3,4,5],[6,8,10],[5,12,13],[8,15,17],[9,12,15],[7,24,25]];
+      const ratioQ=()=>{const x=pick(tri),fn=pick(["sin","cos","tan"]);let num,den;if(fn==="sin"){num=x[0];den=x[2];}else if(fn==="cos"){num=x[1];den=x[2];}else{num=x[0];den=x[1];}
+        return{text:true,prompt:`Rechtwinkliges Dreieck: Gegenkathete ${x[0]}, Ankathete ${x[1]}, Hypotenuse ${x[2]}. ${fn}(α) = ?  (als Bruch; α liegt der Gegenkathete gegenüber)`,answer:num/den,disp:fracStr(num,den),
+          hints:["SOH-CAH-TOA: sin = Gegenkathete/Hypotenuse, cos = Ankathete/Hypotenuse, tan = Gegenkathete/Ankathete.",`Setze die passenden Seiten ein: ${fn} = ${num}/${den}.`],
+          explain:`${fn}(α) = ${num}/${den} = ${fracStr(num,den)}.`};};
+      const specials=[["sin","30°",0.5],["cos","60°",0.5],["tan","45°",1],["sin","90°",1],["cos","0°",1],["sin","0°",0],["cos","90°",0],["tan","0°",0]];
+      const specialQ=()=>{const sp=pick(specials);return{text:true,prompt:`Berechne ${sp[0]}(${sp[1]}).`,answer:sp[2],hints:["Merke die Werte der besonderen Winkel.","sin 30° = 0,5 · cos 60° = 0,5 · tan 45° = 1 · sin 90° = 1 · cos 0° = 1."],explain:`${sp[0]}(${sp[1]}) = ${fmt(sp[2])}.`};};
+      const sideQ=()=>{const m=pick(["30","60","45"]);
+        if(m==="45"){const a=rnd(3,12);return{text:true,prompt:`Rechtwinkliges Dreieck mit einem 45°-Winkel. Eine Kathete ist ${a}. Wie lang ist die andere Kathete?`,answer:a,hints:["Bei 45° sind beide Katheten gleich lang.","tan 45° = Gegenkathete/Ankathete = 1."],explain:`Bei 45° sind beide Katheten gleich → ${a}.`};}
+        const h=rnd(2,9)*2;
+        if(m==="30")return{text:true,prompt:`Rechtwinkliges Dreieck: Hypotenuse ${h}, Winkel 30°. Wie lang ist die Gegenkathete des 30°-Winkels?`,answer:h/2,hints:["Gegenkathete = Hypotenuse × sin(Winkel).","sin 30° = 0,5 → die Hälfte der Hypotenuse."],explain:`${h} × sin 30° = ${h} × 0,5 = ${fmt(h/2)}.`};
+        return{text:true,prompt:`Rechtwinkliges Dreieck: Hypotenuse ${h}, Winkel 60°. Wie lang ist die Ankathete des 60°-Winkels?`,answer:h/2,hints:["Ankathete = Hypotenuse × cos(Winkel).","cos 60° = 0,5 → die Hälfte der Hypotenuse."],explain:`${h} × cos 60° = ${h} × 0,5 = ${fmt(h/2)}.`};};
+      const angleQ=()=>{const set=[["sin","0,5",30],["cos","0,5",60],["tan","1",45],["sin","1",90],["cos","0",90]];const sp=pick(set);
+        return{text:true,prompt:`Für welchen Winkel α (in Grad, 0–90) gilt ${sp[0]}(α) = ${sp[1]}?`,answer:sp[2],hints:["Gehe die besonderen Winkel durch.","sin 30°=0,5 · cos 60°=0,5 · tan 45°=1 · sin 90°=1."],explain:`${sp[0]}(${sp[2]}°) = ${sp[1]} → α = ${sp[2]}°.`};};
+      if(L===1)return specialQ();
+      if(L===2)return Math.random()<0.5?ratioQ():specialQ();
+      if(L===3)return pick([ratioQ,sideQ,specialQ])();
+      return pick([ratioQ,sideQ,angleQ,specialQ])();}},
 };
 
 /* ========= LOGIK ========= */
+/* __LOGIK_VERBAL_START__  verbale Logik-Typen (Bundeswehr-CAT-Stil) */
+function deck(items){let q=[];return ()=>{if(!q.length)q=shuffle(items.slice());return q.pop();};}
+function asChoice(it){return {render:'choice',q:it.q,opts:it.o,c:it.c,
+  hints:[it.h||'Überlege die zugrunde liegende Beziehung und übertrage sie.', it.h2||'Schließe zuerst klar unpassende Optionen aus.'],
+  explain:it.e};}
+
+/* --- Kategorien für Oberbegriffe / passende Begriffe --- */
+const CATS={
+  Verkehrsmittel:['Auto','Zug','Bus','Flugzeug','Schiff','Fahrrad','Straßenbahn','U-Bahn'],
+  Tiere:['Hund','Katze','Pferd','Adler','Forelle','Löwe','Maus','Hai'],
+  Obst:['Apfel','Birne','Banane','Kirsche','Traube','Pfirsich','Pflaume','Mango'],
+  Gemüse:['Möhre','Tomate','Gurke','Zwiebel','Kohl','Paprika','Bohne','Erbse'],
+  Möbel:['Tisch','Stuhl','Schrank','Bett','Sofa','Regal','Kommode','Hocker'],
+  Musikinstrumente:['Geige','Klavier','Flöte','Trompete','Gitarre','Harfe','Cello','Posaune'],
+  Berufe:['Arzt','Lehrer','Bäcker','Maurer','Pilot','Koch','Schneider','Gärtner'],
+  Werkzeuge:['Hammer','Säge','Zange','Bohrer','Schraubenzieher','Feile','Meißel','Schraubenschlüssel'],
+  Metalle:['Eisen','Gold','Silber','Kupfer','Zinn','Blei','Aluminium','Nickel'],
+  Sportarten:['Fußball','Tennis','Handball','Schwimmen','Boxen','Judo','Rudern','Turnen'],
+  Kleidung:['Hemd','Hose','Jacke','Mantel','Rock','Pullover','Schal','Mütze'],
+  Bäume:['Eiche','Buche','Birke','Tanne','Ahorn','Linde','Kiefer','Ulme'],
+  Blumen:['Rose','Tulpe','Nelke','Lilie','Veilchen','Narzisse','Margerite','Aster'],
+  Körperteile:['Arm','Bein','Hand','Fuß','Schulter','Knie','Ellbogen','Ferse']
+};
+const CAT_NAMES=Object.keys(CATS);
+function pairKey(a,b){return [a,b].sort().join(' · ');}
+function genOberbegriff(){
+  const cat=pick(CAT_NAMES), ws=shuffle(CATS[cat].slice());
+  const others=shuffle(CAT_NAMES.filter(c=>c!==cat)).slice(0,4);
+  const opts=shuffle([cat,...others]);
+  return {q:`Welcher Oberbegriff passt zu <b>${ws[0]}</b> und <b>${ws[1]}</b>?`,o:opts,c:opts.indexOf(cat),
+    h:`Was sind ${ws[0]} und ${ws[1]} beide?`,h2:'Suche die Kategorie, zu der beide gehören.',
+    e:`${ws[0]} und ${ws[1]} sind beides Beispiele für die Kategorie ${cat}.`};
+}
+function genPassende(){
+  const cat=pick(CAT_NAMES), ws=shuffle(CATS[cat].slice()), w1=ws[0], w2=ws[1];
+  const others=shuffle(CAT_NAMES.filter(c=>c!==cat)).slice(0,4).map(c=>pick(CATS[c]));
+  const shown=shuffle([w1,w2,...others]);
+  const correct=pairKey(w1,w2), set=new Set([correct]);
+  let g=0; while(set.size<5 && g++<80){const a=pick(shown),b=pick(shown);if(a!==b)set.add(pairKey(a,b));}
+  const opts=shuffle([...set]).slice(0,5);
+  if(!opts.includes(correct))opts[opts.length-1]=correct;
+  return {q:`Sechs Begriffe: <b>${shown.join(', ')}</b>.<br>Welche zwei gehören zusammen?`,o:opts,c:opts.indexOf(correct),
+    h:'Welche zwei stammen aus derselben Kategorie?',h2:'Die übrigen Begriffe gehören zu ganz verschiedenen Bereichen.',
+    e:`${w1} und ${w2} gehören beide zur Kategorie ${cat}; die anderen Begriffe stammen aus unterschiedlichen Bereichen.`};
+}
+
+/* --- Wort-/Sprachanalogien --- */
+const bankAnalogien=[
+  {q:"Arzt : Krankenhaus = Lehrer : ?",o:["Tafel","Schule","Schüler","Kreide","Pause"],c:1,e:"Ein Arzt arbeitet im Krankenhaus – ein Lehrer in der Schule (Arbeitsort)."},
+  {q:"Hand : Finger = Fuß : ?",o:["Arm","Schuh","Zehe","Socke","Knie"],c:2,e:"Ein Finger ist ein Teil der Hand – eine Zehe ein Teil des Fußes."},
+  {q:"heiß : kalt = hoch : ?",o:["tief","warm","oben","weit","schwer"],c:0,e:"Gegensatzpaar: heiß/kalt wie hoch/tief."},
+  {q:"Auto : Straße = Zug : ?",o:["Bahnhof","Lokomotive","Tunnel","Schiene","Wagen"],c:3,e:"Ein Auto fährt auf der Straße – ein Zug auf der Schiene (Fahrweg)."},
+  {q:"Maler : Pinsel = Schreiner : ?",o:["Holz","Säge","Werkstatt","Nagel","Farbe"],c:1,e:"Der Pinsel ist das Werkzeug des Malers – die Säge das des Schreiners."},
+  {q:"Kuh : Kalb = Pferd : ?",o:["Ferkel","Lamm","Fohlen","Welpe","Küken"],c:2,e:"Das Junge der Kuh ist das Kalb – das des Pferdes das Fohlen."},
+  {q:"Hunger : essen = Durst : ?",o:["Wasser","Glas","trinken","schlafen","kochen"],c:2,e:"Gegen Hunger hilft essen – gegen Durst trinken."},
+  {q:"Schuh : Fuß = Handschuh : ?",o:["Hand","Finger","Arm","Mütze","Socke"],c:0,e:"Der Schuh wird am Fuß getragen – der Handschuh an der Hand."},
+  {q:"König : Krone = Soldat : ?",o:["Schwert","Pferd","Helm","Burg","Thron"],c:2,e:"Die Krone trägt der König auf dem Kopf – der Soldat den Helm."},
+  {q:"Feder : leicht = Blei : ?",o:["hart","grau","schwer","kalt","dünn"],c:2,e:"Eine Feder ist leicht – Blei dagegen schwer (typische Eigenschaft)."},
+  {q:"Schnee : weiß = Rabe : ?",o:["grau","schwarz","braun","bunt","hell"],c:1,e:"Schnee ist typischerweise weiß – ein Rabe schwarz."},
+  {q:"Frage : Antwort = Problem : ?",o:["Aufgabe","Fehler","Rätsel","Lösung","Frage"],c:3,e:"Auf eine Frage folgt die Antwort – auf ein Problem die Lösung."},
+  {q:"Auge : sehen = Ohr : ?",o:["riechen","hören","fühlen","schmecken","sprechen"],c:1,e:"Mit dem Auge sieht man – mit dem Ohr hört man (Sinnesorgan)."},
+  {q:"Messer : schneiden = Stift : ?",o:["kochen","schreiben","bohren","kleben","messen"],c:1,e:"Mit dem Messer schneidet man – mit dem Stift schreibt man (Funktion)."},
+  {q:"Bäcker : Brot = Imker : ?",o:["Mehl","Kuchen","Honig","Milch","Käse"],c:2,e:"Der Bäcker stellt Brot her – der Imker gewinnt Honig (Erzeuger/Produkt)."},
+  {q:"Tag : Sonne = Nacht : ?",o:["Stern","Dunkelheit","Mond","Schlaf","Lampe"],c:2,e:"Am Tag leuchtet die Sonne – in der Nacht der Mond."},
+  {q:"Buch : lesen = Film : ?",o:["ansehen","hören","drucken","schreiben","malen"],c:0,e:"Ein Buch wird gelesen – ein Film angesehen."},
+  {q:"Vogel : fliegen = Fisch : ?",o:["laufen","springen","schwimmen","kriechen","klettern"],c:2,e:"Der Vogel bewegt sich fliegend fort – der Fisch schwimmend."},
+  {q:"Lehrer : Schüler = Arzt : ?",o:["Krankenschwester","Patient","Medikament","Praxis","Kollege"],c:1,e:"Der Lehrer kümmert sich um Schüler – der Arzt um Patienten."},
+  {q:"Anfang : Ende = Geburt : ?",o:["Leben","Tod","Alter","Kindheit","Beginn"],c:1,e:"Anfang und Ende bilden ein Gegensatzpaar – ebenso Geburt und Tod."}
+];
+
+/* --- Syllogismen (absurde Prämissen erzwingen rein logisches Schließen) --- */
+const bankSyllog=[
+  {q:"Alle Hunde sind orange. Bello ist ein Hund. — Was folgt zwingend?",o:["Bello ist orange.","Bello ist kein Hund.","Alle orangen Dinge sind Hunde.","Einige Hunde sind nicht orange."],c:0,e:"Wenn alle Hunde orange sind und Bello ein Hund ist, muss Bello orange sein."},
+  {q:"Alle Rosen sind Blumen. Alle Blumen welken. — Was folgt zwingend?",o:["Alle Blumen sind Rosen.","Alle Rosen welken.","Einige Rosen welken nicht.","Alles, was welkt, ist eine Rose."],c:1,e:"Rosen sind Blumen, und alle Blumen welken – also welken alle Rosen."},
+  {q:"Kein Fisch ist ein Vogel. Alle Forellen sind Fische. — Was folgt zwingend?",o:["Einige Forellen sind Vögel.","Alle Vögel sind Fische.","Keine Forelle ist ein Vogel.","Keine Forelle ist ein Fisch."],c:2,e:"Forellen sind Fische, und kein Fisch ist ein Vogel – also ist keine Forelle ein Vogel."},
+  {q:"Einige Maler sind reich. Alle Maler sind Künstler. — Was folgt zwingend?",o:["Alle Künstler sind reich.","Einige Künstler sind reich.","Alle reichen Menschen sind Maler.","Kein Künstler ist reich."],c:1,e:"Die reichen Maler sind Künstler – also sind einige Künstler reich."},
+  {q:"Alle Drachen speien Feuer. Kein Haustier speit Feuer. — Was folgt zwingend?",o:["Einige Haustiere sind Drachen.","Alle Haustiere speien Feuer.","Kein Drache ist ein Haustier.","Einige Drachen sind Haustiere."],c:2,e:"Drachen speien Feuer, Haustiere nicht – also ist kein Drache ein Haustier."},
+  {q:"Alle Studenten lernen viel. Maria lernt nicht viel. — Was folgt zwingend?",o:["Maria ist Studentin.","Einige Studenten lernen nicht viel.","Niemand lernt viel.","Maria ist keine Studentin."],c:3,e:"Wäre Maria Studentin, müsste sie viel lernen. Sie tut es nicht – also ist sie keine Studentin."},
+  {q:"Kein Zwerg ist groß. Alle Wächter sind Zwerge. — Was folgt zwingend?",o:["Kein Wächter ist groß.","Einige Wächter sind groß.","Alle großen Wesen sind Wächter.","Alle Wächter sind groß."],c:0,e:"Wächter sind Zwerge, und kein Zwerg ist groß – also ist kein Wächter groß."},
+  {q:"Alle Roboter sind blau. Einige Spielzeuge sind Roboter. — Was folgt zwingend?",o:["Alle Spielzeuge sind blau.","Alle blauen Dinge sind Spielzeuge.","Einige Spielzeuge sind blau.","Kein Spielzeug ist blau."],c:2,e:"Die Spielzeuge, die Roboter sind, sind blau – also sind einige Spielzeuge blau."},
+  {q:"Alle Zauberer tragen Hüte. Merlin trägt keinen Hut. — Was folgt zwingend?",o:["Merlin ist ein Zauberer.","Merlin ist kein Zauberer.","Einige Zauberer tragen keine Hüte.","Wer einen Hut trägt, ist ein Zauberer."],c:1,e:"Zauberer tragen Hüte; Merlin tut es nicht – also ist Merlin kein Zauberer."},
+  {q:"Kein Vampir mag Sonne. Dracula ist ein Vampir. — Was folgt zwingend?",o:["Dracula mag Sonne.","Wer Sonne mag, ist ein Vampir.","Dracula mag keine Sonne.","Einige Vampire mögen Sonne."],c:2,e:"Kein Vampir mag Sonne, Dracula ist ein Vampir – also mag Dracula keine Sonne."},
+  {q:"Alle Elfen sind unsterblich. Einige Krieger sind Elfen. — Was folgt zwingend?",o:["Alle Krieger sind unsterblich.","Einige Krieger sind unsterblich.","Alle Unsterblichen sind Krieger.","Kein Krieger ist unsterblich."],c:1,e:"Die Krieger, die Elfen sind, sind unsterblich – also sind einige Krieger unsterblich."},
+  {q:"Alle Planeten sind rund. Der Würfel ist nicht rund. — Was folgt zwingend?",o:["Der Würfel ist ein Planet.","Einige Planeten sind nicht rund.","Alle runden Dinge sind Planeten.","Der Würfel ist kein Planet."],c:3,e:"Planeten sind rund; der Würfel ist es nicht – also ist er kein Planet."},
+  {q:"Kein Metall schwimmt. Aluminium ist ein Metall. — Was folgt zwingend?",o:["Aluminium schwimmt nicht.","Aluminium schwimmt.","Einige Metalle schwimmen.","Was nicht schwimmt, ist Metall."],c:0,e:"Kein Metall schwimmt, Aluminium ist ein Metall – also schwimmt Aluminium nicht."},
+  {q:"Alle Gnome sammeln Gold. Einige Diebe sind Gnome. — Was folgt zwingend?",o:["Alle Diebe sammeln Gold.","Alle, die Gold sammeln, sind Diebe.","Einige Diebe sammeln Gold.","Kein Dieb sammelt Gold."],c:2,e:"Die Diebe, die Gnome sind, sammeln Gold – also sammeln einige Diebe Gold."}
+];
+
+/* --- Tatsache oder Meinung --- */
+const bankFakt=[
+  {s:"Wasser gefriert bei 0 Grad Celsius.",f:true},
+  {s:"Berlin ist die Hauptstadt von Deutschland.",f:true},
+  {s:"Ein Jahr hat zwölf Monate.",f:true},
+  {s:"Die Erde dreht sich um die Sonne.",f:true},
+  {s:"Ein Dreieck hat drei Ecken.",f:true},
+  {s:"Spinnen haben acht Beine.",f:true},
+  {s:"Eisen ist ein Metall.",f:true},
+  {s:"Der Mount Everest ist der höchste Berg der Erde.",f:true},
+  {s:"Ein Kilometer hat 1000 Meter.",f:true},
+  {s:"Honig wird von Bienen erzeugt.",f:true},
+  {s:"Das Wasser im Meer ist salzig.",f:true},
+  {s:"Die Sonne ist ein Stern.",f:true},
+  {s:"Ein Quadrat hat vier gleich lange Seiten.",f:true},
+  {s:"Menschen atmen Sauerstoff ein.",f:true},
+  {s:"Schokolade schmeckt besser als Vanille.",f:false},
+  {s:"Der Sommer ist die schönste Jahreszeit.",f:false},
+  {s:"Hunde sind bessere Haustiere als Katzen.",f:false},
+  {s:"Mathematik ist langweilig.",f:false},
+  {s:"Blau ist die schönste Farbe.",f:false},
+  {s:"Fußball ist spannender als Tennis.",f:false},
+  {s:"Im Urlaub sollte man ans Meer fahren.",f:false},
+  {s:"Klassische Musik ist entspannend.",f:false},
+  {s:"Lesen ist wertvoller als Fernsehen.",f:false},
+  {s:"In der Stadt lebt es sich besser als auf dem Land.",f:false},
+  {s:"Früh aufzustehen lohnt sich.",f:false},
+  {s:"Reisen bildet mehr als Bücher.",f:false},
+  {s:"Ein selbst gekochtes Essen ist immer besser.",f:false},
+  {s:"Kaffee schmeckt am Morgen am besten.",f:false}
+];
+
+const nextAnalogie=deck(bankAnalogien), nextSyllog=deck(bankSyllog), nextFakt=deck(bankFakt);
+function genFakt(){const it=nextFakt();
+  return {render:'choice',q:`Tatsache oder Meinung?<br><span class="stmt" style="font-style:italic">„${it.s}“</span>`,
+    opts:['Tatsache','Meinung'],c:it.f?0:1,
+    hints:['Lässt sich die Aussage objektiv überprüfen?','Tatsache = nachweisbar wahr/falsch. Meinung = persönliche Bewertung (oft mit „besser“, „schönste“, „sollte“).'],
+    explain:it.f?'Das ist eine Tatsache – objektiv überprüfbar.':'Das ist eine Meinung – eine persönliche Bewertung, nicht objektiv beweisbar.'};
+}
+/* __LOGIK_VERBAL_END__ */
+
 const LOGIC = {
   series:{name:"Zahlenreihen", teaser:"Nächste Zahl finden",
     tut:{concept:"Bei Zahlenreihen suchst du die Regel hinter der Abfolge. Hilfreich ist, die Differenzen oder Verhältnisse benachbarter Zahlen zu betrachten: konstant = fester Zuwachs oder Faktor, wachsend deutet auf Quadrate oder Summenmuster.",ex:"2, 5, 8, 11 → 14",example:"2 , 5 , 8 , 11 , ?",steps:["Differenzen ansehen: +3, +3, +3.","Das Muster ist konstant +3.","11 + 3 = 14."]},
@@ -439,7 +628,310 @@ const LOGIC = {
     tut:{concept:"Buchstabenreihen funktionieren wie Zahlenreihen, nur über die Position im Alphabet (A = 1, B = 2, …). Zähle, wie viele Buchstaben jeweils übersprungen werden.",ex:"A, C, E, G → I",example:"A , C , E , G , ?",steps:["Positionen: 1, 3, 5, 7 → Schrittweite 2.","Nächste Position: 7 + 2 = 9.","Buchstabe Nr. 9 = I."]},
     gen:(L)=>{const step=rnd(1,{1:2,2:3,3:4,4:5}[L]),start=rnd(0,12);const at=i=>String.fromCharCode(65+((start+i*step)%26));
       const shown=[0,1,2,3,4].map(at).join(' , ');return{prompt:`${shown} , ?`,answer:at(5),hints:["Denke in Alphabet-Positionen statt in Buchstaben.","Zähle die Schritte zwischen den ersten beiden und setze sie fort."],explain:`Schrittweite ${step} im Alphabet → der nächste Buchstabe ist ${at(5)}.`};}},
+  analogien:{name:"Wort-Analogien", teaser:"Wortpaare sinnvoll ergänzen",
+    tut:{concept:"Bei Wort-Analogien stehen das erste und zweite Wort in einer bestimmten Beziehung. Finde dieselbe Beziehung für das dritte Wort und wähle das passende vierte.",ex:"Arzt : Krankenhaus = Lehrer : Schule",example:"Arzt : Krankenhaus = Lehrer : ?",steps:["Bestimme die Beziehung: Ein Arzt arbeitet im Krankenhaus (Arbeitsort).","Übertrage sie: Wo arbeitet ein Lehrer?","In der Schule – die Lösung ist „Schule“."]},
+    gen:(L)=>asChoice(nextAnalogie())},
+  oberbegriff:{name:"Oberbegriffe", teaser:"Gemeinsamen Oberbegriff finden",
+    tut:{concept:"Zwei Begriffe gehören zu einer gemeinsamen Kategorie. Finde den Oberbegriff, der beide umfasst.",ex:"Apfel & Birne → Obst",example:"Welcher Oberbegriff passt zu „Geige“ und „Trompete“?",steps:["Überlege, was beide Begriffe sind.","Geige und Trompete sind Musikinstrumente.","Wähle „Musikinstrumente“."]},
+    gen:(L)=>asChoice(genOberbegriff())},
+  passend:{name:"Passende Begriffe", teaser:"Das zusammengehörende Paar finden",
+    tut:{concept:"Aus mehreren Begriffen gehören genau zwei zusammen, weil sie dieselbe Kategorie teilen. Die übrigen stammen aus verschiedenen Bereichen.",ex:"Fisch, Baum, Stein, Vogel … → Fisch & Vogel (Tiere)",example:"Fisch · Baum · Stein · Vogel · Haus · Wasser — welche zwei gehören zusammen?",steps:["Prüfe, welche zwei Begriffe in dieselbe Kategorie fallen.","Fisch und Vogel sind beide Tiere.","Die anderen Begriffe passen in keine gemeinsame Kategorie."]},
+    gen:(L)=>asChoice(genPassende())},
+  syllog:{name:"Syllogismen", teaser:"Gültige Schlussfolgerung wählen",
+    tut:{concept:"Aus zwei Aussagen (Prämissen) folgt logisch eine Schlussfolgerung. Wähle nur, was zwingend folgt – verlasse dich auf die Logik, nicht auf Weltwissen.",ex:"Alle A sind B. Alle B sind C. → Alle A sind C.",example:"Alle Hunde sind orange. Bello ist ein Hund. → ?",steps:["Nimm die Prämissen als wahr an, egal wie absurd.","Alle Hunde sind orange; Bello ist ein Hund.","Also ist Bello orange – das folgt zwingend."]},
+    gen:(L)=>asChoice(nextSyllog())},
+  fakt:{name:"Tatsache oder Meinung", teaser:"Aussage richtig einordnen",
+    tut:{concept:"Entscheide, ob eine Aussage eine Tatsache (objektiv überprüfbar, beweisbar) oder eine Meinung (persönliche Bewertung) ist.",ex:"„Wasser gefriert bei 0 °C“ = Tatsache · „Sommer ist am schönsten“ = Meinung",example:"„Bücher sind besser als Filme.“",steps:["Frage: Lässt sich das objektiv beweisen?","„Besser“ ist eine Bewertung, kein nachweisbarer Fakt.","Also: Meinung."]},
+    gen:(L)=>genFakt()},
 };
+
+/* =========================================================
+   KONZENTRATION  (Wochentage)
+========================================================= */
+const DAYS=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+function mod7(x){return ((x%7)+7)%7;}
+function genWochentage(L){
+  const D=rnd(0,6), Dn=DAYS[D]; let q,ans,exp;
+  const baseHints=["Ganze Wochen (7 Tage) ändern den Wochentag nicht – nur der Rest zählt.","Rechne mit Zahlen: Montag = 0, Dienstag = 1, … Sonntag = 6, dann „modulo 7“ (Überlauf abziehen)."];
+  if(L===1){const n=rnd(1,6);
+    if(Math.random()<0.6){ans=D+n;q=`Heute ist ${Dn}. Welcher Tag ist in ${n} Tagen?`;exp=`${Dn} + ${n} Tage = ${DAYS[mod7(ans)]}.`;}
+    else{ans=D-n;q=`Heute ist ${Dn}. Welcher Tag war vor ${n} Tagen?`;exp=`${Dn} − ${n} Tage = ${DAYS[mod7(ans)]}.`;}
+  } else if(L===2){const n=rnd(2,13);
+    if(Math.random()<0.5){ans=D-n;q=`In ${n} Tagen ist ${Dn}. Welcher Tag ist heute?`;exp=`Heute + ${n} = ${Dn} → heute = ${DAYS[mod7(ans)]}.`;}
+    else{ans=D+n;q=`Vor ${n} Tagen war ${Dn}. Welcher Tag ist heute?`;exp=`Heute − ${n} = ${Dn} → heute = ${DAYS[mod7(ans)]}.`;}
+  } else if(L===3){const w=rnd(1,4),n=rnd(1,6);
+    if(Math.random()<0.5){ans=D+n;q=`Vor ${w} Wochen und ${n} Tagen war ${Dn}. Welcher Tag ist heute?`;exp=`${w} Wochen ändern den Wochentag nicht. Heute = ${Dn} + ${n} Tage = ${DAYS[mod7(ans)]}.`;}
+    else{ans=D-n;q=`In ${w} Wochen und ${n} Tagen ist ${Dn}. Welcher Tag ist heute?`;exp=`Die ${w} Wochen zählen nicht. Heute = ${Dn} − ${n} Tage = ${DAYS[mod7(ans)]}.`;}
+  } else {const a=rnd(2,6),b=rnd(2,6),w=rnd(1,3);
+    if(Math.random()<0.5){ans=D-a-b;q=`In ${a} Tagen ist ${Dn}. Welcher Tag war vor ${w} Wochen und ${b} Tagen?`;exp=`Heute = ${Dn} − ${a}. Gesucht = heute − ${b} (die ${w} Wochen zählen nicht) = ${DAYS[mod7(ans)]}.`;}
+    else{ans=D+a+b;q=`Vor ${a} Tagen war ${Dn}. Welcher Tag ist in ${w} Wochen und ${b} Tagen?`;exp=`Heute = ${Dn} + ${a}. Gesucht = heute + ${b} (die ${w} Wochen zählen nicht) = ${DAYS[mod7(ans)]}.`;}
+  }
+  return {render:'choice',q,opts:DAYS.slice(),c:mod7(ans),hints:baseHints,explain:exp};
+}
+const KONZ={
+  wochentage:{name:"Wochentage", teaser:"Tagesrechnen unter Zeitdruck",
+    tut:{concept:"Beim Wochentagsrechnen verschiebst du einen bekannten Wochentag um eine Anzahl Tage vor oder zurück. Ganze Wochen (7 Tage) ändern den Wochentag nicht – nur der Rest zählt. Am einfachsten rechnest du mit Zahlen: Montag = 0 … Sonntag = 6.",ex:"Heute ist Montag. In 3 Tagen → Donnerstag.",example:"Heute ist Montag. Welcher Tag ist in 3 Tagen?",steps:["Montag = 0; zähle 3 Tage weiter.","0 + 3 = 3.","Tag Nr. 3 = Donnerstag."]},
+    gen:(L)=>genWochentage(L)}
+};
+
+/* =========================================================
+   DEUTSCH  (Kommasetzung, Groß-/Kleinschreibung, Rechtschreibung)
+========================================================= */
+function deuItem(it,q,hints){const opts=shuffle([it.right,...it.wrong]);return {render:'choice',q,opts,c:opts.indexOf(it.right),hints,explain:it.e||('Richtig: „'+it.right+'“.')};}
+const bankKomma=[
+  {right:"Ich bleibe zu Hause, weil es regnet.",wrong:["Ich bleibe zu Hause weil es regnet.","Ich bleibe, zu Hause weil es regnet."],e:"Vor dem Nebensatz mit „weil“ steht ein Komma."},
+  {right:"Er sagte, dass er kommt.",wrong:["Er sagte dass er kommt.","Er sagte, dass, er kommt."],e:"Vor „dass“ wird der Nebensatz mit Komma abgetrennt."},
+  {right:"Das ist der Mann, der uns geholfen hat.",wrong:["Das ist der Mann der uns geholfen hat.","Das ist der Mann, der uns, geholfen hat."],e:"Relativsätze (hier mit „der“) werden durch Komma abgetrennt."},
+  {right:"Wir kauften Äpfel, Birnen und Bananen.",wrong:["Wir kauften Äpfel Birnen und Bananen.","Wir kauften Äpfel, Birnen, und Bananen."],e:"In Aufzählungen steht ein Komma zwischen den Gliedern, aber nicht vor „und“."},
+  {right:"Sie kam, um zu helfen.",wrong:["Sie kam um zu helfen.","Sie kam um, zu helfen."],e:"Vor Infinitivgruppen mit „um … zu“ steht ein Komma."},
+  {right:"Nicht ich, sondern du bist dran.",wrong:["Nicht ich sondern du bist dran.","Nicht ich, sondern, du bist dran."],e:"Vor „sondern“ steht ein Komma."},
+  {right:"Wenn du willst, können wir gehen.",wrong:["Wenn du willst können wir gehen.","Wenn du, willst können wir gehen."],e:"Der vorangestellte Nebensatz mit „wenn“ wird mit Komma abgetrennt."},
+  {right:"Ich weiß, was du meinst.",wrong:["Ich weiß was du meinst.","Ich, weiß was du meinst."],e:"Vor dem Nebensatz mit „was“ steht ein Komma."},
+  {right:"Er ist müde, aber glücklich.",wrong:["Er ist müde aber glücklich.","Er ist, müde aber glücklich."],e:"Vor „aber“ steht ein Komma."},
+  {right:"Berlin, die Hauptstadt Deutschlands, ist groß.",wrong:["Berlin die Hauptstadt Deutschlands ist groß.","Berlin, die Hauptstadt Deutschlands ist groß."],e:"Der Einschub (Apposition) wird beidseitig durch Komma eingeschlossen."},
+  {right:"Obwohl es spät war, gingen wir spazieren.",wrong:["Obwohl es spät war gingen wir spazieren.","Obwohl, es spät war gingen wir spazieren."],e:"Der Nebensatz mit „obwohl“ wird mit Komma abgetrennt."},
+  {right:"Hallo, wie geht es dir?",wrong:["Hallo wie geht es dir?","Hallo, wie geht es, dir?"],e:"Nach der Anrede bzw. Interjektion „Hallo“ steht ein Komma."},
+  {right:"Sie liest gern Romane, Krimis und Gedichte.",wrong:["Sie liest gern Romane Krimis und Gedichte.","Sie liest gern Romane, Krimis, und Gedichte."],e:"Aufzählung mit Komma; vor „und“ steht keines."},
+  {right:"Ich hoffe, dass alles gut geht.",wrong:["Ich hoffe dass alles gut geht.","Ich hoffe, dass alles, gut geht."],e:"Vor „dass“ steht ein Komma."}
+];
+const bankGK=[
+  {right:"Wir treffen uns heute Abend.",wrong:["Wir treffen uns heute abend.","Wir Treffen uns heute Abend."],e:"Nach „heute/morgen/gestern“ wird die Tageszeit großgeschrieben: heute Abend."},
+  {right:"Beim Schwimmen entspanne ich mich.",wrong:["Beim schwimmen entspanne ich mich.","Beim Schwimmen Entspanne ich mich."],e:"Das substantivierte Verb „Schwimmen“ (nach „beim“) wird großgeschrieben."},
+  {right:"Sie hat etwas Wichtiges gesagt.",wrong:["Sie hat etwas wichtiges gesagt.","Sie hat Etwas Wichtiges gesagt."],e:"Nach „etwas/nichts/viel“ steht das substantivierte Adjektiv groß: etwas Wichtiges."},
+  {right:"Das ist das Beste für alle.",wrong:["Das ist das beste für alle.","Das ist das Beste für Alle."],e:"„das Beste“ ist hier ein Substantiv (Superlativ als Nomen) und wird großgeschrieben."},
+  {right:"Am Montag beginnt die Schule.",wrong:["Am montag beginnt die Schule.","Am Montag beginnt die schule."],e:"Wochentage und Nomen werden großgeschrieben."},
+  {right:"Ich wünsche dir alles Gute.",wrong:["Ich wünsche dir alles gute.","Ich Wünsche dir alles Gute."],e:"„alles Gute“ – substantiviertes Adjektiv, daher groß."},
+  {right:"Wir fahren im Sommer ans Meer.",wrong:["Wir fahren im sommer ans Meer.","Wir fahren im Sommer ans meer."],e:"Jahreszeiten und Nomen werden großgeschrieben."},
+  {right:"Hast du Angst im Dunkeln?",wrong:["Hast du angst im Dunkeln?","Hast du Angst im dunkeln?"],e:"„Angst“ (Nomen) und „im Dunkeln“ (substantiviert) werden großgeschrieben."},
+  {right:"Er kann gut Klavier spielen.",wrong:["Er kann gut klavier spielen.","Er Kann gut Klavier spielen."],e:"„Klavier“ ist ein Nomen (groß); „spielen“ bleibt klein."},
+  {right:"Vielen Dank für deine Hilfe.",wrong:["Vielen dank für deine Hilfe.","Vielen Dank für Deine Hilfe."],e:"„Dank“ und „Hilfe“ sind Nomen (groß); „deine“ bleibt klein."},
+  {right:"Das Lesen fällt ihm leicht.",wrong:["Das lesen fällt ihm leicht.","Das Lesen Fällt ihm leicht."],e:"„das Lesen“ – substantiviertes Verb, daher groß."},
+  {right:"Wir haben nichts Besonderes vor.",wrong:["Wir haben nichts besonderes vor.","Wir haben Nichts Besonderes vor."],e:"Nach „nichts“ steht das substantivierte Adjektiv groß: nichts Besonderes."},
+  {right:"Sie fährt mit dem Auto zur Arbeit.",wrong:["Sie fährt mit dem auto zur Arbeit.","Sie fährt mit dem Auto zur arbeit."],e:"„Auto“ und „Arbeit“ sind Nomen und werden großgeschrieben."},
+  {right:"Im Großen und Ganzen lief es gut.",wrong:["Im großen und ganzen lief es gut.","Im Großen und ganzen lief es gut."],e:"Feste Wendung „im Großen und Ganzen“ – beide Teile groß."}
+];
+const bankRecht=[
+  {right:"Rhythmus",wrong:["Rythmus","Rhytmus","Rhythmuss"]},
+  {right:"Standard",wrong:["Standart","Standardt","Stantard"]},
+  {right:"separat",wrong:["seperat","sepparat","separrat"]},
+  {right:"aggressiv",wrong:["agressiv","aggresiv","agresiv"]},
+  {right:"Adresse",wrong:["Addresse","Adress","Adrese"]},
+  {right:"Interesse",wrong:["Intresse","Interrese","Interese"]},
+  {right:"parallel",wrong:["paralel","parralel","parallell"]},
+  {right:"voraussichtlich",wrong:["vorraussichtlich","vorausichtlich","voraussichtlig"]},
+  {right:"Ingenieur",wrong:["Ingeniör","Ingenör","Inschenieur"]},
+  {right:"Lizenz",wrong:["Lizens","Litzenz","Lizenzz"]},
+  {right:"Maschine",wrong:["Maschiene","Maschinne","Mahschine"]},
+  {right:"wahrscheinlich",wrong:["warscheinlich","wahrscheinlig","wahrschijnlich"]},
+  {right:"Gelegenheit",wrong:["Gelegenheid","Gelegentheit","Gelegenhait"]},
+  {right:"plötzlich",wrong:["plözlich","plötzlig","plötlich"]},
+  {right:"Kompromiss",wrong:["Kompromis","Komprommiss","Kompromieß"]},
+  {right:"Terrasse",wrong:["Terasse","Terrase","Terrassee"]},
+  {right:"nämlich",wrong:["nähmlich","nemlich","nämmlich"]},
+  {right:"Restaurant",wrong:["Restorant","Restaurand","Resturant"]},
+  {right:"Quittung",wrong:["Quitung","Quittunge","Kwittung"]},
+  {right:"Stipendium",wrong:["Stipenddium","Stippendium","Stipendiumm"]}
+];
+const nextKomma=deck(bankKomma), nextGK=deck(bankGK), nextRecht=deck(bankRecht);
+const DEU={
+  komma:{name:"Kommasetzung", teaser:"Richtige Zeichensetzung wählen",
+    tut:{concept:"Wähle die korrekt zeichengesetzte Variante. Faustregeln: Nebensätze (weil, dass, wenn, obwohl), Relativsätze (der/die/das) und Infinitivgruppen mit „um … zu“ werden durch Komma abgetrennt; in Aufzählungen steht ein Komma zwischen den Gliedern, aber nicht vor „und“.",ex:"Ich bleibe zu Hause, weil es regnet.",example:"Welcher Satz ist korrekt?   Er sagte dass er kommt.  /  Er sagte, dass er kommt.",steps:["Es liegt ein Nebensatz mit „dass“ vor.","Vor dem Nebensatz steht ein Komma.","Richtig: Er sagte, dass er kommt."]},
+    gen:(L)=>deuItem(nextKomma(),"Welcher Satz ist korrekt zeichengesetzt?",["Achte auf Nebensätze, Aufzählungen und Infinitivgruppen.","Vor weil/dass/wenn/obwohl und vor Relativsätzen (der/die/das) steht meist ein Komma; vor „und“ in Aufzählungen nicht."])},
+  grossklein:{name:"Groß-/Kleinschreibung", teaser:"Richtige Schreibung wählen",
+    tut:{concept:"Großgeschrieben werden Nomen sowie substantivierte Verben und Adjektive (oft erkennbar an „das, beim, etwas, nichts, viel“), außerdem Eigennamen, Wochentage und Tageszeiten nach „heute/morgen/gestern“. Adjektive und Verben bleiben sonst klein.",ex:"beim Schwimmen · etwas Schönes · heute Abend",example:"Welcher Satz ist korrekt?   Beim schwimmen entspanne ich mich.  /  Beim Schwimmen entspanne ich mich.",steps:["„Schwimmen“ steht hier als Nomen (nach „beim“).","Substantivierte Verben werden großgeschrieben.","Richtig: Beim Schwimmen entspanne ich mich."]},
+    gen:(L)=>deuItem(nextGK(),"Welcher Satz ist korrekt geschrieben?",["Nomen sowie substantivierte Verben/Adjektive werden großgeschrieben.","Signalwörter „das, beim, etwas, nichts, viel“ + Wort → meist groß; Tageszeit nach heute/morgen/gestern groß."])},
+  rechtschreibung:{name:"Rechtschreibung", teaser:"Korrekt geschriebenes Wort",
+    tut:{concept:"Wähle die richtig geschriebene Variante eines Wortes. Achte auf Doppelkonsonanten, Dehnungs-h und typische Stolperstellen. Im Zweifel hilft die Silbentrennung oder das laute Mitsprechen.",ex:"richtig: Rhythmus (nicht Rythmus)",example:"Welche Schreibweise ist richtig?   Standart / Standard / Stantard",steps:["Sprich das Wort langsam in Silben.","„Standard“ endet auf -ard.","Richtig: Standard."]},
+    gen:(L)=>deuItem(nextRecht(),"Welche Schreibweise ist richtig?",["Achte auf Doppelkonsonanten, Dehnungs-h und stille Buchstaben.","Sprich das Wort langsam in Silben und vergleiche die Varianten."])}
+};
+/* ========= ELEKTROTECHNIK ========= */
+const _eDeck={};
+function _eDraw(key,n){let d=_eDeck[key];if(!d||!d.length){d=shuffle(Array.from({length:n},(_,i)=>i));_eDeck[key]=d;}return d.pop();}
+function _eRound(x){return Math.round(x*1000)/1000;}
+function _mc(q,correct,distractors,explain,hints){const opts=shuffle([correct].concat(distractors));return {render:'choice',q,opts,c:opts.indexOf(correct),explain,hints:hints||[]};}
+function _numMC(q,correct,unit,wrongs,explain,hints){
+  const f=v=>fmt(_eRound(v))+' '+unit, cstr=f(correct), set=new Set([cstr]), opts=[cstr];
+  for(const wv of wrongs){if(!isFinite(wv))continue;const sv=f(wv);if(!set.has(sv)){set.add(sv);opts.push(sv);}if(opts.length>=4)break;}
+  const mul=[0.5,2,1.5,0.25,3,10,0.1];let k=0;
+  while(opts.length<4&&k<60){const sv=f(correct*mul[k%mul.length]);if(!set.has(sv)){set.add(sv);opts.push(sv);}k++;}
+  const sh=shuffle(opts.slice());
+  return {render:'choice',q,opts:sh,c:sh.indexOf(cstr),explain,hints:hints||[]};
+}
+const _eGrund=[
+ ["Die Bewegung von geladenen Teilchen (meist Elektronen) nennt man …","elektrischen Strom",["elektrische Spannung","elektrischen Widerstand","elektrische Leistung"],"Fließende Ladung ist der elektrische Strom; die Stromstärke I wird in Ampere gemessen.",["Was fließt im Draht? Es sind bewegte Ladungen.","Gemeint ist die Bewegung selbst – nicht ihre Ursache (Spannung)."]],
+ ["In welcher Einheit wird die elektrische Leistung gemessen?","Watt",["Ohm","Ampere","Volt"],"Die Leistung P wird in Watt (W) angegeben: P = U · I.",["Ohm misst Widerstand, Ampere Strom, Volt Spannung.","Es bleibt genau eine Einheit für die Leistung übrig."]],
+ ["In welcher Einheit wird die Stromstärke gemessen?","Ampere",["Volt","Watt","Ohm"],"Die Stromstärke I wird in Ampere (A) gemessen.",["Formelzeichen I.","Nicht Volt – das ist die Spannung."]],
+ ["In welcher Einheit wird die elektrische Spannung gemessen?","Volt",["Ampere","Ohm","Watt"],"Die Spannung U wird in Volt (V) gemessen.",["Formelzeichen U.","Benannt nach Alessandro Volta."]],
+ ["In welcher Einheit wird der elektrische Widerstand gemessen?","Ohm",["Volt","Ampere","Watt"],"Der Widerstand R wird in Ohm (Ω) gemessen.",["Formelzeichen R.","Symbol Ω."]],
+ ["Wie lautet das Ohmsche Gesetz?","Spannung = Widerstand × Strom",["Strom = Widerstand × Spannung","Spannung = Strom ÷ Widerstand","Widerstand = Spannung × Strom"],"U = R · I. Umgestellt: I = U/R und R = U/I.",["Die Spannung steht allein auf einer Seite.","U = R · I."]],
+ ["Ein Atom besteht aus einem Atomkern und einer Hülle. Woraus besteht die Hülle?","Elektronen",["Protonen","Neutronen","Nukleonen"],"Der Kern enthält Protonen und Neutronen; die Hülle besteht aus Elektronen.",["Die negativ geladenen Teilchen umkreisen den Kern.","Sie tragen auch den Strom im Leiter."]],
+ ["Welches Bauteil begrenzt den Strom in einem Stromkreis?","der Widerstand",["die Spannungsquelle","der Schalter","der Leiter"],"Ein Widerstand R begrenzt nach I = U/R den Strom.",["Je größer dieses Bauteil, desto kleiner der Strom.","Einheit Ohm."]],
+ ["Womit misst man die elektrische Spannung – und wie schließt man es an?","Voltmeter, parallel zum Bauteil",["Amperemeter, in Reihe","Ohmmeter, in Reihe","Voltmeter, in Reihe"],"Spannung misst man mit dem Voltmeter parallel zum Bauteil.",["Spannung misst man ‚über‘ dem Bauteil.","Volt → Volt-meter."]],
+ ["Womit misst man die Stromstärke – und wie schließt man es an?","Amperemeter, in Reihe",["Voltmeter, parallel","Ohmmeter, parallel","Amperemeter, parallel"],"Der ganze Strom muss durch das Amperemeter fließen → in Reihe.",["Der Strom muss durch das Messgerät hindurch.","Ampere → Ampere-meter."]],
+ ["Wofür steht das Formelzeichen U?","Spannung",["Stromstärke","Widerstand","Leistung"],"U = Spannung (Volt). I = Strom, R = Widerstand, P = Leistung.",["U gehört zur Einheit Volt.","Nicht der Strom (das ist I)."]],
+ ["Wofür steht das Formelzeichen I?","Stromstärke",["Spannung","Widerstand","Leistung"],"I = Stromstärke (Ampere).",["I wie ‚Intensität‘ des Stroms.","Einheit Ampere."]],
+ ["Warum leitet ein Metall wie Kupfer den Strom gut?","Es besitzt frei bewegliche Elektronen",["Es besitzt gar keine Elektronen","Es besteht nur aus Protonen","Es ist ein Isolator"],"Metalle haben frei bewegliche Elektronen, die den Ladungstransport ermöglichen.",["Was kann sich im Metall bewegen?","Das Gegenteil eines Isolators."]]
+];
+const _eSchalt=[
+ ["Zwei Widerstände liegen nebeneinander an derselben Quelle (zwei getrennte Strompfade). Um welche Grundschaltung handelt es sich?","Parallelschaltung",["Reihenschaltung","Zirkelschaltung","Einstein-Schaltung"],"Mehrere Zweige nebeneinander an derselben Spannung = Parallelschaltung.",["Mehrere getrennte Wege nebeneinander.","An jedem Zweig liegt dieselbe Spannung."]],
+ ["Zwei Widerstände liegen hintereinander in einem einzigen Strompfad. Um welche Grundschaltung handelt es sich?","Reihenschaltung",["Parallelschaltung","Sternschaltung","Brückenschaltung"],"Ein einziger Pfad, alle Bauteile nacheinander = Reihenschaltung.",["Nur ein Weg für den Strom.","Der Strom ist überall gleich groß."]],
+ ["Was passiert mit dem Gesamtwiderstand, wenn zwei gleiche Widerstände von Reihe auf Parallel umgeschaltet werden?","Er verringert sich",["Er erhöht sich","Er bleibt gleich","Er wird null"],"Parallel ergibt einen kleineren Gesamtwiderstand (bei zwei gleichen: von 2R auf R/2).",["Parallel öffnet einen zweiten Weg für den Strom.","Mehr Wege → weniger Widerstand."]],
+ ["In einer Reihenschaltung ist die Stromstärke …","an allen Bauteilen gleich groß",["an jedem Bauteil verschieden","null","unendlich"],"Im einzigen Pfad fließt überall derselbe Strom.",["Es gibt nur einen Weg.","Was durch das erste Bauteil fließt, fließt auch durch das zweite."]],
+ ["In einer Parallelschaltung ist die Spannung …","an allen Zweigen gleich",["an jedem Zweig verschieden","null","doppelt so groß wie die Quelle"],"Alle Zweige hängen an denselben zwei Knoten → gleiche Spannung.",["Alle Zweige teilen sich dieselben Anschlusspunkte.","Die Quelle liegt an jedem Zweig an."]],
+ ["Der Gesamtwiderstand einer Parallelschaltung ist …","kleiner als der kleinste Einzelwiderstand",["größer als die Summe der Einzelwiderstände","gleich dem größten Einzelwiderstand","immer 0 Ω"],"Zusätzliche parallele Pfade senken den Gesamtwiderstand unter jeden Einzelwert.",["Mehr Wege erleichtern den Stromfluss.","Vergleiche mit dem kleinsten Zweig."]]
+];
+const _eLogik=[
+ ["Zwei Schalter S1 und S2 liegen in Reihe (hintereinander) vor einer Lampe. Wann leuchtet die Lampe?","Nur wenn beide Schalter geschlossen sind",["Wenn mindestens einer geschlossen ist","Wenn beide offen sind","Nie"],"Reihe = UND-Verknüpfung: der Strom braucht beide geschlossenen Schalter.",["In Reihe muss der Strom durch beide.","Ein offener Schalter unterbricht den ganzen Pfad."]],
+ ["Zwei Schalter S1 und S2 liegen parallel vor einer Lampe. Wann leuchtet die Lampe?","Wenn mindestens einer geschlossen ist",["Nur wenn beide geschlossen sind","Nur wenn beide offen sind","Nie"],"Parallel = ODER-Verknüpfung: ein geschlossener Zweig genügt.",["Parallel bietet zwei Wege.","Ein geschlossener Weg reicht für den Strom."]],
+ ["In einer Reihenschaltung mehrerer Lampen brennt eine Lampe durch. Was passiert?","Alle Lampen gehen aus",["Nur die durchgebrannte Lampe geht aus","Die übrigen leuchten heller","Es ändert sich nichts"],"Die Unterbrechung trennt den einzigen Strompfad – alle gehen aus.",["Es gibt nur einen Weg.","Eine Lücke im Pfad stoppt den ganzen Strom."]],
+ ["In einer Parallelschaltung mehrerer Lampen brennt eine Lampe durch. Was passiert mit den übrigen?","Sie leuchten unverändert weiter",["Sie gehen alle aus","Sie leuchten heller","Sie flackern"],"Jeder Zweig ist eigenständig; die anderen behalten ihre Spannung.",["Jeder Zweig hat seinen eigenen Weg.","Die Quelle liegt weiter an den anderen Zweigen an."]],
+ ["Eine Lampe L1 liegt in Reihe vor zwei parallel geschalteten, gleichen Lampen L2 und L3. Wie hell leuchtet L1 im Vergleich zu L2 und L3?","L1 leuchtet heller, weil durch sie der gesamte Strom fließt",["L1 leuchtet dunkler","alle drei leuchten gleich hell","L1 bleibt dunkel"],"Der Gesamtstrom fließt durch L1; in der Parallelschaltung teilt er sich auf L2 und L3 → diese sind dunkler.",["Durch L1 fließt der ganze Strom.","Der Strom teilt sich danach auf zwei Lampen auf."]],
+ ["Zwei Schalter in Reihe: S1 ist geschlossen, S2 ist offen. Leuchtet die Lampe?","Nein – ein offener Schalter in Reihe unterbricht den Stromkreis",["Ja, ein geschlossener Schalter reicht","Ja, immer","Sie leuchtet nur halb so hell"],"Reihe (UND): beide Schalter müssen geschlossen sein.",["In Reihe zählt jeder Schalter.","Ein offener Schalter unterbricht alles."]]
+];
+const ELEKTRO={
+  grundlagen:{name:"Grundbegriffe",teaser:"Größen, Einheiten & Bauteile",
+    tut:{concept:"Die wichtigsten Größen: Spannung U (Volt), Stromstärke I (Ampere), Widerstand R (Ohm), Leistung P (Watt). Strom ist bewegte Ladung; ein Widerstand begrenzt den Strom; ein Atom hat einen Kern (Protonen, Neutronen) und eine Hülle aus Elektronen.",ex:"Leistung wird in Watt gemessen.",example:"In welcher Einheit wird der Widerstand gemessen?",steps:["Der Widerstand hat das Formelzeichen R.","Seine Einheit ist das Ohm (Symbol Ω).","Antwort: Ohm."]},
+    gen:(L)=>{const e=_eGrund[_eDraw('eGrund',_eGrund.length)];return _mc(e[0],e[1],e[2],e[3],e[4]);}},
+  ohm:{name:"Ohmsches Gesetz",teaser:"U, I und R berechnen",
+    tut:{concept:"Das Ohmsche Gesetz verknüpft Spannung U, Stromstärke I und Widerstand R: U = R · I. Daraus folgt I = U/R und R = U/I.",ex:"U = 12 V, I = 2 A → R = 12/2 = 6 Ω",example:"Widerstand bei U = 12 V und I = 2 A",steps:["Gesucht ist R, gegeben sind U und I.","Stelle U = R · I nach R um: R = U / I.","R = 12 V / 2 A = 6 Ω."]},
+    gen:(L)=>{const mode=pick(['R','I','U']);
+      if(mode==='R'){const I=pick(L>=3?[0.1,0.2,0.5,2,4]:[1,2,3,4,5]),R=pick(L>=3?[60,90,150,250,1600,1800]:[2,4,5,10,20,30]),U=_eRound(R*I);
+        return _numMC(`Berechne den Widerstand bei einer Spannung von ${fmt(U)} Volt und einer Stromstärke von ${fmt(I)} Ampere.`,R,'Ω',[U*I,U+I,R*2,R/2],`R = U / I = ${fmt(U)} V ÷ ${fmt(I)} A = ${fmt(R)} Ω.`,["Gesucht ist R → stelle U = R · I um.","R = U / I (nicht U · I)."]);}
+      if(mode==='I'){const R=pick(L>=3?[50,100,200,250,1000]:[2,5,10,20,100]),I=pick(L>=3?[0.05,0.1,0.2,0.5,2]:[1,2,3,5]),U=_eRound(R*I);
+        return _numMC(`Welcher Strom fließt bei einer Spannung von ${fmt(U)} Volt und einem Widerstand von ${fmt(R)} Ohm?`,I,'A',[U*R,I*2,I/2,U+R],`I = U / R = ${fmt(U)} V ÷ ${fmt(R)} Ω = ${fmt(I)} A.`,["Gesucht ist I → stelle U = R · I um.","I = U / R."]);}
+      const R=pick(L>=3?[30,60,120,250,1500]:[2,5,10,20,30]),I=pick(L>=3?[0.2,0.5,2,3]:[1,2,3,4]),U=_eRound(R*I);
+      return _numMC(`Welche Spannung liegt an, wenn ein Widerstand von ${fmt(R)} Ohm von ${fmt(I)} Ampere durchflossen wird?`,U,'V',[R/I,R+I,U*2,U/2],`U = R · I = ${fmt(R)} Ω · ${fmt(I)} A = ${fmt(U)} V.`,["Gesucht ist U → U = R · I.","Einfach multiplizieren."]);}},
+  leistung:{name:"Leistung & Ladung",teaser:"P = U · I, Ladung, Elektrolyse",
+    tut:{concept:"Die elektrische Leistung ist P = U · I (in Watt). Die transportierte Ladung ist Q = I · t (Strom mal Zeit). Bei der Elektrolyse ist die abgeschiedene Masse proportional zu I · t.",ex:"U = 230 V, I = 0,5 A → P = 230 · 0,5 = 115 W",example:"Leistung bei U = 230 V und I = 0,5 A",steps:["Leistung: P = U · I.","P = 230 V · 0,5 A.","= 115 W."]},
+    gen:(L)=>{const mode=pick(L>=3?['P','Q','elek','P']:['P','Q','P']);
+      if(mode==='P'){const U=pick([12,24,100,230,400]),I=pick(L>=3?[0.2,0.5,1.5,2]:[1,2,3,5]),P=_eRound(U*I);
+        return _numMC(`Welche elektrische Leistung wird bei U = ${fmt(U)} V und I = ${fmt(I)} A umgesetzt?`,P,'W',[U/I,U+I,P*2,P/2],`P = U · I = ${fmt(U)} V · ${fmt(I)} A = ${fmt(P)} W.`,["Leistung: P = U · I.","Spannung mal Strom, Einheit Watt."]);}
+      if(mode==='Q'){const I=pick([0.5,1,2,3,5]),t=pick([10,20,30,60]),Q=_eRound(I*t);
+        return _numMC(`Welche Ladung fließt, wenn ${fmt(I)} A für ${fmt(t)} Sekunden fließen?`,Q,'C',[I/t,I+t,Q*2,Q/2],`Q = I · t = ${fmt(I)} A · ${fmt(t)} s = ${fmt(Q)} C.`,["Ladung: Q = I · t.","Strom mal Zeit."]);}
+      const kk=pick([0.02,0.03,0.04]),I1=pick([0.4,0.5,1]),t1=pick([10,15,20]),m1=_eRound(kk*I1*t1),I2=pick([1,2]),tt=pick([6,12,20,30]),m2=_eRound(kk*I2*tt),t2=_eRound(m2/(kk*I2));
+      return _numMC(`Bei der Elektrolyse ist die abgeschiedene Masse proportional zu Stromstärke × Zeit. Bei ${fmt(I1)} A werden in ${fmt(t1)} Minuten ${fmt(m1)} g abgeschieden. Wie lange dauert es, bis bei ${fmt(I2)} A ${fmt(m2)} g abgeschieden werden?`,t2,'min',[t2*2,t2/2,t1,tt+t1],`Masse ∝ I · t. Konstante k = ${fmt(m1)} g ÷ (${fmt(I1)} A · ${fmt(t1)} min) = ${fmt(kk)} g/(A·min). Zeit = ${fmt(m2)} g ÷ (${fmt(I2)} A · ${fmt(kk)}) = ${fmt(t2)} min.`,["Bestimme zuerst k = m / (I · t) aus dem ersten Fall.","Dann t = m / (I · k) für den zweiten Fall."]);}},
+  schaltung:{name:"Reihe & Parallel",teaser:"erkennen & Widerstände berechnen",
+    tut:{concept:"Reihe: die Widerstände addieren sich, R = R1 + R2; der Strom ist überall gleich. Parallel: R = (R1·R2)/(R1+R2); der Gesamtwiderstand ist kleiner als der kleinste Einzelwiderstand, die Spannung ist an allen Zweigen gleich.",ex:"R1 = 6 Ω, R2 = 3 Ω parallel → (6·3)/(6+3) = 2 Ω",example:"R1 = 6 Ω und R2 = 3 Ω parallel",steps:["Parallel: R = (R1·R2)/(R1+R2).","= (6·3)/(6+3) = 18/9.","= 2 Ω."]},
+    gen:(L)=>{const t=pick(['concept','reihe','parallel','concept']);
+      if(t==='reihe'){const pr=pick([[10,20],[100,50],[47,33],[120,80],[15,5]]),a=pr[0],b=pr[1];
+        return _numMC(`Zwei Widerstände R1 = ${a} Ω und R2 = ${b} Ω sind in Reihe geschaltet. Wie groß ist der Gesamtwiderstand?`,a+b,'Ω',[_eRound(a*b/(a+b)),Math.abs(a-b),a,b],`Reihe: R = R1 + R2 = ${a} Ω + ${b} Ω = ${a+b} Ω.`,["Reihe bedeutet addieren.","R = R1 + R2."]);}
+      if(t==='parallel'){const pr=pick([[6,3],[10,10],[20,30],[100,100],[12,4],[6,12]]),a=pr[0],b=pr[1],rg=_eRound(a*b/(a+b));
+        return _numMC(`Zwei Widerstände R1 = ${a} Ω und R2 = ${b} Ω sind parallel geschaltet. Wie groß ist der Gesamtwiderstand?`,rg,'Ω',[a+b,Math.abs(a-b),a,b],`Parallel: R = (R1·R2)/(R1+R2) = (${a}·${b})/(${a}+${b}) = ${fmt(rg)} Ω.`,["Parallel: R = (R1·R2)/(R1+R2).","Das Ergebnis ist kleiner als der kleinste Einzelwiderstand."]);}
+      const e=_eSchalt[_eDraw('eSchalt',_eSchalt.length)];return _mc(e[0],e[1],e[2],e[3],e[4]);}},
+  logik:{name:"Schaltungs-Logik",teaser:"Schalter, Ausfall & Helligkeit",
+    tut:{concept:"Schalter in Reihe wirken wie UND (alle müssen geschlossen sein), parallel wie ODER (einer genügt). In Reihe fällt bei einer Unterbrechung alles aus; parallele Zweige sind voneinander unabhängig.",ex:"Zwei Schalter in Reihe → Lampe leuchtet nur, wenn beide geschlossen sind.",example:"Zwei Schalter parallel – wann leuchtet die Lampe?",steps:["Parallel bedeutet zwei getrennte Wege.","Ein geschlossener Weg reicht für den Strom.","Also: wenn mindestens einer geschlossen ist."]},
+    gen:(L)=>{const e=_eLogik[_eDraw('eLogik',_eLogik.length)];return _mc(e[0],e[1],e[2],e[3],e[4]);}}
+};
+/* ========= CFA LEVEL 1 QUICK PREP ========= */
+function _cfaDraw(key,pool,L){
+  const dk='cfa_'+key; let d=_eDeck[dk]; if(!d||!d.length){d=shuffle(pool.map((e,i)=>i));_eDeck[dk]=d;}
+  const i=d.pop(); const e=pool[i]; const it=_mc(e[0],e[1],e[2],e[3],e[4]); it._lvl=e[5]||2; return it;
+}
+function ensureCfaProfile(){const d=Store.data; if(!d.cfaProfile||typeof d.cfaProfile!=='object')d.cfaProfile={attempts:0,correct:0,errorRate:0,topics:{},weakTopics:[],reviewQueue:[],lastPracticed:null};
+  const c=d.cfaProfile; if(!c.topics)c.topics={}; if(!Array.isArray(c.weakTopics))c.weakTopics=[]; if(!Array.isArray(c.reviewQueue))c.reviewQueue=[]; return c;}
+function updateCfaProfile(catKey,ok){
+  const c=ensureCfaProfile();
+  c.attempts++; if(ok)c.correct++; c.errorRate=Math.round((1-c.correct/c.attempts)*100)/100; c.lastPracticed=Date.now();
+  const t=c.topics[catKey]||(c.topics[catKey]={attempts:0,correct:0}); t.attempts++; if(ok)t.correct++;
+  c.weakTopics=Object.keys(c.topics).filter(k=>{const x=c.topics[k];return x.attempts>=3 && (1-x.correct/x.attempts)>=0.4;})
+    .sort((a,b)=>(1-c.topics[b].correct/c.topics[b].attempts)-(1-c.topics[a].correct/c.topics[a].attempts));
+  if(ok){const i=c.reviewQueue.findIndex(r=>r.cat===catKey); if(i>=0)c.reviewQueue.splice(i,1);}
+  else{const ex=c.reviewQueue.find(r=>r.cat===catKey); if(ex){ex.tries=(ex.tries||0)+1;ex.dueAt=Date.now();} else c.reviewQueue.push({cat:catKey,dueAt:Date.now(),tries:1,addedAt:Date.now()}); if(c.reviewQueue.length>30)c.reviewQueue=c.reviewQueue.slice(c.reviewQueue.length-30);}
+  Store.persist();
+}
+const _cfaReturns=[
+ ["Was beschreibt der Holding Period Return (HPR)?","die Gesamtrendite über die gesamte Halteperiode (Kursänderung plus Erträge)",["die auf ein Jahr annualisierte Rendite","ausschließlich die Dividendenrendite","die inflationsbereinigte Rendite"],"Der HPR fasst Kursgewinn und Erträge über die komplette Haltedauer zusammen – nicht pro Jahr.",["‚Holding period‘ = gesamte Haltedauer, nicht annualisiert."],1],
+ ["Welche Durchschnittsrendite eignet sich am besten, um die Wertentwicklung über mehrere Perioden ohne Einfluss von Mittelzu-/abflüssen zu beurteilen?","die geometrische (zeitgewichtete) Rendite",["die arithmetische Rendite","die geldgewichtete Rendite (IRR)","die einfache Nominalrendite"],"Die zeitgewichtete (geometrische) Rendite blendet das Timing von Cashflows aus und misst die reine Wertentwicklung.",["Zeitgewichtet = unabhängig vom Cashflow-Timing."],3],
+ ["Was misst die geldgewichtete Rendite (money-weighted return)?","den internen Zinsfuß der tatsächlichen Ein- und Auszahlungen des Anlegers",["die Rendite unabhängig von Cashflows","den einfachen Durchschnitt der Periodenrenditen","die risikofreie Rendite"],"Die geldgewichtete Rendite ist die IRR der realen Zahlungsströme und reagiert auf deren Timing.",["Money-weighted = IRR der Zahlungen des Anlegers."],2],
+ ["Wie verhält sich die arithmetische zur geometrischen Durchschnittsrendite bei schwankenden Renditen?","die arithmetische ist größer oder gleich der geometrischen",["die geometrische ist stets größer","sie sind immer exakt gleich","die arithmetische ist stets kleiner"],"Nur ohne Schwankung sind beide gleich; mit Streuung liegt die arithmetische über der geometrischen.",["Bei null Schwankung sind sie gleich, sonst arithmetisch ≥ geometrisch."],2],
+ ["Worin unterscheidet sich die reale von der nominalen Rendite?","die reale Rendite ist um die Inflation bereinigt",["die reale Rendite ist die Rendite vor Steuern","die nominale Rendite ist inflationsbereinigt","sie sind identisch"],"Real ≈ nominal − Inflation; die reale Rendite zeigt den Kaufkraftzuwachs.",["real ≈ nominal − Inflation."],1],
+ ["Welcher Ansatz annualisiert eine Halbjahresrendite r korrekt?","(1 + r)^2 − 1",["r × 2","(1 + r)^(1/2) − 1","r / 2"],"Zwei Halbjahre ergeben (1+r)·(1+r) − 1; einfaches Verdoppeln ignoriert den Zinseszins.",["Zwei Halbjahre pro Jahr → Exponent 2."],2],
+ ["Eine Anlage bringt nominal 5 %, die Inflation liegt bei 5 %. Was bedeutet das näherungsweise?","die reale Rendite ist ungefähr null",["die Kaufkraft verdoppelt sich","die reale Rendite beträgt etwa 10 %","die reale Rendite beträgt etwa −5 %"],"Bei nominal = Inflation bleibt real ≈ 0 %, die Kaufkraft bleibt etwa gleich.",["real ≈ nominal − Inflation = 5 % − 5 %."],1],
+ ["Ein Wert steigt von 50 auf 55. Wie hoch ist die einfache Rendite?","10 %",["5 %","9,1 %","11 %"],"(55 − 50) / 50 = 5 / 50 = 10 %.",["(neu − alt) / alt."],1],
+ ["Eine Aktie steigt in Jahr 1 um 10 % und fällt in Jahr 2 um 10 %. Wie hoch ist die kumulierte Rendite über beide Jahre (gerundet)?","etwa −1 %",["genau 0 %","etwa +1 %","etwa −10 %"],"1,10 × 0,90 = 0,99 → −1 %. Gleich große Auf- und Abschläge heben sich nicht exakt auf.",["1,1 × 0,9 = 0,99."],2],
+ ["Kursrendite 4 % plus Dividendenrendite 2 %. Wie hoch ist der Total Return näherungsweise?","6 %",["2 %","8 %","4 %"],"Total Return ≈ Kursrendite + Ertragsrendite = 4 % + 2 % = 6 %.",["Total Return = Kursrendite + Ertragsrendite."],1]
+];
+const _cfaTvm=[
+ ["Was bewirkt ein höherer Diskontsatz für den Barwert (PV) künftiger Zahlungen?","der Barwert sinkt",["der Barwert steigt","der Barwert bleibt unverändert","nur der Endwert sinkt"],"Stärkeres Abzinsen verringert den heutigen Wert künftiger Zahlungen.",["Mehr abzinsen = weniger Gegenwartswert."],1],
+ ["Was beschreibt eine Perpetuity (ewige Rente)?","eine konstante Zahlung, die unendlich lange läuft",["eine Zahlung mit fester Laufzeit","eine einmalige Zahlung","eine einmalige, wachsende Zahlung"],"Eine Perpetuity zahlt einen konstanten Betrag ohne Enddatum.",["‚Perpetual‘ = unendlich."],1],
+ ["Welche Formel liefert den Barwert einer ewigen Rente mit Zahlung C und Zinssatz r?","C / r",["C × r","C / (1 + r)","C × (1 + r)"],"PV der Perpetuity = C / r.",["Barwert der ewigen Rente = Zahlung geteilt durch Zins."],2],
+ ["Was passiert mit dem effektiven Jahreszins, wenn bei gleichem Nominalzins häufiger unterjährig verzinst wird?","der effektive Jahreszins steigt",["er sinkt","er bleibt gleich","er wird negativ"],"Häufigere Verzinsung erzeugt mehr Zinseszins-Schritte und damit einen höheren Effektivzins.",["Mehr Zinseszins-Schritte → höherer Effektivzins."],2],
+ ["Was ist der Future Value (FV) im Vergleich zum Present Value (PV)?","der aufgezinste Wert einer heutigen Summe in der Zukunft",["der abgezinste Wert einer künftigen Summe","stets kleiner als der PV","unabhängig vom Zinssatz"],"FV entsteht durch Aufzinsen, PV durch Abzinsen.",["FV = aufzinsen, PV = abzinsen."],1],
+ ["Zwei Optionen: 100 € heute oder 100 € in einem Jahr. Welche ist bei positivem Zins mehr wert?","100 € heute",["100 € in einem Jahr","beide sind exakt gleich viel wert","das hängt nur von der Inflation ab"],"Geld heute kann verzinst werden und ist daher mehr wert (Zeitwert des Geldes).",["Geld heute kann sofort verzinst werden."],1],
+ ["Wie berechnet man den Barwert einer einzelnen Zahlung FV in n Jahren bei Zins r?","FV / (1 + r)^n",["FV × (1 + r)^n","FV / (1 + r × n)","FV × n / r"],"Abzinsen einer Einmalzahlung: PV = FV / (1+r)^n.",["Abzinsen mit (1 + r) hoch n."],2],
+ ["Wie hoch ist der Barwert von 110 € in einem Jahr bei 10 % Zins?","100 €",["99 €","121 €","105 €"],"PV = 110 / 1,10 = 100 €.",["110 geteilt durch 1,10."],1],
+ ["Welcher Endwert ergibt sich aus 200 € nach 2 Jahren bei 10 % p.a. (mit Zinseszins)?","242 €",["240 €","220 €","244 €"],"200 × 1,1 × 1,1 = 200 × 1,21 = 242 €.",["200 × 1,1 × 1,1."],2],
+ ["Eine ewige Rente zahlt 5 € pro Jahr, der Zinssatz beträgt 5 %. Wie hoch ist der Barwert?","100 €",["50 €","25 €","105 €"],"PV = C / r = 5 / 0,05 = 100 €.",["C / r = 5 / 0,05."],2]
+];
+const _cfaStats=[
+ ["Welches Lagemaß ist am robustesten gegenüber Ausreißern?","der Median",["das arithmetische Mittel","die Spannweite","die Standardabweichung"],"Der Median hängt nur von der Position ab und reagiert kaum auf Extremwerte.",["Der Median reagiert kaum auf einzelne Extremwerte."],1],
+ ["Was misst die Standardabweichung?","die durchschnittliche Streuung um den Mittelwert",["den häufigsten Wert","die mittlere Position der Daten","die Schiefe der Verteilung"],"Die Standardabweichung ist die Wurzel der Varianz und misst die Streuung.",["Streuungsmaß = Wurzel der Varianz."],1],
+ ["Eine Verteilung ist rechtsschief (positiv schief). Wie liegen Mittelwert und Median typischerweise?","der Mittelwert liegt über dem Median",["der Mittelwert liegt unter dem Median","beide sind exakt gleich","der Modus ist der größte Wert"],"Der lange Schwanz nach rechts zieht den Mittelwert über den Median.",["Der lange rechte Schwanz zieht den Mittelwert nach oben."],3],
+ ["Was bedeutet eine Kurtosis, die größer ist als bei der Normalverteilung (leptokurtisch)?","dickere Enden und mehr extreme Werte",["dünnere Enden als normal","perfekte Symmetrie","keinerlei Streuung"],"Hohe Kurtosis bedeutet ‚fat tails‘ – mehr Wahrscheinlichkeit in den Extremen.",["Hohe Kurtosis = dicke Enden (fat tails)."],3],
+ ["Welche Skala hat einen echten Nullpunkt und erlaubt sinnvolle Verhältnisse?","die Verhältnisskala (ratio)",["die Nominalskala","die Ordinalskala","die Intervallskala"],"Nur die Verhältnisskala hat einen absoluten Nullpunkt (z. B. Preise, Mengen).",["Nur die Ratio-Skala hat einen absoluten Nullpunkt."],2],
+ ["Was beschreibt der Variationskoeffizient (CV)?","die Standardabweichung relativ zum Mittelwert",["die Varianz mal Mittelwert","den Mittelwert geteilt durch die Streuung","die Differenz aus Maximum und Minimum"],"CV = Standardabweichung / Mittelwert – ein relatives Risikomaß zum Vergleich verschiedener Anlagen.",["CV = Streuung relativ zum Mittelwert."],2],
+ ["Zwei Investments haben dieselbe erwartete Rendite, aber unterschiedliche Standardabweichung. Was bevorzugt ein risikoaverser Anleger?","das mit der geringeren Standardabweichung",["das mit der höheren Standardabweichung","beide sind gleichwertig","das mit der höheren erwarteten Rendite"],"Bei gleicher erwarteter Rendite ist weniger Streuung (Risiko) vorzuziehen.",["Weniger Streuung = weniger Risiko bei gleicher Rendite."],1],
+ ["Datensatz: 2, 4, 9. Wie hoch ist das arithmetische Mittel?","5",["4","6","15"],"(2 + 4 + 9) / 3 = 15 / 3 = 5.",["Summe geteilt durch Anzahl."],1],
+ ["Datensatz: 1, 3, 5, 7. Wie hoch ist der Median?","4",["3","5","16"],"Bei gerader Anzahl ist der Median das Mittel der beiden mittleren Werte: (3 + 5)/2 = 4.",["Mittel der beiden mittleren Werte."],2],
+ ["Die Varianz beträgt 16. Wie hoch ist die Standardabweichung?","4",["8","16","256"],"Standardabweichung = Wurzel der Varianz = √16 = 4.",["Standardabweichung = Wurzel der Varianz."],1]
+];
+const _cfaProb=[
+ ["Was ist der Erwartungswert einer Zufallsvariablen?","der wahrscheinlichkeitsgewichtete Durchschnitt der möglichen Werte",["der wahrscheinlichste Einzelwert","der höchstmögliche Wert","die Streuung der Werte"],"E(X) = Summe aus Wert × Wahrscheinlichkeit über alle Ausgänge.",["Summe aus Wert × Wahrscheinlichkeit."],1],
+ ["Zwei Ereignisse sind unabhängig. Wie berechnet man die Wahrscheinlichkeit, dass beide eintreten?","P(A) × P(B)",["P(A) + P(B)","P(A) − P(B)","P(A) / P(B)"],"Bei Unabhängigkeit wird die gemeinsame Wahrscheinlichkeit multipliziert.",["Unabhängig & beide → multiplizieren."],1],
+ ["Was beschreibt die bedingte Wahrscheinlichkeit P(A|B)?","die Wahrscheinlichkeit von A, gegeben dass B eingetreten ist",["die Wahrscheinlichkeit, dass A und B eintreten","die Wahrscheinlichkeit von B, gegeben A","die Wahrscheinlichkeit, dass keines eintritt"],"Der senkrechte Strich bedeutet ‚gegeben‘: A unter der Bedingung B.",["Der Strich ‚|‘ heißt ‚gegeben‘."],2],
+ ["Welche Eigenschaft haben sich gegenseitig ausschließende (disjunkte) Ereignisse?","sie können nicht gleichzeitig eintreten, P(A und B) = 0",["sie sind immer unabhängig","ihre Einzelwahrscheinlichkeiten ergeben immer 1","sie sind identisch"],"Disjunkte Ereignisse schließen sich aus; ihre Schnittmenge ist leer.",["‚Mutually exclusive‘ = kein gemeinsames Eintreten."],2],
+ ["Welcher Ansatz beschreibt die Additionsregel P(A oder B)?","P(A) + P(B) − P(A und B)",["P(A) + P(B)","P(A) × P(B)","P(A) − P(B)"],"Der gemeinsame Teil wird einmal abgezogen, damit er nicht doppelt zählt.",["Den Überschneidungsteil einmal abziehen."],3],
+ ["Was leistet der Satz von Bayes im Kern?","er aktualisiert eine Wahrscheinlichkeit anhand neuer Information",["er berechnet den Erwartungswert","er misst die Streuung","er ist identisch mit der Additionsregel"],"Bayes verbindet eine Vorab-Wahrscheinlichkeit (Prior) mit Evidenz zu einer aktualisierten (Posterior).",["Bayes: Prior mit Evidenz zu Posterior aktualisieren."],3],
+ ["Die erwartete Rendite eines Portfolios ist positiv, die Standardabweichung hoch. Was sagt der Erwartungswert allein NICHT aus?","wie stark die Ergebnisse schwanken (das Risiko)",["den Durchschnitt der Ergebnisse","die zentrale Tendenz","den langfristigen Mittelwert"],"Der Erwartungswert beschreibt die Mitte, nicht die Streuung; dafür braucht es die Standardabweichung.",["Erwartungswert ≠ Risiko."],2],
+ ["Eine faire Münze wird zweimal geworfen. Wie wahrscheinlich ist zweimal Kopf?","25 %",["50 %","12,5 %","75 %"],"0,5 × 0,5 = 0,25 = 25 %.",["0,5 × 0,5."],1],
+ ["Ein Gewinn von 100 € tritt mit 30 % Wahrscheinlichkeit ein, sonst 0 €. Wie hoch ist der Erwartungswert?","30 €",["100 €","70 €","50 €"],"E = 100 × 0,3 + 0 × 0,7 = 30 €.",["Wert × Wahrscheinlichkeit aufsummieren."],1],
+ ["Ein fairer Würfel (1–6) wird geworfen. Wie wahrscheinlich ist eine gerade Zahl?","50 %",["33 %","16,7 %","66 %"],"3 von 6 Zahlen (2, 4, 6) sind gerade → 50 %.",["3 von 6 Zahlen sind gerade."],1]
+];
+const _cfaPort=[
+ ["Was bewirkt Diversifikation in einem Portfolio?","sie reduziert das unsystematische Risiko",["sie eliminiert das Marktrisiko","sie erhöht die erwartete Rendite immer","sie erhöht die Korrelation der Titel"],"Diversifikation senkt das titelspezifische (unsystematische) Risiko, nicht das Marktrisiko.",["Diversifikation senkt das titelspezifische Risiko."],2],
+ ["Was beschreibt der Beta-Faktor eines Wertpapiers?","die Sensitivität gegenüber dem Marktrisiko",["das unsystematische Risiko","die erwartete Dividende","die Standardabweichung der Rendite"],"Beta misst, wie stark ein Titel auf Marktbewegungen reagiert (systematisches Risiko).",["Beta = systematisches Risiko relativ zum Markt."],2],
+ ["Wie wirkt eine niedrige oder negative Korrelation zweier Anlagen?","sie verbessert den Diversifikationseffekt",["sie erhöht das Gesamtrisiko","sie verändert das Risiko nicht","sie verdoppelt die erwartete Rendite"],"Je geringer die Korrelation, desto stärker gleichen sich Schwankungen aus.",["Geringere Korrelation = stärkerer Risikoausgleich."],2],
+ ["Was misst die Sharpe Ratio?","die Überrendite pro Einheit Gesamtrisiko",["die Rendite pro Einheit Marktrisiko","das unsystematische Risiko","die reine Rendite ohne Risikobezug"],"Sharpe = (Rendite − risikofrei) / Standardabweichung – Rendite je Einheit Gesamtrisiko.",["(Rendite − risikofrei) / Standardabweichung."],3],
+ ["Was beschreibt die Efficient Frontier?","Portfolios mit maximaler Rendite je Risikoniveau",["alle überhaupt möglichen Portfolios","ausschließlich risikofreie Anlagen","Portfolios mit minimaler Rendite je Risiko"],"Die Effizienzlinie zeigt die besten erreichbaren Rendite-Risiko-Kombinationen.",["Effizient = beste Rendite für gegebenes Risiko."],3],
+ ["Wie berechnet man die erwartete Rendite eines Portfolios aus zwei Anlagen?","als gewichteter Durchschnitt der Einzelrenditen",["gewichteter Durchschnitt minus Korrelation","Wurzel aus der Summe der Renditen","einfache Summe der Einzelrenditen"],"E(Rp) = w1·R1 + w2·R2 – anders als beim Risiko spielt die Korrelation hier keine Rolle.",["E(Rp) = w1·R1 + w2·R2."],2],
+ ["Welches Risiko lässt sich durch Diversifikation NICHT beseitigen?","das systematische Risiko (Marktrisiko)",["das unsystematische Risiko","das titelspezifische Risiko","das unternehmensspezifische Risiko"],"Marktrisiko betrifft alle Titel und bleibt auch bei breiter Streuung bestehen.",["Marktrisiko bleibt trotz breiter Streuung."],2],
+ ["Portfolio: 50 % Anlage A (Rendite 10 %) und 50 % B (Rendite 6 %). Wie hoch ist die erwartete Portfoliorendite?","8 %",["16 %","10 %","6 %"],"0,5 × 10 % + 0,5 × 6 % = 8 %.",["Gewichteter Durchschnitt der Renditen."],1],
+ ["Anlage A hat Beta 1,2, Anlage B Beta 0,8, beide zu 50 % gewichtet. Wie hoch ist das Portfolio-Beta?","1,0",["2,0","0,4","1,2"],"Portfolio-Beta = 0,5 × 1,2 + 0,5 × 0,8 = 1,0.",["Beta ist ein gewichteter Durchschnitt."],2],
+ ["Rendite 8 %, risikofreier Zins 2 %, Standardabweichung 12 %. Wie hoch ist die Sharpe Ratio?","0,5",["0,67","0,8","1,5"],"(8 % − 2 %) / 12 % = 6 / 12 = 0,5.",["(Rendite − risikofrei) / Standardabweichung."],3]
+];
+const _cfaHyp=[
+ ["Was ist die Nullhypothese (H0) typischerweise?","die Aussage ‚kein Effekt / kein Unterschied‘, die widerlegt werden soll",["die Aussage, die man beweisen möchte","eine immer wahre Aussage","dasselbe wie die Alternativhypothese"],"H0 ist die Status-quo-Annahme; man sucht Evidenz, um sie zu verwerfen.",["H0 = ‚kein Effekt‘, die Status-quo-Annahme."],1],
+ ["Was bedeutet ein p-Wert kleiner als das Signifikanzniveau?","die Nullhypothese wird abgelehnt",["die Nullhypothese wird angenommen","der Test ist ungültig","die Stichprobe ist zu klein"],"p < α heißt: das Ergebnis ist signifikant, H0 wird verworfen.",["Kleiner p-Wert = signifikant → H0 ablehnen."],2],
+ ["Was ist ein Fehler 1. Art (Type-I-Fehler)?","eine wahre Nullhypothese fälschlich ablehnen",["eine falsche Nullhypothese beibehalten","die Stichprobe verfälschen","den p-Wert falsch berechnen"],"Type I = ‚falscher Alarm‘: H0 ist wahr, wird aber verworfen.",["Type I = wahre H0 fälschlich ablehnen (falscher Alarm)."],3],
+ ["Was beschreibt das Bestimmtheitsmaß R² in einer Regression?","den Anteil der durch das Modell erklärten Varianz",["die Steigung der Regressionsgeraden","die Korrelation der Residuen","die Stichprobengröße"],"R² liegt zwischen 0 und 1 und gibt den erklärten Varianzanteil an.",["R² = erklärter Varianzanteil (0 bis 1)."],2],
+ ["Was sagt der Steigungskoeffizient in einer einfachen linearen Regression aus?","wie stark sich Y ändert, wenn X um eine Einheit steigt",["den Achsenabschnitt","den erklärten Varianzanteil","die Korrelation der Variablen"],"Der Slope ist die erwartete Änderung von Y pro Einheit X.",["Steigung = Änderung von Y je Einheit X."],2],
+ ["Was bedeutet ein 95-%-Konfidenzintervall korrekt?","bei wiederholter Stichprobenziehung enthält das Intervall in 95 % der Fälle den wahren Wert",["der wahre Wert liegt mit 95 % im Intervall dieser einen Stichprobe","95 % der Datenpunkte liegen im Intervall","der Test ist zu 95 % fehlerfrei"],"Die 95 % beziehen sich auf das Verfahren über viele Stichproben, nicht auf eine einzelne Realisierung.",["Aussage über das Verfahren über viele Stichproben."],4],
+ ["Welcher Ansatz beschreibt eine Teststatistik (z. B. t-Wert) im Kern?","(Schätzwert − Hypothesenwert) / Standardfehler",["Schätzwert × Standardfehler","Standardfehler / Schätzwert","Schätzwert + Hypothesenwert"],"Die Teststatistik misst den Abstand zum Hypothesenwert, normiert mit dem Standardfehler.",["Abstand zum Hypothesenwert, geteilt durch den Standardfehler."],3],
+ ["Eine Korrelation beträgt 0,6. Wie hoch ist R² in der einfachen linearen Regression?","0,36",["0,6","0,8","0,77"],"R² = Korrelation² = 0,6² = 0,36.",["R² = Korrelation zum Quadrat."],2],
+ ["Signifikanzniveau 5 %, p-Wert 0,03. Wird H0 abgelehnt?","Ja, da 0,03 < 0,05",["Nein, obwohl 0,03 < 0,05","Nein, der p-Wert ist irrelevant","nur bei einem Niveau von 1 %"],"Da p (0,03) kleiner als α (0,05) ist, wird H0 abgelehnt.",["p < α → H0 ablehnen."],1],
+ ["Schätzwert 12, Hypothesenwert 10, Standardfehler 1. Wie groß ist die Teststatistik?","2",["12","0,5","22"],"(12 − 10) / 1 = 2.",["(Schätzwert − Hypothesenwert) / Standardfehler."],2]
+];
+const CFA={
+  returns:{name:"Returns & Renditen",teaser:"HPR, geo./arith., real vs. nominal",
+    tut:{concept:"Renditen messen Wertzuwachs: Der Holding Period Return fasst Kurs- und Ertragsgewinn über die Haltedauer zusammen. Die zeitgewichtete (geometrische) Rendite blendet Cashflows aus, die geldgewichtete (IRR) berücksichtigt sie. Real ≈ nominal − Inflation.",ex:"Wert von 50 auf 55 → 10 % einfache Rendite.",example:"Wert steigt von 50 auf 55 – einfache Rendite?",steps:["Rendite = (neu − alt) / alt.","= (55 − 50) / 50 = 5 / 50.","= 10 %."]},
+    gen:(L)=>_cfaDraw('returns',_cfaReturns,L)},
+  tvm:{name:"Time Value of Money",teaser:"Barwert, Endwert, ewige Rente",
+    tut:{concept:"Geld heute ist mehr wert als später. Aufzinsen ergibt den Future Value, Abzinsen den Present Value: PV = FV / (1+r)^n. Eine ewige Rente hat den Barwert C / r. Höherer Zins → kleinerer Barwert.",ex:"110 € in 1 Jahr bei 10 % → PV = 100 €.",example:"Barwert von 110 € in 1 Jahr bei 10 % Zins?",steps:["PV = FV / (1 + r).","= 110 / 1,10.","= 100 €."]},
+    gen:(L)=>_cfaDraw('tvm',_cfaTvm,L)},
+  stats:{name:"Statistik Basics",teaser:"Mittel, Median, Streuung, Schiefe",
+    tut:{concept:"Lagemaße (Mittel, Median, Modus) beschreiben die Mitte, Streuungsmaße (Varianz, Standardabweichung, CV) die Schwankung. Der Median ist robust gegen Ausreißer; die Standardabweichung ist die Wurzel der Varianz.",ex:"Varianz 16 → Standardabweichung 4.",example:"Mittelwert von 2, 4, 9?",steps:["Mittelwert = Summe / Anzahl.","= (2 + 4 + 9) / 3 = 15 / 3.","= 5."]},
+    gen:(L)=>_cfaDraw('stats',_cfaStats,L)},
+  prob:{name:"Wahrscheinlichkeit & Erwartungswert",teaser:"Regeln, bedingte W., E(X)",
+    tut:{concept:"Der Erwartungswert ist die wahrscheinlichkeitsgewichtete Summe der Ausgänge. Unabhängig & beide → multiplizieren; ‚oder‘ → addieren und die Überschneidung abziehen. P(A|B) heißt ‚A gegeben B‘.",ex:"100 € mit 30 % → E = 30 €.",example:"Gewinn 100 € mit 30 %, sonst 0 € – Erwartungswert?",steps:["E = Wert × Wahrscheinlichkeit aufsummieren.","= 100 × 0,3 + 0 × 0,7.","= 30 €."]},
+    gen:(L)=>_cfaDraw('prob',_cfaProb,L)},
+  port:{name:"Portfolio-Mathe Light",teaser:"Diversifikation, Beta, Sharpe",
+    tut:{concept:"Die Portfoliorendite ist der gewichtete Durchschnitt der Einzelrenditen; ebenso das Portfolio-Beta. Diversifikation senkt das unsystematische Risiko, nicht das Marktrisiko. Sharpe Ratio = (Rendite − risikofrei) / Standardabweichung.",ex:"50 % zu 10 % + 50 % zu 6 % → 8 %.",example:"50 % Anlage zu 10 %, 50 % zu 6 % – Portfoliorendite?",steps:["E(Rp) = w1·R1 + w2·R2.","= 0,5·10 % + 0,5·6 %.","= 8 %."]},
+    gen:(L)=>_cfaDraw('port',_cfaPort,L)},
+  hyptest:{name:"Hypothesentests & Regression",teaser:"H0/H1, p-Wert, R², Slope",
+    tut:{concept:"Die Nullhypothese H0 nimmt ‚kein Effekt‘ an; ist der p-Wert kleiner als α, wird H0 abgelehnt. Eine Teststatistik ist (Schätzwert − Hypothesenwert) / Standardfehler. In der Regression misst R² den erklärten Varianzanteil und der Slope die Änderung von Y je Einheit X.",ex:"Korrelation 0,6 → R² = 0,36.",example:"Korrelation 0,6 – wie groß ist R²?",steps:["R² = Korrelation zum Quadrat.","= 0,6 × 0,6.","= 0,36."]},
+    gen:(L)=>_cfaDraw('hyptest',_cfaHyp,L)}
+};
+function regOf(g){return g==='math'?MATH:g==='logic'?LOGIC:g==='wm'?KONZ:g==='elektro'?ELEKTRO:g==='cfa'?CFA:DEU;}
 
 /* ========= WORKING MEMORY ========= */
 const WM = {
@@ -447,33 +939,145 @@ const WM = {
     tut:{concept:"Bei der Zahlenspanne merkst du dir eine wachsende Ziffernfolge und gibst sie wieder – vorwärts oder rückwärts. Rückwärts ist anspruchsvoller, weil du die Folge im Kopf umdrehen musst. Die Länge passt sich automatisch an deine Leistung an.",ex:"4 7 2 9 → rückwärts 9 2 7 4",example:"4 7 2 9",steps:["Bilde Blöcke: „47“ und „29“.","Sprich sie innerlich rhythmisch mit, während sie erscheinen.","Vorwärts: 4 7 2 9 · Rückwärts: 9 2 7 4."]}},
   nback:{name:"N-Back",
     tut:{concept:"Beim N-Back erscheint ein Strom von Buchstaben. Du meldest „Treffer“, wenn der aktuelle Buchstabe demjenigen N Schritte zuvor gleicht. Das fordert das aktive Vorhalten und ständige Aktualisieren im Arbeitsgedächtnis – die klassische WM-Übung.",ex:"N = 2:  C · H · C → Treffer",example:"C · H · C   (N = 2)",steps:["Halte immer die letzten N Buchstaben im Kopf.","Vergleiche den aktuellen mit dem von vor N Schritten.","Das zweite C gleicht dem C zwei Schritte zuvor → Treffer."]}},
+  bdpq:{name:"b d p q (Zählen)",
+    tut:{concept:"Beim b-d-p-q-Test zählst du unter Zeitdruck, wie oft ein bestimmter Buchstabe in einer Reihe aus b, d, p und q vorkommt. Die vier Buchstaben sehen sich gespiegelt sehr ähnlich – gefragt sind Konzentration und Genauigkeit.",ex:"Zähle die d in „bdpbpd“ → 2",example:`Zähle die <b>d</b>:<div style="font-family:monospace;letter-spacing:4px;font-size:20px;margin-top:8px">bdpbppdbd</div>`,steps:["Gehe die Reihe einmal ruhig von links nach rechts durch.","Achte auf die Richtung: b/d und p/q sind leicht zu verwechseln.","Hier kommt d dreimal vor → Antwort 3."]}},
 };
 
 /* ========= GMAT ========= */
-const bankPS=[
-  {q:"Ein Hemd kostet nach 20 % Rabatt 40 €. Wie hoch war der Originalpreis?",o:["48 €","50 €","52 €","56 €","60 €"],c:1,h:"Der reduzierte Preis sind 80 % des Originals.",e:"40 ÷ 0,8 = 50 €."},
-  {q:"Wenn 3x + 7 = 22, dann ist x =",o:["3","4","5","6","7"],c:2,h:"Bringe die 7 zuerst auf die andere Seite.",e:"3x = 15 → x = 5."},
-  {q:"Der Durchschnitt von 5 Zahlen ist 12. Entfernt man die Zahl 20, wie hoch ist der neue Durchschnitt?",o:["8","9","10","11","12"],c:2,h:"Bestimme zuerst die Gesamtsumme.",e:"Summe = 60; (60 − 20) ÷ 4 = 10."},
-  {q:"Ein Zug fährt 240 km in 3 Stunden. Durchschnittsgeschwindigkeit?",o:["60 km/h","70 km/h","75 km/h","80 km/h","90 km/h"],c:3,h:"Geschwindigkeit = Strecke ÷ Zeit.",e:"240 ÷ 3 = 80 km/h."},
-  {q:"Wenn a : b = 2 : 3 und b : c = 4 : 5, dann ist a : c =",o:["2 : 5","8 : 15","6 : 5","3 : 5","8 : 5"],c:1,h:"Mach den gemeinsamen Teil b in beiden Verhältnissen gleich groß.",e:"a:b = 8:12, b:c = 12:15 → a:c = 8:15."},
-  {q:"1000 € werden mit 10 % p. a. über 2 Jahre verzinst (Zinseszins). Endbetrag?",o:["1100 €","1200 €","1210 €","1220 €","1320 €"],c:2,h:"Jedes Jahr wird mit 1,1 multipliziert.",e:"1000 × 1,1² = 1210 €."},
-  {q:"Wie viele unterschiedliche Anordnungen hat das Wort LEVEL?",o:["20","24","30","60","120"],c:2,h:"Zwei Buchstaben kommen je doppelt vor.",e:"5! ÷ (2! × 2!) = 120 ÷ 4 = 30."},
-  {q:"Ein Rechteck ist doppelt so lang wie breit, Umfang 36 cm. Fläche?",o:["72 cm²","64 cm²","54 cm²","81 cm²","96 cm²"],c:0,h:"Drücke Länge über die Breite aus und nutze den Umfang.",e:"2(2b + b) = 36 → b = 6, l = 12 → 72 cm²."},
+const GEN_PS_HELPERS=1;
+function money(x){return (Math.round(x*100)/100).toLocaleString('de-DE')+' €';}
+function plain(x){return (Math.round(x*100)/100).toLocaleString('de-DE');}
+function kmh(x){return plain(x)+' km/h';}
+function pctt(x){return plain(x)+' %';}
+function hrs(x){return plain(x)+' h';}
+function days(x){return plain(x)+' Tage';}
+function mc(correct,distractors,fmt){
+  fmt=fmt||plain;
+  const vals=[correct];
+  const add=v=>{ if(v==null||!isFinite(v))return; v=Math.round(v*100)/100; if(!vals.some(u=>Math.abs(u-v)<1e-6))vals.push(v); };
+  (distractors||[]).forEach(add);
+  let mag=Math.max(1,Math.round(Math.abs(correct)*0.1)),k=1,guard=0;
+  while(vals.length<5 && guard++<300){ add(correct+mag*k); if(vals.length<5)add(correct-mag*k); k++; if(k>6){mag++;k=1;} }
+  const sh=shuffle(vals.slice(0,5));
+  return {o:sh.map(fmt), c:sh.findIndex(v=>Math.abs(v-correct)<1e-6)};
+}
+function mcStr(correct,distractors){
+  const vals=[correct]; (distractors||[]).forEach(d=>{ if(d&&!vals.includes(d))vals.push(d); });
+  let guard=0; while(vals.length<5 && guard++<60){ const t=rnd(1,9)+' : '+rnd(2,9); if(!vals.includes(t))vals.push(t); }
+  const sh=shuffle(vals.slice(0,5)); return {o:sh, c:sh.indexOf(correct)};
+}
+const GEN_PS=[
+  ()=>{const p=pick([10,15,20,25,30,40,50,75]),base=pick([40,60,80,120,160,200,240,300]);const correct=base*p/100;
+    return {q:`${p} % von ${plain(base)} sind:`,...mc(correct,[base*(100-p)/100,correct*2,Math.round(correct/2),correct+p]),h:"1 % ist der Hundertstel der Zahl.",e:`${plain(base)} ÷ 100 × ${p} = ${plain(correct)}.`};},
+  ()=>{const base=pick([40,60,80,100,120,160,200]),p=pick([10,25,50]);const correct=base*(1+p/100);
+    return {q:`Ein Preis von ${money(base)} steigt um ${p} %. Neuer Preis?`,...mc(correct,[base*(1-p/100),base,base+p,base*(1+2*p/100)],money),h:"Die Steigerung auf den Preis addieren.",e:`${money(base)} + ${p} % = ${money(correct)}.`};},
+  ()=>{const base=pick([40,60,80,100,120,160,200]),p=pick([10,25,50]);const correct=base*(1-p/100);
+    return {q:`Ein Preis von ${money(base)} sinkt um ${p} %. Neuer Preis?`,...mc(correct,[base*(1+p/100),base,base-p,base*p/100],money),h:"Die Minderung vom Preis abziehen.",e:`${money(base)} − ${p} % = ${money(correct)}.`};},
+  ()=>{const orig=pick([50,60,80,100,120,150,200]),p=pick([10,20,25,40]);const disc=orig*(1-p/100);
+    return {q:`Nach ${p} % Rabatt kostet ein Artikel ${money(disc)}. Originalpreis?`,...mc(orig,[disc*(1+p/100),disc+p,disc,orig+p],money),h:`Der reduzierte Preis sind ${100-p} % des Originals.`,e:`${money(disc)} ÷ ${plain((100-p)/100)} = ${money(orig)}.`};},
+  ()=>{const base=pick([80,100,120,150,200]),p=pick([10,20,25]);const correct=base*(1-p/100)*(1+p/100);
+    return {q:`${money(base)} sinkt erst um ${p} % und steigt dann um ${p} %. Endpreis?`,...mc(correct,[base,base*(1-p/100),base*(1+p/100),base*(1-2*p/100)],money),h:"Nacheinander multiplizieren – nicht gleichsetzen.",e:`${money(base)} × ${plain(1-p/100)} × ${plain(1+p/100)} = ${money(correct)}.`};},
+  ()=>{const cost=pick([40,50,80,100,120,200]),pr=pick([10,20,25,50]);const sell=cost*(1+pr/100);
+    return {q:`Einkauf ${money(cost)}, Verkauf ${money(sell)}. Gewinn in Prozent?`,...mc(pr,[sell-cost,Math.round(cost/sell*100),pr+10,pr-5],pctt),h:"Gewinn ÷ Einkaufspreis × 100.",e:`(${plain(sell)} − ${plain(cost)}) ÷ ${plain(cost)} × 100 = ${pr} %.`};},
+  ()=>{const P=pick([500,800,1000,1200,2000]),r=pick([4,5,6,8,10]),t=rnd(2,5);const I=P*r*t/100;
+    return {q:`Einfache Zinsen auf ${money(P)} bei ${r} % p. a. für ${t} Jahre?`,...mc(I,[P*r/100,I+P*r/100,Math.round(I/2),I*2],money),h:"Zinsen = Kapital × Satz × Zeit ÷ 100.",e:`${plain(P)} × ${r} × ${t} ÷ 100 = ${money(I)}.`};},
+  ()=>{const P=pick([1000,2000,5000,1500,800]),r=pick([10,20]);const correct=P*Math.pow(1+r/100,2);
+    return {q:`${money(P)} zu ${r} % p. a., Zinseszins über 2 Jahre. Endbetrag?`,...mc(correct,[P*(1+2*r/100),P+P*r/100,P*(1+r/100),correct+P*r/100],money),h:"Jedes Jahr mit dem Faktor multiplizieren.",e:`${plain(P)} × ${plain(1+r/100)}² = ${money(correct)}.`};},
+  ()=>{const a=rnd(1,4),b=rnd(a+1,6),unit=pick([4,5,6,8,10]),total=(a+b)*unit;
+    return {q:`Zwei Zahlen im Verhältnis ${a} : ${b} ergeben zusammen ${plain(total)}. Wie groß ist die größere?`,...mc(b*unit,[a*unit,Math.round(total/2),total,b*unit+unit]),h:`Insgesamt ${a+b} Teile.`,e:`${plain(total)} ÷ ${a+b} = ${unit}; größere = ${b} × ${unit} = ${plain(b*unit)}.`};},
+  ()=>{const m=rnd(1,4),n=rnd(2,5),p=rnd(1,4),q=rnd(2,5);let A=m*p,C=n*q;const g=gcd(A,C);A/=g;C/=g;const corr=`${A} : ${C}`;
+    const r=mcStr(corr,[`${m} : ${q}`,`${n} : ${p}`,`${C} : ${A}`,`${m*q} : ${n*p}`]);
+    return {q:`Wenn a : b = ${m} : ${n} und b : c = ${p} : ${q}, dann ist a : c =`,o:r.o,c:r.c,h:"Mach b in beiden Verhältnissen gleich groß.",e:`a : b : c = ${m*p} : ${n*p} : ${n*q} → a : c = ${A} : ${C}.`};},
+  ()=>{let n=rnd(3,5),avg=rnd(10,20),nums,miss,g=0;do{nums=Array.from({length:n-1},()=>rnd(2,avg+8));miss=avg*n-nums.reduce((a,b)=>a+b,0);g++;}while((miss<2||miss>avg+15)&&g<60);
+    return {q:`Der Durchschnitt von ${n} Zahlen ist ${avg}. ${n-1} davon sind ${nums.join(', ')}. Wie groß ist die fehlende?`,...mc(miss,[avg,miss+avg,miss-2,miss+3]),h:"Erst die Gesamtsumme (Durchschnitt × Anzahl).",e:`Summe = ${avg*n}; fehlende = ${avg*n} − ${nums.reduce((a,b)=>a+b,0)} = ${miss}.`};},
+  ()=>{let n=rnd(4,6),avg=rnd(10,18),rem,na,g=0;do{rem=rnd(avg+3,avg+25);na=(avg*n-rem)/(n-1);g++;}while((!Number.isInteger(na)||na<1)&&g<100);
+    return {q:`Der Durchschnitt von ${n} Zahlen ist ${avg}. Entfernt man die Zahl ${rem}, wie groß ist der neue Durchschnitt?`,...mc(na,[avg,avg-1,na+2,na-1]),h:"Zuerst die Gesamtsumme bestimmen.",e:`(${avg*n} − ${rem}) ÷ ${n-1} = ${na}.`};},
+  ()=>{const v=pick([40,50,60,70,80,90]),t=rnd(2,6);const d=v*t;
+    return {q:`Ein Fahrzeug fährt ${plain(d)} km in ${t} Stunden. Durchschnittsgeschwindigkeit?`,...mc(v,[Math.round(d/(t+1)),v+10,v-10,Math.round(d/2)],kmh),h:"Geschwindigkeit = Strecke ÷ Zeit.",e:`${plain(d)} ÷ ${t} = ${v} km/h.`};},
+  ()=>{const [v1,v2,correct]=pick([[30,60,40],[40,60,48],[20,60,30],[40,120,60],[20,30,24],[60,90,72]]);
+    return {q:`Hin ${v1} km/h, gleiche Strecke zurück ${v2} km/h. Durchschnittsgeschwindigkeit?`,...mc(correct,[(v1+v2)/2,v1,v2,correct+5],kmh),h:"Gesamtstrecke ÷ Gesamtzeit – nicht der Mittelwert der Tempos.",e:`2·${v1}·${v2} ÷ (${v1}+${v2}) = ${correct} km/h.`};},
+  ()=>{const [x,y,correct]=pick([[4,12,3],[6,12,4],[3,6,2],[10,15,6],[20,30,12],[12,4,3],[8,8,4]]);
+    return {q:`A schafft eine Arbeit in ${x} h, B in ${y} h. Wie lange zusammen?`,...mc(correct,[x+y,(x+y)/2,correct+1,correct+2],hrs),h:"Zusammen = (x · y) ÷ (x + y).",e:`${x}·${y} ÷ (${x}+${y}) = ${correct} h.`};},
+  ()=>{let m1=pick([4,6,8,10,12]),d1=pick([6,9,12]),m2,correct,g=0;do{m2=pick([2,3,4,6]);correct=m1*d1/m2;g++;}while(!Number.isInteger(correct)&&g<60);
+    return {q:`${m1} Arbeiter erledigen eine Aufgabe in ${d1} Tagen. Wie lange brauchen ${m2} Arbeiter?`,...mc(correct,[d1,m1*d1,correct+2,correct-1],days),h:"Arbeiter × Tage bleibt konstant.",e:`${m1} × ${d1} = ${m1*d1} Personentage ÷ ${m2} = ${correct} Tage.`};},
+  ()=>{const a=pick([2,3,4,5,6]),x=rnd(2,12),b=rnd(1,15)*(Math.random()<.3?-1:1);const c=a*x+b;const bs=b<0?`− ${-b}`:`+ ${b}`;
+    return {q:`Wenn ${a}x ${bs} = ${c}, dann ist x =`,...mc(x,[x+1,x-1,c-a,Math.round(c/a)]),h:"Die Konstante zuerst auf die andere Seite.",e:`${a}x = ${c-b} → x = ${x}.`};},
+  ()=>{const x=rnd(2,12),y=rnd(1,10);const s=x+y,d=x-y;
+    return {q:`x + y = ${s} und x − y = ${d}. Wie groß ist x?`,...mc(x,[y,s,d,Math.round(s/2)]),h:"Beide Gleichungen addieren.",e:`2x = ${s+d} → x = ${x}.`};},
+  ()=>{const k=pick([3,4,5,6,7]),N=pick([30,40,50,60,100]);const correct=Math.floor(N/k);
+    return {q:`Wie viele Vielfache von ${k} liegen zwischen 1 und ${N}?`,...mc(correct,[correct+1,correct-1,Math.floor(N/(k-1)),N-correct]),h:`Größtes Vielfaches ist ${k*correct}.`,e:`${k*correct} ÷ ${k} = ${correct} Stück.`};},
+  ()=>{const a=rnd(2,6),m=rnd(2,3),b=rnd(2,5);const correct=Math.pow(a,m)+Math.pow(b,2);
+    return {q:`${a}<sup>${m}</sup> + ${b}<sup>2</sup> =`,...mc(correct,[a*m+b*2,Math.pow(a,m)*Math.pow(b,2),correct-2,correct+3]),h:"Beide Potenzen einzeln berechnen.",e:`${Math.pow(a,m)} + ${Math.pow(b,2)} = ${correct}.`};},
+  ()=>{const n=pick([10,12,15,18,20,25]);const correct=n*(n+1)/2;
+    return {q:`Summe der Zahlen von 1 bis ${n}?`,...mc(correct,[Math.round(n*n/2),correct-n,n*(n-1)/2,correct+n]),h:"Gauß: n · (n+1) ÷ 2.",e:`${n} × ${n+1} ÷ 2 = ${correct}.`};},
+  ()=>{const t=pick(['rect','tri','circle']);
+    if(t==='rect'){const l=rnd(4,15),w=rnd(3,12);return {q:`Fläche eines Rechtecks mit Länge ${l} und Breite ${w}?`,...mc(l*w,[2*(l+w),l+w,Math.round(l*w/2),l*w+l]),h:"Fläche = Länge × Breite.",e:`${l} × ${w} = ${l*w}.`};}
+    if(t==='tri'){let b=rnd(4,16),h=rnd(3,12);if((b*h)%2)b++;return {q:`Fläche eines Dreiecks mit Grundseite ${b} und Höhe ${h}?`,...mc(b*h/2,[b*h,b+h,b*h/2+b,b*h/2-2]),h:"Fläche = ½ × Grundseite × Höhe.",e:`½ × ${b} × ${h} = ${b*h/2}.`};}
+    const r=rnd(2,9);return {q:`Fläche eines Kreises mit Radius ${r} als Vielfaches von π (gib die Zahl vor π an)?`,...mc(r*r,[2*r,r*r*2,r,r*r+r]),h:"Fläche = π · r²; gesucht ist r².",e:`${r}² = ${r*r} → ${r*r}π.`};},
+  ()=>{const a=rnd(1,5),b=rnd(1,5),tot=a+b;const correct=Math.round(a/tot*100);
+    return {q:`Ein Beutel enthält ${a} rote und ${b} blaue Kugeln. Wahrscheinlichkeit für rot (in %)?`,...mc(correct,[Math.round(b/tot*100),50,correct+10,correct-10],pctt),h:"Günstige ÷ alle × 100.",e:`${a} ÷ ${tot} ≈ ${correct} %.`};},
+  ()=>{const [w,correct]=pick([['LEVEL',30],['ERDE',12],['KOMMA',60],['OTTO',6],['RADAR',30],['TOTO',6]]);
+    return {q:`Wie viele unterschiedliche Anordnungen hat das Wort ${w}?`,...mc(correct,[fact(w.length),correct*2,Math.round(correct/2),correct+6]),h:"Buchstaben! geteilt durch die Fakultäten der Wiederholungen.",e:`${w.length}! ÷ (Wiederholungen) = ${correct}.`};}
+];
+const GEN_DS=[
+  ()=>{const x=rnd(2,9),y=rnd(1,x-1);return {q:"Welchen Wert hat x?",s1:`x + y = ${x+y}`,s2:`x − y = ${x-y}`,c:2,h:"Eine Gleichung, zwei Unbekannte – reicht das?",e:`Einzeln je zwei Unbekannte; zusammen x = ${x}. Antwort C.`};},
+  ()=>{const r=rnd(2,7);return {q:"Ist x > 0?",s1:`x² = ${r*r}`,s2:`x³ = ${r*r*r}`,c:1,h:"Welche Aussage lässt x noch negativ zu?",e:`(1) x = ±${r} → unklar. (2) x = ${r} → x > 0. Antwort B.`};},
+  ()=>{const [a,b,ab]=pick([[2,3,6],[3,4,12],[2,5,10],[3,5,15],[2,7,14],[4,3,12]]);return {q:`Ist die ganze Zahl k durch ${ab} teilbar?`,s1:`k ist durch ${a} teilbar.`,s2:`k ist durch ${b} teilbar.`,c:2,h:`${ab} = ${a} × ${b} (teilerfremd).`,e:`Einzeln nicht; zusammen durch ${a} und ${b} → durch ${ab}. Antwort C.`};},
+  ()=>{const x=rnd(3,12),a=pick([2,3,4,5]),b=rnd(1,9);return {q:"Welchen Wert hat x?",s1:`${a}x = ${a*x}`,s2:`x + ${b} = ${x+b}`,c:3,h:"Löst jede Gleichung x eindeutig?",e:`(1) x = ${x}. (2) x = ${x}. Jede allein reicht. Antwort D.`};},
+  ()=>{const k=rnd(1,5);return {q:"x und y sind positive ganze Zahlen. Ist x > y?",s1:`x = y + ${k}`,s2:"x ÷ y > 1",c:3,h:"Vergleicht jede Aussage x direkt mit y?",e:`(1) x = y + ${k} > y. (2) x/y > 1 ⇒ x > y. Jede allein reicht. Antwort D.`};},
+  ()=>{const l=rnd(4,9),w=rnd(2,l-1),P=2*(l+w);return {q:"Wie groß ist die Fläche des Rechtecks?",s1:`Die Länge ist ${l}.`,s2:`Der Umfang ist ${P}.`,c:2,h:"Für die Fläche brauchst du Länge UND Breite.",e:`Zusammen: Breite = ${P}/2 − ${l} = ${w} → Fläche ${l*w}. Antwort C.`};},
+  ()=>{const n=rnd(3,8),avg=rnd(20,60);return {q:"Wie hoch ist der Durchschnitt der Gruppe?",s1:`Die Summe aller Werte ist ${n*avg}.`,s2:`Die Gruppe hat ${n} Mitglieder.`,c:2,h:"Durchschnitt = Summe ÷ Anzahl.",e:`Zusammen ${n*avg} ÷ ${n} = ${avg}. Antwort C.`};},
+  ()=>{const m=rnd(2,9)*2,f=rnd(2,9)*2;return {q:"Wie ist das Verhältnis von Männern zu Frauen?",s1:`Es sind ${m} Männer.`,s2:`Es sind ${f} Frauen.`,c:2,h:"Für ein Verhältnis brauchst du beide Anzahlen.",e:`Zusammen ${m} : ${f}. Antwort C.`};},
+  ()=>{const A=pick([800,1000,1200,1500,2000]),p=pick([10,20,25,50]);return {q:"Wie hoch war der Umsatz im Mai?",s1:`Er war ${p} % höher als im April.`,s2:`Im April betrug der Umsatz ${money(A)}.`,c:2,h:"Brauchst du einen Bezugswert?",e:`Zusammen ${money(A)} × ${plain(1+p/100)} = ${money(A*(1+p/100))}. Antwort C.`};},
+  ()=>{const k=rnd(2,9);return {q:"Welchen Wert hat |x|?",s1:`x = ${k}`,s2:`x < ${k+rnd(3,8)}`,c:0,h:"Legt die Aussage den Betrag fest?",e:`(1) |x| = ${k}. (2) viel zu offen. Antwort A.`};},
+  ()=>{return {q:"Ist x negativ?",s1:"x³ < 0",s2:"x² > 0",c:0,h:"Welche Potenz verrät das Vorzeichen?",e:"(1) ungerade Potenz < 0 ⇒ x < 0. (2) nur x ≠ 0. Antwort A."};},
+  ()=>{const t=rnd(4,9),a=rnd(1,t-1),b=rnd(t,t+4);return {q:`Ist x > ${t}?`,s1:`x > ${a}`,s2:`x > ${b}`,c:1,h:"Welche Schranke garantiert das?",e:`(1) x könnte ≤ ${t} sein. (2) x > ${b} ≥ ${t} ⇒ x > ${t}. Antwort B.`};},
+  ()=>{const lo=rnd(10,20),hi=lo+rnd(9,13);return {q:"Welchen Wert hat die ganze Zahl x?",s1:"x ist durch 4 teilbar.",s2:`x liegt zwischen ${lo} und ${hi}.`,c:4,h:"Wie viele Vielfache von 4 liegen im Bereich?",e:"Im Bereich liegen mehrere Vielfache von 4 → nicht eindeutig. Antwort E."};},
+  ()=>{const k=rnd(2,9);return {q:"Welchen Wert hat |x|?",s1:`x = ${k}`,s2:`x² = ${k*k}`,c:3,h:"Legt jede Aussage den Betrag fest?",e:`(1) |x| = ${k}. (2) x = ±${k} → |x| = ${k}. Jede allein reicht. Antwort D.`};},
+  ()=>{const now=rnd(12,40),y=rnd(2,8),z=rnd(2,8);return {q:"Wie alt ist die Person heute?",s1:`In ${y} Jahren ist sie ${now+y}.`,s2:`Vor ${z} Jahren war sie ${now-z}.`,c:3,h:"Rechne jede Aussage auf heute um.",e:`(1) ${now+y} − ${y}. (2) ${now-z} + ${z}. Beide → ${now}. Antwort D.`};},
+  ()=>{const x=rnd(2,9),y=rnd(2,9);return {q:"Welchen Wert hat x + y?",s1:`x + y = ${x+y}`,s2:`x = ${x}`,c:0,h:"Brauchst du die Einzelwerte oder nur die Summe?",e:"(1) gibt die Summe direkt. (2) sagt nichts über y. Antwort A."};},
+  ()=>{return {q:"Ist a · b > 0?",s1:"a > 0",s2:"b < 0",c:2,h:"Für das Vorzeichen brauchst du beide Faktoren.",e:"Zusammen a > 0, b < 0 → a·b < 0 (eindeutig nein). Einzeln unklar. Antwort C."};},
+  ()=>{const O=pick([50,80,100,120,200]),p=pick([10,20,25,40]);const D=O*(1-p/100);return {q:"Wie hoch war der Rabatt in Prozent?",s1:`Der Preis wurde von ${money(O)} auf ${money(D)} gesenkt.`,s2:`Der Rabatt betrug ${money(O-D)}.`,c:0,h:"Brauchst du den Originalpreis?",e:`(1) (${plain(O)} − ${plain(D)})/${plain(O)} = ${p} %. (2) ohne Originalpreis unklar. Antwort A.`};}
 ];
 const DS_OPTS=["Aussage (1) allein reicht, (2) allein nicht.","Aussage (2) allein reicht, (1) allein nicht.","Beide zusammen reichen, keine allein.","Jede Aussage allein reicht.","Auch zusammen reichen sie nicht."];
-const bankDS=[
-  {q:"Ist x > 0?",s1:"x² = 16",s2:"x³ = 64",c:1,h:"Prüfe jede Aussage einzeln: Welche lässt x noch negativ zu?",e:"(1): x = ±4 → unklar. (2): x = 4 > 0 → reicht. Antwort B."},
-  {q:"Welchen Wert hat x?",s1:"x + y = 10",s2:"x − y = 4",c:2,h:"Eine Gleichung mit zwei Unbekannten legt x noch nicht fest.",e:"Einzeln je 2 Unbekannte; zusammen x = 7. Antwort C."},
-  {q:"Ist die ganze Zahl n gerade?",s1:"n² ist gerade",s2:"n + 1 ist ungerade",c:3,h:"Was sagt jede Aussage über die Teilbarkeit durch 2?",e:"(1) ⇒ n gerade. (2) ⇒ n gerade. Jede allein reicht. Antwort D."},
-  {q:"Wie groß ist die Fläche des Rechtecks?",s1:"Länge = 5",s2:"Umfang = 16",c:2,h:"Für die Fläche brauchst du zwei Maße.",e:"(1) allein: keine Breite. (2) allein: l+w=8. Zusammen w=3 → Fläche 15. Antwort C."},
-  {q:"x, y sind positive ganze Zahlen. Ist x > y?",s1:"x = y + 2",s2:"x ÷ y > 1",c:3,h:"Beide Aussagen vergleichen x direkt mit y.",e:"(1) ⇒ x>y. (2) ⇒ x>y (beide positiv). Jede allein reicht. Antwort D."},
-];
+
 const bankCR=[
-  {q:"Eine Firma führte ein Gesundheitsprogramm ein; im Folgejahr sanken die Krankheitstage um 15 %. Das Management schließt: Das Programm hat die Gesundheit verbessert. Welche Aussage schwächt diesen Schluss am stärksten?",o:["Das Programm war beliebt.","Im selben Jahr wurde bezahlter Krankenurlaub gekürzt, was Krankmeldungen entmutigte.","Andere Firmen haben ähnliche Programme.","Das Programm war günstiger als geplant.","Die Versicherungsbeiträge stiegen."],c:1,h:"Suche eine andere Erklärung für die weniger gemeldeten Krankheitstage.",e:"B liefert eine alternative Ursache (weniger Meldungen ≠ mehr Gesundheit) und schwächt den Kausalschluss."},
-  {q:"Um Verkehr zu reduzieren, will die Stadt die Parkgebühren in der Innenstadt erhöhen und erwartet weniger Autos. Welche Annahme liegt dem Plan zugrunde?",o:["Autofahrer haben Alternativen, die sie statt der höheren Gebühr wählen.","Parkgebühren sind aktuell niedrig.","Geschäfte lehnen den Plan ab.","Der Nahverkehr ist kostenlos.","Der Verkehr ist innen schlimmer als außen."],c:0,h:"Was muss zutreffen, damit tatsächlich weniger Autos kommen?",e:"Ohne Ausweichmöglichkeit würden Fahrer trotzdem fahren – A ist die notwendige Annahme."},
-  {q:"Eine Studie zeigt: Schüler, die frühstücken, schneiden in Tests besser ab. Eine Schule will kostenloses Frühstück anbieten, um Noten zu heben. Welche Aussage stärkt den Plan am meisten?",o:["Frühstück macht Freude.","In einem kontrollierten Versuch verbesserte eine Frühstücksgruppe ihre Ergebnisse gegenüber einer Vergleichsgruppe.","Manche Schüler frühstücken nicht.","Frühstück ist günstig.","Tests finden morgens statt."],c:1,h:"Was würde einen echten Ursache-Wirkungs-Beleg liefern?",e:"B zeigt den kausalen Effekt im kontrollierten Vergleich – das stärkt den Schluss am stärksten."},
+  {q:"Eine Firma führte ein Gesundheitsprogramm ein; im Folgejahr sanken die Krankheitstage um 15 %. Das Management schließt: Das Programm hat die Gesundheit verbessert. Was schwächt diesen Schluss am stärksten?",o:["Das Programm war beliebt.","Im selben Jahr wurde bezahlter Krankenurlaub gekürzt, was Krankmeldungen entmutigte.","Andere Firmen haben ähnliche Programme.","Das Programm war günstiger als geplant.","Die Versicherungsbeiträge stiegen."],c:1,h:"Suche eine andere Erklärung für weniger Krankmeldungen.",e:"Weniger Meldungen ≠ mehr Gesundheit – B liefert eine alternative Ursache."},
+  {q:"Um den Verkehr zu reduzieren, will die Stadt die Parkgebühren erhöhen und erwartet weniger Autos. Welche Annahme liegt dem Plan zugrunde?",o:["Autofahrer haben Alternativen, die sie statt der höheren Gebühr wählen.","Parkgebühren sind aktuell niedrig.","Geschäfte lehnen den Plan ab.","Der Nahverkehr ist kostenlos.","Innen ist der Verkehr schlimmer als außen."],c:0,h:"Was muss gelten, damit Fahrer wirklich wegbleiben?",e:"Ohne Ausweichmöglichkeit würden viele trotzdem fahren – A ist notwendig."},
+  {q:"Schüler, die frühstücken, schneiden in Tests besser ab. Eine Schule will mit kostenlosem Frühstück die Noten heben. Was stärkt den Plan am meisten?",o:["Frühstück macht Freude.","In einem kontrollierten Versuch verbesserte eine Frühstücksgruppe ihre Ergebnisse gegenüber einer Vergleichsgruppe.","Manche Schüler frühstücken nicht.","Frühstück ist günstig.","Tests finden morgens statt."],c:1,h:"Was belegt einen echten Ursache-Wirkungs-Zusammenhang?",e:"Der kontrollierte Vergleich (B) stützt die Kausalität am stärksten."},
+  {q:"Eine Stadt installierte mehr Straßenlaternen; danach sank die nächtliche Kriminalität. Schluss: Die Laternen senkten die Kriminalität. Was schwächt das am stärksten?",o:["Die Laternen waren energieeffizient.","Anwohner begrüßten die Laternen.","Im selben Zeitraum wurde die nächtliche Polizeipräsenz stark erhöht.","Die Kriminalität sank auch anderswo leicht.","Die Laternen waren teuer."],c:2,h:"Gab es eine zweite Veränderung zur selben Zeit?",e:"Die zusätzliche Polizei (C) ist eine konkurrierende Ursache."},
+  {q:"Eine Firma will eine 4-Tage-Woche einführen und erwartet höhere Produktivität, weil Mitarbeiter erholter seien. Was stärkt den Plan am meisten?",o:["Mitarbeiter mögen freie Tage.","Andere Firmen tun das auch.","Die 4-Tage-Woche spart Stromkosten.","In einem firmeninternen Pilotversuch stieg die Produktivität pro Stunde messbar.","Kunden bevorzugen erreichbare Firmen."],c:3,h:"Welcher Beleg betrifft genau die Produktivität?",e:"Der Pilotversuch (D) zeigt den erwarteten Effekt direkt."},
+  {q:"Ein Verlag senkt den Preis seiner E-Books und erwartet dadurch höhere Gesamteinnahmen aus E-Books. Welche Annahme steckt dahinter?",o:["E-Books sind beliebter als gedruckte Bücher.","Autoren akzeptieren niedrigere Honorare.","Konkurrenten senken ihre Preise nicht.","Lesegeräte werden billiger.","Der Mengenanstieg gleicht den niedrigeren Stückpreis mindestens aus."],c:4,h:"Warum sollten niedrigere Preise mehr Geld bringen?",e:"Nur wenn die Menge stark genug steigt (E), wachsen die Einnahmen."},
+  {q:"Wer den Kurs bestanden hat, hat die Abschlussprüfung mitgeschrieben. Tom hat die Abschlussprüfung nicht mitgeschrieben. Was folgt zwingend?",o:["Tom hat den Kurs nicht bestanden.","Tom hat den Kurs bestanden.","Tom war krank.","Niemand hat den Kurs bestanden.","Die Prüfung war schwer."],c:0,h:"Kehre die Wenn-dann-Aussage um (Kontraposition).",e:"Keine Prüfungsteilnahme ⇒ nicht bestanden. Antwort A."},
+  {q:"Ein Geschäft senkte die Preise, und der Gesamtumsatz (die Einnahmen) stieg. Was erklärt das am besten?",o:["Die Mitarbeiter bekamen weniger Lohn.","Die verkaufte Menge stieg so stark, dass die Einnahmen trotz niedrigerer Preise wuchsen.","Die Miete sank.","Die Konkurrenz schloss.","Die Lieferkosten sanken."],c:1,h:"Was beeinflusst die Einnahmen (nicht die Kosten)?",e:"Nur ein Mengenanstieg (B) hebt die Einnahmen; Kostenpunkte sind hier irrelevant."},
+  {q:"Eine Studie zeigt: Wer täglich Kaffee trinkt, lebt länger. Schluss: Kaffee verlängert das Leben. Was schwächt das am stärksten?",o:["Kaffee schmeckt vielen Menschen.","Tee enthält ebenfalls Koffein.","Die Kaffeetrinker trieben auch deutlich mehr Sport.","Die Studie lief über zehn Jahre.","Kaffee ist günstig."],c:2,h:"Gibt es einen verborgenen gemeinsamen Faktor?",e:"Mehr Sport (C) ist ein Störfaktor, der die längere Lebensdauer erklären könnte."},
+  {q:"Eine Schule schafft Hausaufgaben ab, um den Stress der Schüler zu senken. Welche Annahme liegt zugrunde?",o:["Lehrer mögen keine Hausaufgaben.","Schüler lernen ohne Hausaufgaben genauso viel.","Eltern sind einverstanden.","Hausaufgaben tragen wesentlich zum Stress der Schüler bei.","Andere Schulen tun dasselbe."],c:3,h:"Welcher Zusammenhang muss bestehen, damit der Plan wirkt?",e:"Nur wenn Hausaufgaben eine echte Stressquelle sind (D), senkt ihr Wegfall den Stress."},
+  {q:"Eine Diät-App wirbt, sie helfe beim Abnehmen, weil Nutzer ihre Mahlzeiten protokollieren. Was stärkt diese Behauptung am meisten?",o:["Die App ist leicht zu bedienen.","Die App ist kostenlos.","Viele Menschen wollen abnehmen.","Die App hat gute Bewertungen.","Wer protokolliert, nimmt im Schnitt mehr ab als vergleichbare Nutzer ohne Protokoll."],c:4,h:"Welcher Beleg verknüpft Protokollieren mit Abnehmen?",e:"Der direkte Vergleich (E) stützt den behaupteten Effekt."},
+  {q:"Ein Politiker sagt: „Mein Vorgänger hat die Wirtschaft ruiniert, also sind meine Pläne richtig.“ Worin liegt der Denkfehler?",o:["Dass der Vorgänger Fehler machte, belegt nicht, dass die eigenen Pläne gut sind.","Er nennt keine Quellen.","Er ist nicht beliebt.","Wirtschaft ist kompliziert.","Er wiederholt sich."],c:0,h:"Folgt aus den Fehlern anderer die eigene Richtigkeit?",e:"Die Schwäche des Gegners begründet nicht die eigenen Pläne (A)."},
+  {q:"Werbung: „9 von 10 Zahnärzten empfehlen Zahnpasta X, also ist sie die beste.“ Was schwächt das am stärksten?",o:["Zahnpasta X ist günstig.","Die befragten Zahnärzte durften mehrere Marken nennen und empfahlen fast alle auch Konkurrenzprodukte.","Zahnpasta X schmeckt gut.","Es wurden 100 Zahnärzte befragt.","Zahnärzte benutzen selbst Zahnpasta."],c:1,h:"Heißt „empfohlen“ auch „besser als andere“?",e:"Wenn fast alle auch die Konkurrenz empfahlen (B), sagt die Zahl nichts über „die beste“."},
+  {q:"Ein Café stellt Tische auf den Gehweg, um mehr Laufkundschaft zu gewinnen. Welche Annahme liegt zugrunde?",o:["Das Café hat guten Kaffee.","Die Tische sind bequem.","Vorbeigehende lassen sich von Außentischen eher zum Eintreten bewegen.","Die Stadt erlaubt Außentische.","Es regnet selten."],c:2,h:"Welcher Schritt verknüpft Außentische mit mehr Kundschaft?",e:"Der Plan setzt voraus, dass Außentische Passanten anziehen (C)."},
+  {q:"Alle Bücher in diesem Regal sind auf Deutsch. Einige Bücher in diesem Regal sind Romane. Was folgt zwingend?",o:["Alle Romane sind auf Deutsch.","Alle deutschen Bücher sind Romane.","Es gibt keine englischen Romane.","Einige der Romane in diesem Regal sind auf Deutsch.","Die meisten Bücher sind Romane."],c:3,h:"Kombiniere „alle … Deutsch“ mit „einige … Romane“.",e:"Da alle Regalbücher deutsch sind, sind die Romane darin deutsch (D)."},
+  {q:"Eine Firma will Werbung von Print auf Online umstellen, weil Online billiger ist. Welche Frage ist am wichtigsten zu klären?",o:["Wie viel kostet Online-Werbung genau?","Wer hat die Printanzeigen gestaltet?","Seit wann gibt es die Firma?","Mögen Mitarbeiter Online-Werbung?","Erreicht Online dieselbe relevante Zielgruppe wie Print?"],c:4,h:"Billiger nützt nichts, wenn …?",e:"Entscheidend ist, ob die Zielgruppe erreicht wird (E)."},
+  {q:"Bürgermeister: „Seit dem Bau der Fahrradwege gab es weniger Fahrradunfälle – die Wege machen das Radfahren sicherer.“ Was schwächt das am stärksten?",o:["Seit dem Bau fahren insgesamt deutlich weniger Menschen Rad.","Die Fahrradwege waren teuer.","Autofahrer ärgern sich über die Wege.","Die Wege sind gut beleuchtet.","Andere Städte bauen auch Radwege."],c:0,h:"Weniger Unfälle – oder einfach weniger Radfahrer?",e:"Bei deutlich weniger Radlern (A) sinken die Unfälle ohne mehr Sicherheit."},
+  {q:"Ein Restaurant nimmt vegane Gerichte ins Angebot, um den Umsatz zu steigern. Welche Annahme liegt zugrunde?",o:["Vegane Gerichte sind gesünder.","Es gibt genug Nachfrage, sodass vegane Gerichte zusätzlichen Umsatz bringen.","Die Köche können vegan kochen.","Vegane Zutaten sind teuer.","Konkurrenten bieten keine veganen Gerichte."],c:1,h:"Warum sollte das Angebot den Umsatz heben?",e:"Es braucht ausreichende zusätzliche Nachfrage (B)."},
+  {q:"Eine Stadt behauptet, Tempo-30-Zonen senken den Lärm. Was stärkt das am meisten?",o:["Anwohner wünschen sich weniger Lärm.","Tempo 30 ist leicht zu beschildern.","Messungen in neuen Tempo-30-Zonen zeigen einen niedrigeren Lärmpegel als vorher.","Autofahrer fahren ungern langsam.","Lärm ist ungesund."],c:2,h:"Welche Aussage misst den Effekt direkt?",e:"Die Lärmmessungen vorher/nachher (C) belegen die Behauptung."},
+  {q:"„Alle erfolgreichen Gründer, die ich kenne, stehen früh auf. Also macht frühes Aufstehen erfolgreich.“ Worin liegt der Denkfehler?",o:["Die Aussage ist unhöflich.","Erfolg ist nicht messbar.","Manche Gründer schlafen lange.","Aus einer Korrelation in einer kleinen, selbst gewählten Gruppe wird auf eine Ursache geschlossen.","Frühaufsteher sind müde."],c:3,h:"Korrelation = Ursache?",e:"Die Argumentation verwechselt eine Korrelation in kleiner Stichprobe mit einer Ursache (D)."},
+  {q:"Ein Medikament tötet Viren im Labor zuverlässig ab, half Patienten in der Studie aber nicht. Was erklärt das am besten?",o:["Das Medikament ist teuer.","Viren sind im Labor anders gefärbt.","Die Patienten waren jung.","Das Labor war modern.","Im Körper wird der Wirkstoff zu schnell abgebaut, um die Viren in wirksamer Menge zu erreichen."],c:4,h:"Was unterscheidet Laborschale und Körper?",e:"Wird der Wirkstoff im Körper zu schnell abgebaut (E), bleibt er wirkungslos."},
+  {q:"Ein Onlineshop verschickt Gutscheine per E-Mail, um Wiederkäufe zu fördern. Welche Annahme liegt zugrunde?",o:["Zumindest ein Teil der Empfänger öffnet und liest die E-Mails.","Die Gutscheine sind großzügig.","Der Shop hat viele Produkte.","E-Mail ist kostenlos.","Kunden mögen den Shop."],c:0,h:"Damit der Gutschein wirkt, muss er …?",e:"Er wirkt nur, wenn die Mails überhaupt gelesen werden (A)."},
+  {q:"Seit die Mittagspause verkürzt wurde, ist die Tagesproduktion gestiegen. Schluss: Kürzere Pausen erhöhen die Produktion. Was schwächt das am stärksten?",o:["Mitarbeiter essen schneller.","Gleichzeitig wurde eine neue, schnellere Maschine in Betrieb genommen.","Die Kantine ist beliebt.","Die Pause war vorher zu lang.","Produktion schwankt saisonal."],c:1,h:"Gab es eine andere Änderung zur selben Zeit?",e:"Die neue Maschine (B) erklärt die Mehrproduktion unabhängig von der Pause."},
+  {q:"Wenn es regnet, ist der Rasen nass. Der Rasen ist nicht nass. Was folgt zwingend?",o:["Es regnet.","Es hat geregnet.","Es regnet nicht.","Der Rasen ist trocken, weil es heiß ist.","Der Sprinkler ist aus."],c:2,h:"Wende den Umkehrschluss an (modus tollens).",e:"Nasser Rasen wäre die Folge von Regen; er ist nicht nass ⇒ es regnet nicht (C)."},
+  {q:"In einer Region nahm die Zahl der Störche zu, und gleichzeitig stieg die Geburtenrate. Schluss: Störche bringen Babys. Worin liegt der Denkfehler?",o:["Eine gemeinsame Ursache (z. B. ländliches Wachstum) wird übersehen – Korrelation ist nicht Ursache.","Störche sind selten.","Die Geburtenrate ist ungenau gemessen.","Babys mögen Vögel.","Die Region ist klein."],c:0,h:"Gibt es einen dritten Faktor?",e:"Klassische Scheinkorrelation – ein dritter Faktor erklärt beides (A)."},
+  {q:"Alle Mitglieder des Chors können Noten lesen. Lisa kann keine Noten lesen. Was folgt zwingend?",o:["Lisa singt schlecht.","Der Chor ist klein.","Niemand im Chor singt.","Lisa ist kein Mitglied des Chors.","Lisa lernt gerade Noten."],c:3,h:"Wende die Kontraposition an.",e:"Wer im Chor ist, liest Noten; Lisa nicht ⇒ nicht im Chor (D)."},
+  {q:"Ein Online-Händler stellt fest: Kunden, die Bewertungen lesen, kaufen häufiger. Er will Bewertungen prominenter zeigen, um den Umsatz zu steigern. Welche Annahme steckt dahinter?",o:["Bewertungen sind immer positiv.","Kunden mögen das Design.","Die Produkte sind günstig.","Es gibt viele Bewertungen.","Das Lesen von Bewertungen fördert den Kauf (nicht nur umgekehrt)."],c:4,h:"In welche Richtung läuft die Ursache?",e:"Der Plan setzt voraus, dass Lesen zum Kauf führt – nicht nur, dass Käufer eher lesen (E)."},
+  {q:"Trotz strengerer Tempolimits stieg die Zahl der Unfälle auf einer Straße. Was erklärt das am besten?",o:["Die Schilder waren gut sichtbar.","Tempolimits sind unbeliebt.","Nach einer Umleitung fuhren deutlich mehr Fahrzeuge als zuvor auf dieser Straße.","Die Straße ist neu.","Unfälle sind teuer."],c:2,h:"Was hat sich an der Verkehrsmenge geändert?",e:"Deutlich mehr Verkehr (C) erklärt mehr Unfälle trotz Limit."},
+  {q:"Eine Werbeagentur behauptet, ihre Kampagne habe den Umsatz eines Kunden gesteigert. Welche Information wäre am wichtigsten, um das zu beurteilen?",o:["Wie kreativ die Kampagne war.","Wie teuer die Kampagne war.","Wie lange die Agentur besteht.","Wie sich der Umsatz vergleichbarer Anbieter ohne Kampagne im selben Zeitraum entwickelte.","Wer die Kampagne gestaltet hat."],c:3,h:"Suche eine Vergleichsbasis.",e:"Eine Vergleichsgruppe ohne Kampagne (D) zeigt, ob der Anstieg wirklich an der Kampagne lag."},
+  {q:"Studie: In Städten mit mehr Fitnessstudios sind die Menschen im Schnitt gesünder. Schluss: Fitnessstudios machen gesund. Was schwächt das am stärksten?",o:["Wohlhabendere Städte haben mehr Studios UND eine bessere Gesundheitsversorgung.","Fitnessstudios sind beliebt.","Manche Studios sind teuer.","Sport ist anstrengend.","Es gibt auch Sportvereine."],c:0,h:"Gibt es einen gemeinsamen Hintergrundfaktor?",e:"Wohlstand (A) könnte sowohl Studios als auch Gesundheit erklären – ein Störfaktor."}
 ];
-const BANKS={ps:{title:"GMAT · Problem Solving",type:"choice",bank:bankPS},ds:{title:"GMAT · Data Sufficiency",type:"ds",bank:bankDS},cr:{title:"GMAT · Critical Reasoning",type:"choice",bank:bankCR}};
+const BANKS={ps:{title:"GMAT · Problem Solving",type:"choice",gen:GEN_PS},ds:{title:"GMAT · Data Sufficiency",type:"ds",gen:GEN_DS},cr:{title:"GMAT · Critical Reasoning",type:"choice",bank:bankCR}};
+function gmatItem(id){const g=BANKS[id];return g.gen?normItem(g.type,pick(g.gen)()):normItem(g.type,pick(g.bank));}
+function buildGmatList(id){const g=BANKS[id];
+  if(g.bank) return shuffle(g.bank.slice()).slice(0,ROUND).map(it=>normItem(g.type,it));
+  const tpls=shuffle(g.gen.slice());const list=[];for(let i=0;i<ROUND;i++) list.push(normItem(g.type,tpls[i%tpls.length]()));return list;}
 const GTUT={
   ps:{lede:"Quantitative Aufgaben mit fünf Optionen, von denen genau eine stimmt.",
     concept:"Beim Problem Solving löst du eine Rechenaufgabe und wählst aus fünf Optionen die einzig richtige. Tempo entsteht durch ein sauberes Vorgehen statt durch Raten – oft hilft Rückwärtsrechnen oder das Einsetzen der Optionen.",
@@ -488,11 +1092,11 @@ const GTUT={
 const DAILY_TUT={concept:"Das Tagestraining mischt Aufgaben aus allen Bereichen – Kopfrechnen, Logik, GMAT und Working Memory – und wählt sie automatisch nach deinem Leistungsprofil aus.",
   example:"Schwach in Brüchen, stark im 1×1?",steps:["Schwächere Bereiche tauchen etwas häufiger auf, damit du dort aufholst.","Starke Bereiche bleiben dabei, werden aber schwerer.","Nach jeder Runde siehst du stärksten und schwächsten Bereich plus eine Empfehlung."]};
 const ROUND=8;
-const GROUP_LABEL={math:'Kopfrechnen',logic:'Logik',gmat:'GMAT',wm:'Working Memory'};
+const GROUP_LABEL={math:'Kopfrechnen',logic:'Logik',wm:'Working Memory & Konzentration',deutsch:'Deutsch',elektro:'Elektrotechnik',cfa:'CFA Level 1 Quick Prep',gmat:'GMAT'};
 
 /* ========= ADAPTIVES LEISTUNGSPROFIL (localStorage) ========= */
 let PROFILE={};
-function loadProfile(){ PROFILE=Store.data.profile; }      // Referenz auf den Blob – Mutationen sind sofort im Store
+function loadProfile(){ PROFILE=Store.data.profile; migrateKonzWm(); }      // Referenz auf den Blob – Mutationen sind sofort im Store
 function saveProfile(){ Store.persist(); }
 function getProf(key){return PROFILE[key]||{attempts:0,correct:0,lastDiff:2,curDiff:2,errorRate:0,avgTime:0};}
 function curLevel(key){return clamp(Math.round((PROFILE[key]?.curDiff)??2),1,4);}
@@ -512,8 +1116,13 @@ function allCategories(){
   const list=[];
   Object.keys(MATH).forEach(id=>list.push({key:'math:'+id,group:'math',gen:MATH[id].gen,name:MATH[id].name}));
   Object.keys(LOGIC).forEach(id=>list.push({key:'logic:'+id,group:'logic',gen:LOGIC[id].gen,name:LOGIC[id].name}));
+  Object.keys(KONZ).forEach(id=>list.push({key:'wm:'+id,group:'wm',gen:KONZ[id].gen,name:KONZ[id].name}));
+  Object.keys(DEU).forEach(id=>list.push({key:'deutsch:'+id,group:'deutsch',gen:DEU[id].gen,name:DEU[id].name}));
+  Object.keys(ELEKTRO).forEach(id=>list.push({key:'elektro:'+id,group:'elektro',gen:ELEKTRO[id].gen,name:ELEKTRO[id].name}));
+  Object.keys(CFA).forEach(id=>list.push({key:'cfa:'+id,group:'cfa',gen:CFA[id].gen,name:CFA[id].name}));
   ['ps','ds','cr'].forEach(id=>list.push({key:id,group:'gmat',bank:id,name:BANKS[id].title}));
   list.push({key:'wm:span',group:'wm',span:true,name:'Zahlenspanne'});
+  list.push({key:'wm:bdpq',group:'wm',gen:genBdpq,name:'b d p q'});
   return list;
 }
 function groupLevel(group){
@@ -526,18 +1135,225 @@ function weightedPick(weighted){const tot=weighted.reduce((s,x)=>s+x.w,0);let r=
 function makeDailyItem(cat,L){
   let it;
   if(cat.span){const dir=Math.random()<.5?'fwd':'bwd';it=makeSpan(clamp(2+L,3,8),dir);}
-  else if(cat.bank){it=normItem(BANKS[cat.bank].type,pick(BANKS[cat.bank].bank));}
+  else if(cat.bank){it=gmatItem(cat.bank);}
   else {it={render:'input',...cat.gen(L)};}
   it.cat=cat.key; it.group=cat.group; it.diff=L; return it;
 }
 function generateDailyAdaptivePool(duration){
   const count={5:12,10:24,15:36}[duration]||12;
-  const cats=allCategories();
-  const weighted=cats.map(c=>{const p=getProf(c.key);const tried=p.attempts>0;const err=tried?p.errorRate:0.4;
-    return {c,w:1 + 1.8*err + (tried?0:0.3)};});
+  const st=dailySubState();
+  let cats=allCategories().filter(c=>st.enabled.has(c.key)); if(!cats.length)cats=allCategories();
+  const mp=Store.data.mathProfile, cs=(mp&&mp.categoryStats)||null;
+  const enabledKeys=new Set(cats.map(c=>c.key));
+  const lvlFor=c=>{const m=cs&&c.key.indexOf('math:')===0?cs[c.key]:null;return m?levelToGenLevel(m.level):curLevel(c.key);};
   const items=[];
-  for(let i=0;i<count;i++){const c=weightedPick(weighted);items.push(makeDailyItem(c,curLevel(c.key)));}
+  // 1) Fällige Mathe-Wiederholungen bevorzugen (nur aktivierte Kategorien)
+  if(mp&&Array.isArray(mp.reviewQueue)&&mp.reviewQueue.length){
+    const now=Date.now(),seen=new Set(),due=[];
+    for(const r of mp.reviewQueue){ if(r.dueAt<=now && enabledKeys.has(r.cat) && !seen.has(r.cat)){seen.add(r.cat);due.push(r.cat);} }
+    const maxReview=Math.min(due.length, Math.max(1,Math.round(count*0.2)));
+    for(let i=0;i<maxReview;i++){const c=cats.find(x=>x.key===due[i]);if(c){const it=makeDailyItem(c,lvlFor(c));it.review=true;items.push(it);}}
+  }
+  // 2) Gewichtete Auffüllung (Mathe via theta/rd/Fokus, sonst altes Profil)
+  const weighted=cats.map(c=>{
+    const m=cs&&c.key.indexOf('math:')===0?cs[c.key]:null; let w;
+    if(m){ const focusW=(100-m.theta)/100, uncW=m.rd/100; w=0.6+1.8*focusW+0.6*uncW; if(m.mastery==='mastered')w*=0.5; if(mp.focus&&mp.focus.indexOf(c.key)>=0)w*=1.3; }
+    else { const p=getProf(c.key); const tried=p.attempts>0; const err=tried?p.errorRate:0.4; w=1+1.8*err+(tried?0:0.3); }
+    return {c,w:Math.max(0.15,w)};
+  });
+  for(let i=items.length;i<count;i++){const c=weightedPick(weighted);items.push(makeDailyItem(c,lvlFor(c)));}
   return shuffle(items);
+}
+
+/* ========= MATHE-DIAGNOSE: Cluster, θ/RD-Scoring, Eingangstest (V1) ========= */
+let placement=null;
+const CLUSTER_ORDER=['c_grund','c_anteil','c_potenz','c_geo','c_folgen'];
+const CLUSTER_LABEL={c_grund:'Grundrechnen',c_anteil:'Brüche, Prozent & Verhältnis',c_potenz:'Potenzen, Wurzeln & Log',c_geo:'Geometrie & Trigonometrie',c_folgen:'Folgen, Funktionen & Kombinatorik'};
+const CLUSTERS={c_grund:['math:chain','math:mulS','math:mulB'],c_anteil:['math:frac','math:pct','math:dreisatz'],c_potenz:['math:pow','math:sqrt','math:log'],c_geo:['math:area','math:geometrie','math:trig'],c_folgen:['math:sum','math:prod','math:factorial','math:func']};
+const THETA_S=25,THETA_KMAX=12,THETA_KMIN=3,THETA_RD0=100,THETA_RDMIN=25,THETA_RD_DECAY=0.92;
+function thetaExpected(theta,d){return 1/(1+Math.pow(10,(d-theta)/THETA_S));}
+function thetaUpdate(theta,rd,d,r){const E=thetaExpected(theta,d);const K=clamp(THETA_KMAX*(rd/THETA_RD0),THETA_KMIN,THETA_KMAX);return {theta:clamp(theta+K*(r-E),0,100),rd:Math.max(THETA_RDMIN,rd*THETA_RD_DECAY)};}
+function thetaToLevel(theta){return clamp(1+Math.floor(theta/8.4),1,12);}
+function levelToGenLevel(level){return clamp(Math.ceil(level/3),1,4);}
+function catName(key){const a=String(key).split(':');return a[0]==='math'?(MATH[a[1]]?MATH[a[1]].name:a[1]):key;}
+function ensureMathProfile(){if(!Store.data.mathProfile||typeof Store.data.mathProfile!=='object')Store.data.mathProfile={};}
+function mathStatFor(catKey){const mp=Store.data.mathProfile;return (mp&&mp.categoryStats&&mp.categoryStats[catKey])?mp.categoryStats[catKey]:null;}
+function mathReviewAdd(catKey,type){
+  const mp=Store.data.mathProfile;if(!mp)return; mp.reviewQueue=mp.reviewQueue||[];
+  const ex=mp.reviewQueue.find(r=>r.cat===catKey&&(r.type||null)===(type||null));
+  if(ex){ex.tries=(ex.tries||0)+1;ex.dueAt=Date.now();}
+  else mp.reviewQueue.push({cat:catKey,type:type||null,dueAt:Date.now(),tries:1,addedAt:Date.now()});
+  if(mp.reviewQueue.length>30)mp.reviewQueue=mp.reviewQueue.slice(mp.reviewQueue.length-30);
+}
+function mathReviewResolve(catKey){
+  const mp=Store.data.mathProfile;if(!mp||!Array.isArray(mp.reviewQueue))return;
+  const i=mp.reviewQueue.findIndex(r=>r.cat===catKey);if(i>=0)mp.reviewQueue.splice(i,1);
+}
+function updateMathProfile(catKey,ok,genDiff,timeMs,q){
+  const st=mathStatFor(catKey); if(!st)return;
+  if(!state.mathStartLevel)state.mathStartLevel={};
+  if(state.mathStartLevel[catKey]==null)state.mathStartLevel[catKey]=st.level;
+  const d=(genDiff||2)*25-12;
+  const u=thetaUpdate(st.theta,st.rd,d,ok?1:0);
+  st.theta=Math.round(u.theta*10)/10; st.rd=Math.round(u.rd*10)/10;
+  st.attempts=(st.attempts||0)+1; st.correct=(st.correct||0)+(ok?1:0);
+  st.errorRate=Math.round((1-st.correct/st.attempts)*100)/100;
+  st.avgTimeMs=Math.round(((st.avgTimeMs||0)*(st.attempts-1)+(timeMs||0))/st.attempts);
+  st.window=st.window||[]; st.window.push(ok?1:0); if(st.window.length>10)st.window.shift();
+  st.lastPracticed=Date.now();
+  if(!ok && q && q.type){st.missedTypes=st.missedTypes||{};st.missedTypes[q.type]=(st.missedTypes[q.type]||0)+1;}
+  const win=st.window, acc=win.length?win.reduce((a,b)=>a+b,0)/win.length:0, raw=thetaToLevel(st.theta), startLv=state.mathStartLevel[catKey];
+  let lv=st.level;
+  if(raw>st.level && win.length>=5 && acc>=0.8) lv=st.level+1;
+  else if(raw<st.level && win.length>=5 && acc<=0.45) lv=st.level-1;
+  lv=clamp(lv,startLv-1,startLv+1); st.level=clamp(lv,1,12);
+  if(win.length>=8 && acc>=0.9 && st.rd<=35) st.mastery='mastered';
+  else if(st.mastery==='mastered' && acc<0.7) st.mastery='learning';
+  else if(!st.mastery||st.mastery==='none') st.mastery='learning';
+  const maxMissed=st.missedTypes?Math.max(0,...Object.values(st.missedTypes)):0;
+  if((st.errorRate>=0.5 && st.attempts>=4) || maxMissed>=3) st.nextRec='lesson';
+  else if(win.length>=4 && acc>=0.9) st.nextRec='maintain';
+  else st.nextRec='practice';
+  if(ok) mathReviewResolve(catKey); else mathReviewAdd(catKey,q&&q.type);
+  Store.persist();
+}
+function recomputeMathAggregates(){
+  const mp=Store.data.mathProfile; if(!mp||!mp.categoryStats)return;
+  const cs=mp.categoryStats, entries=Object.entries(cs); if(!entries.length)return;
+  const thetas=entries.map(e=>e[1].theta), ov=thetas.reduce((a,b)=>a+b,0)/thetas.length;
+  mp.overall={theta:Math.round(ov*10)/10,level:thetaToLevel(ov),updatedAt:Date.now()};
+  const byTheta=[...entries].sort((a,b)=>b[1].theta-a[1].theta||a[1].rd-b[1].rd);
+  mp.strongest=byTheta.slice(0,3).map(e=>e[0]);
+  mp.weakest=byTheta.slice(-3).reverse().map(e=>e[0]);
+  mp.focus=[...entries].sort((a,b)=>((100-b[1].theta)+0.3*b[1].rd)-((100-a[1].theta)+0.3*a[1].rd)).slice(0,3).map(e=>e[0]);
+  mp.clusterStats=mp.clusterStats||{};
+  for(const cl of CLUSTER_ORDER){const ms=CLUSTERS[cl].map(k=>cs[k]).filter(Boolean);if(ms.length){const t=ms.reduce((a,b)=>a+b.theta,0)/ms.length,r=ms.reduce((a,b)=>a+b.rd,0)/ms.length;mp.clusterStats[cl]={theta:Math.round(t*10)/10,rd:Math.round(r*10)/10,level:thetaToLevel(t)};}}
+}
+
+function dailySubState(){
+  const cats=allCategories();const order=['math','logic','gmat','wm','deutsch','elektro','cfa'];
+  const areas=order.map(g=>({group:g,label:GROUP_LABEL[g],cats:cats.filter(c=>c.group===g).map(c=>({key:c.key,name:c.name}))})).filter(a=>a.cats.length);
+  const all=cats.map(c=>c.key);
+  let en=(Store.data.settings&&Store.data.settings.dailySettings&&Store.data.settings.dailySettings.enabledSubcategories);
+  if(!Array.isArray(en)||!en.length)en=all.slice();
+  en=en.filter(k=>all.includes(k)); if(!en.length)en=all.slice();
+  return {areas,all,enabled:new Set(en)};
+}
+function migrateKonzWm(){
+  const d=Store.data;if(!d)return;let changed=false;
+  if(d.profile){ if(d.profile['konz:wochentage']&&!d.profile['wm:wochentage']){d.profile['wm:wochentage']=d.profile['konz:wochentage'];changed=true;} if(d.profile['konz:wochentage']){delete d.profile['konz:wochentage'];changed=true;} }
+  if(d.tut){ if(d.tut['konz:wochentage']&&!d.tut['wm:wochentage']){d.tut['wm:wochentage']=true;changed=true;} if(d.tut['konz:wochentage']){delete d.tut['konz:wochentage'];changed=true;} }
+  const ss=d.settings||(d.settings={});
+  if(!ss.dailySettings||!Array.isArray(ss.dailySettings.enabledSubcategories)){
+    let enabled;
+    if(Array.isArray(ss.dailyGroups)&&ss.dailyGroups.length){const grps=new Set(ss.dailyGroups.map(g=>g==='konz'?'wm':g));enabled=allCategories().filter(c=>grps.has(c.group)).map(c=>c.key);}
+    else enabled=allCategories().map(c=>c.key);
+    ss.dailySettings={enabledSubcategories:enabled};changed=true;
+  }
+  if('dailyGroups'in ss){delete ss.dailyGroups;changed=true;}
+  if(changed)Store.persist();
+}
+
+function mathNiveauCard(){
+  const mp=Store.data.mathProfile;
+  if(mp&&mp.overall){return `<button class="cat" data-mathtest="1" style="margin-bottom:12px"><span class="cat-mark">${mp.overall.level}</span><span class="cat-body"><span class="cat-title">Matheniveau ${mp.overall.level}/12</span><span class="cat-desc">Einstufung wiederholen · Fokus: ${(mp.focus||[]).map(catName).join(', ')}</span></span><span class="cat-stat">›</span></button>`;}
+  const inProg=mp&&mp.placementTest&&mp.placementTest.status==='in_progress';
+  return `<button class="cat" data-mathtest="1" style="margin-bottom:12px"><span class="cat-mark">◇</span><span class="cat-body"><span class="cat-title">${inProg?'Einstufung fortsetzen':'Matheniveau bestimmen'}</span><span class="cat-desc">${inProg?'Test pausiert – weitermachen':'Kurzer Einstufungstest · 20 Aufgaben'}</span></span><span class="cat-stat">›</span></button>`;
+}
+function placementStart(){
+  ensureMathProfile();const mp=Store.data.mathProfile;const inProg=mp.placementTest&&mp.placementTest.status==='in_progress';
+  setHomeBtn(false);tag.textContent='einstufung';
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Matheniveau bestimmen</h2></div>
+    <p class="lede">Kurzer Einstufungstest mit <b>20 Aufgaben</b> über alle Mathe-Bereiche (ca. 6 Minuten). Die Schwierigkeit passt sich an. Es gibt <b>kein Richtig/Falsch zwischendurch</b> – du kannst jederzeit pausieren und später fortsetzen.</p>
+    <p class="lede" style="font-size:12px;color:var(--muted)">Daraus ergeben sich Level 1–12 pro Thema (Fortschritts-Level). Die Aufgaben selbst nutzen weiterhin die bestehenden vier Generatorstufen.</p>
+    <div class="cat-list">
+      <button class="cat" id="pstart"><span class="cat-mark">▶</span><span class="cat-body"><span class="cat-title">${inProg?'Einstufung fortsetzen':'Einstufung starten'}</span><span class="cat-desc">${inProg?('weiter bei Aufgabe '+(mp.placementTest.index+1)+' / 20'):'20 Aufgaben · adaptiv'}</span></span><span class="cat-stat">los ›</span></button>
+      ${inProg?'<button class="cat" id="pfresh"><span class="cat-mark">↻</span><span class="cat-body"><span class="cat-title">Neu beginnen</span><span class="cat-desc">bisherigen Fortschritt verwerfen</span></span><span class="cat-stat">neu ›</span></button>':''}
+    </div></div>`;
+  document.getElementById('bk').onclick=mathHub;
+  document.getElementById('pstart').onclick=()=>beginPlacement(false);
+  const pf=document.getElementById('pfresh');if(pf)pf.onclick=()=>beginPlacement(true);
+}
+function beginPlacement(fresh){
+  ensureMathProfile();const mp=Store.data.mathProfile;
+  if(fresh||!(mp.placementTest&&mp.placementTest.status==='in_progress'))
+    mp.placementTest={status:'in_progress',order:CLUSTER_ORDER.slice(),index:0,genLevel:2,responses:[],startedAt:Date.now()};
+  state={};Store.persist();placementScreen();
+}
+function placementCurrentItem(){
+  const pt=Store.data.mathProfile.placementTest;
+  const cluster=pt.order[Math.floor(pt.index/4)];const cats=CLUSTERS[cluster];
+  const catKey=cats[(pt.index%4)%cats.length];const gl=pt.genLevel||2;const id=catKey.split(':')[1];
+  const it={render:'input',...MATH[id].gen(gl)};it._cluster=cluster;it._cat=catKey;it._gl=gl;it._d=gl*25-12;return it;
+}
+function placementScreen(){
+  const mp=Store.data.mathProfile,pt=mp&&mp.placementTest;
+  if(!pt||pt.status!=='in_progress')return mathHub();
+  if(pt.index>=20)return finishPlacement();
+  if(pt.index%4===0)pt.genLevel=2;
+  const it=placementCurrentItem();placement={item:it,qStart:Date.now()};state={};
+  setHomeBtn(true);tag.textContent='einstufung';
+  const n=pt.index+1,prog=Math.round(pt.index/20*100);let inner;
+  if(it.render==='input'){
+    inner=(it.text?`<div class="q-text">${it.prompt}</div>`:`<div class="q-math">${it.prompt}</div>`)+`<input class="num-input" id="pans" autocomplete="off" placeholder="?"><button class="btn" id="psub" style="margin-top:12px">Weiter ›</button>`;
+  } else {
+    const keys="ABCDEFG";
+    inner=`<div class="q-text">${it.q}</div><div class="opts" id="popts">${it.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;
+  }
+  root.innerHTML=`<div class="card"><div class="session-top"><span>Einstufung ${n} / 20</span><span>Mathe</span></div><div class="progress"><i style="width:${prog}%"></i></div><div class="qwrap"><div class="qkind">Einstufung · kein Richtig/Falsch zwischendurch</div>${inner}</div></div>`;
+  if(it.render==='input'){const inp=document.getElementById('pans');inp.setAttribute('inputmode',typeof it.answer==='string'?'text':'numeric');inp.focus();
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')placementSubmitInput();});
+    document.getElementById('psub').onclick=placementSubmitInput;}
+  else document.querySelectorAll('#popts .opt').forEach(b=>b.onclick=()=>placementAnswer(+b.dataset.k===it.c));
+}
+function placementSubmitInput(){
+  const it=placement.item;const raw=(document.getElementById('pans').value||'').trim();if(raw==='')return;
+  const ok=typeof it.answer==='string'?norm(raw)===norm(it.answer):Math.abs(parseNum(raw)-it.answer)<1e-6;
+  placementAnswer(ok);
+}
+function placementBandMs(gl){return ({1:14000,2:20000,3:28000,4:38000})[gl]||22000;}
+function placementAnswer(ok){
+  const pt=Store.data.mathProfile.placementTest,it=placement.item;const ms=Date.now()-(placement.qStart||Date.now());
+  const inBand=ms<=placementBandMs(it._gl);
+  pt.responses.push({cluster:it._cluster,cat:it._cat,genLevel:it._gl,d:it._d,correct:!!ok,ms,inBand});
+  if(ok&&inBand)pt.genLevel=Math.min(4,it._gl+1);   // richtig & im Zeitband -> schwerer
+  else if(!ok)pt.genLevel=Math.max(1,it._gl-1);      // falsch -> leichter
+  // richtig aber langsam -> Generator-Level bleibt
+  pt.index++;Store.persist();placementScreen();
+}
+function finishPlacement(){
+  const mp=Store.data.mathProfile,pt=mp.placementTest;
+  const clusterStats={};
+  CLUSTER_ORDER.forEach(cl=>{let theta=50,rd=100;pt.responses.filter(r=>r.cluster===cl).forEach(r=>{const u=thetaUpdate(theta,rd,r.d,r.correct?1:0);theta=u.theta;rd=u.rd;});clusterStats[cl]={theta:Math.round(theta*10)/10,rd:Math.round(rd*10)/10,level:thetaToLevel(theta)};});
+  const categoryStats={};
+  CLUSTER_ORDER.forEach(cl=>{const cs=clusterStats[cl];CLUSTERS[cl].forEach(catKey=>{categoryStats[catKey]={cluster:cl,theta:cs.theta,rd:Math.min(cs.rd+15,90),seed:cs.theta,level:thetaToLevel(cs.theta),attempts:0,correct:0,errorRate:0,avgTimeMs:0,lastPracticed:null,mastery:'none',missedTypes:{},nextRec:'practice',window:[]};});});
+  const thetas=CLUSTER_ORDER.map(c=>clusterStats[c].theta);const overall=thetas.reduce((a,b)=>a+b,0)/thetas.length;
+  const entries=Object.entries(categoryStats);
+  const byTheta=[...entries].sort((a,b)=>b[1].theta-a[1].theta||a[1].rd-b[1].rd);
+  mp.version=1;mp.overall={theta:Math.round(overall*10)/10,level:thetaToLevel(overall),updatedAt:Date.now()};
+  mp.clusterStats=clusterStats;mp.categoryStats=categoryStats;
+  mp.strongest=byTheta.slice(0,3).map(e=>e[0]);
+  mp.weakest=byTheta.slice(-3).reverse().map(e=>e[0]);
+  mp.focus=[...entries].sort((a,b)=>((100-b[1].theta)+0.3*b[1].rd)-((100-a[1].theta)+0.3*a[1].rd)).slice(0,3).map(e=>e[0]);
+  mp.reviewQueue=mp.reviewQueue||[];
+  mp.trainingPlan={generatedAt:Date.now(),weekFocus:mp.focus.slice(0,2),ratios:{focus:0.45,review:0.20,maintain:0.20,stretch:0.15}};
+  pt.status='done';pt.completedAt=Date.now();placement=null;state={};Store.persist();placementResult();
+}
+function placementResult(){
+  const mp=Store.data.mathProfile;setHomeBtn(false);tag.textContent='einstufung';
+  const bars=CLUSTER_ORDER.map(cl=>{const cs=mp.clusterStats[cl];const pct=Math.round(cs.theta);const col=cs.theta>=67?'var(--good)':cs.theta>=40?'#E0A100':'var(--bad)';
+    return `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${CLUSTER_LABEL[cl]}</span><span>Level ${cs.level}/12</span></div><div class="progress"><i style="width:${pct}%;background:${col}"></i></div></div>`;}).join('');
+  root.innerHTML=`<div class="card"><div class="head"><h2>Dein Matheniveau</h2></div>
+    <div style="text-align:center;margin:6px 0 2px"><div style="font-size:42px;font-weight:700;line-height:1">${mp.overall.level}<span style="font-size:18px;color:var(--muted)"> / 12</span></div><div style="color:var(--muted);font-size:13px">Gesamt-Matheniveau</div></div>
+    <div class="seclabel" style="margin-top:12px">Bereiche</div>${bars}
+    <div class="seclabel" style="margin-top:14px">Stärken</div><p class="lede" style="margin:4px 0">${mp.strongest.map(catName).join(', ')}</p>
+    <div class="seclabel">Schwächen</div><p class="lede" style="margin:4px 0">${mp.weakest.map(catName).join(', ')}</p>
+    <div class="seclabel">Empfohlener Fokus</div><p class="lede" style="margin:4px 0"><b>${mp.focus.map(catName).join(', ')}</b></p>
+    <p class="lede" style="font-size:12px;color:var(--muted)">Level 1–12 ist ein Fortschritts-/Mastery-Level. Die Aufgaben entstehen weiterhin über die bestehenden vier Generatorstufen.</p>
+    <button class="btn" id="toHub" style="margin-top:8px">Zu den Mathe-Themen ›</button>
+    <button class="btn ghost" id="toDaily" style="margin-top:10px">Tagestraining starten ›</button></div>`;
+  document.getElementById('toHub').onclick=mathHub;
+  document.getElementById('toDaily').onclick=dailyHub;
 }
 
 /* ========= UI / ENGINE ========= */
@@ -565,9 +1381,12 @@ function home(){
   setHomeBtn(false); tag.textContent="dein training";
   const top=[
     {mark:"◷",title:"Tagestraining",desc:"Adaptiv & gemischt · 5 / 10 / 15 min",fn:dailyHub},
-    {mark:"Σ",title:"Kopfrechnen",desc:"13 Themen · 4 Level · adaptiv",fn:mathHub},
+    {mark:"Σ",title:"Kopfrechnen",desc:"16 Themen · 4 Level · adaptiv",fn:mathHub},
     {mark:"⋯",title:"Logik",desc:"Zahlen- & Buchstabenreihen",fn:logicHub},
-    {mark:"WM",title:"Working Memory",desc:"Zahlenspanne & N-Back",fn:wmHub},
+    {mark:"WM",title:"Working Memory & Konzentration",desc:"Zahlenspanne · N-Back · Wochentage · b/d/p/q",fn:wmHub},
+    {mark:"Aa",title:"Deutsch",desc:"Komma · Groß/klein · Rechtschreibung",fn:deutschHub},
+    {mark:"Ω",title:"Elektrotechnik",desc:"Strom · Ohm · Schaltungen · Rechnen",fn:elektroHub},
+    {mark:"CFA",title:"CFA Level 1 Quick Prep",desc:"Konzepte & Mini-Rechnungen für unterwegs",fn:cfaHub},
   ];
   let html="";
   top.forEach((c,idx)=>{html+=`<button class="cat" data-top="${idx}"><span class="cat-mark">${c.mark}</span><span class="cat-body"><span class="cat-title">${c.title}</span><span class="cat-desc">${c.desc}</span></span><span class="cat-stat">öffnen ›</span></button>`;});
@@ -608,34 +1427,44 @@ function settingsScreen(){
 }
 
 /* ---- LEVEL-CHIPS ---- */
-function levelChips(){
+function levelChips(group){
   const opts=[1,2,3,4,'A'];
+  const mp=Store.data.mathProfile, diag=group==='math'&&mp&&mp.categoryStats;
+  const chips=(diag?['D']:[]).concat(opts);
   return `<div class="seclabel">Schwierigkeit</div><div class="modes" id="lv">
-    ${opts.map(l=>`<button class="chip" data-lv="${l}" aria-pressed="${String(l)===String(lastLevel)}">${l==='A'?'Adaptiv':'Level '+l}</button>`).join("")}</div>`;
+    ${chips.map(l=>`<button class="chip" data-lv="${l}" aria-pressed="${String(l)===String(lastLevel)}">${l==='A'?'Adaptiv':l==='D'?'Mein Niveau':'Level '+l}</button>`).join("")}</div>`;
 }
-function wireChips(){document.querySelectorAll('[data-lv]').forEach(c=>c.onclick=()=>{const v=c.dataset.lv;lastLevel=v==='A'?'A':+v;
+function wireChips(){document.querySelectorAll('[data-lv]').forEach(c=>c.onclick=()=>{const v=c.dataset.lv;lastLevel=(v==='A'||v==='D')?v:+v;
   document.querySelectorAll('[data-lv]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.lv)===String(lastLevel)));});}
 
 function hub(group,reg,title){
   setHomeBtn(false); tag.textContent=title.toLowerCase();
+  const mp=Store.data.mathProfile, cs=(group==='math'&&mp)?mp.categoryStats:null;
+  if(group==='math'&&cs){ lastLevel='D'; } else if(lastLevel==='D'){ lastLevel=2; }
   const rows=Object.entries(reg).map(([id,t])=>{const done=tutDone(group+':'+id);
-    return `<div class="topic"><div class="topic-info"><b>${t.name}</b><span>${t.teaser}</span></div>
+    let badge='', hint='';
+    if(cs){const stx=cs['math:'+id];if(stx){badge=` <span style="font-size:11px;color:var(--accent);font-weight:700">L${stx.level}</span> <span style="font-size:12px" title="${stx.mastery}">${stx.mastery==='mastered'?'●':stx.mastery==='learning'?'◐':'○'}</span>`; if(stx.nextRec==='lesson')hint=` · <span style="color:var(--bad);font-size:11px">Einführung empfohlen</span>`;}}
+    return `<div class="topic"><div class="topic-info"><b>${t.name}${badge}</b><span>${t.teaser}${hint}</span></div>
       <div class="topic-actions"><button class="mini${done?' done':''}" data-tut="${id}">Einführung${done?' ✓':''}</button><button class="mini solid" data-train="${id}">Üben ›</button></div></div>`;}).join("");
   root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>${title}</h2></div>
-    ${levelChips()}<div class="seclabel">Themen</div><div class="topics">${rows}</div></div>`;
+    ${group==='math'?mathNiveauCard():''}${levelChips(group)}<div class="seclabel">Themen</div><div class="topics">${rows}</div></div>`;
   document.getElementById('bk').onclick=home; wireChips();
+  const mt=document.querySelector('[data-mathtest]'); if(mt)mt.onclick=placementStart;
   document.querySelectorAll('[data-tut]').forEach(b=>b.onclick=()=>launchTut(group,b.dataset.tut));
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>trainGen(group,b.dataset.train,lastLevel));
 }
 const mathHub=()=>hub('math',MATH,'Kopfrechnen');
 const logicHub=()=>hub('logic',LOGIC,'Logik');
+const deutschHub=()=>hub('deutsch',DEU,'Deutsch');
+const elektroHub=()=>hub('elektro',ELEKTRO,'Elektrotechnik');
+const cfaHub=()=>hub('cfa',CFA,'CFA Level 1 Quick Prep');
 
 /* ---- WORKING MEMORY HUB ---- */
 function wmHub(){
-  setHomeBtn(false); tag.textContent="working memory";
+  setHomeBtn(false); tag.textContent="working memory & konzentration";
   if(PROFILE['wm:span'])wmN=clamp(Math.round((PROFILE['wm:span'].curDiff)/1.4),1,3);
-  const ds=tutDone('wm:span'), dn=tutDone('wm:nback');
-  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Working Memory</h2></div>
+  const ds=tutDone('wm:span'), dn=tutDone('wm:nback'), db=tutDone('wm:bdpq'), dw=tutDone('wm:wochentage');
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Working Memory & Konzentration</h2></div>
     <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
       <div class="topic-info"><b>${WM.span.name}</b><span>Ziffernfolge merken & wiedergeben — Länge passt sich an</span></div>
       <div class="modes" style="margin:0"><button class="chip" data-dir="fwd" aria-pressed="${wmDir==='fwd'}">Vorwärts</button><button class="chip" data-dir="bwd" aria-pressed="${wmDir==='bwd'}">Rückwärts</button></div>
@@ -645,6 +1474,14 @@ function wmHub(){
       <div class="topic-info"><b>${WM.nback.name}</b><span>Treffer melden, wenn der Buchstabe dem N Schritte zuvor gleicht</span></div>
       <div class="modes" style="margin:0">${[1,2,3].map(n=>`<button class="chip" data-n="${n}" aria-pressed="${wmN===n}">N = ${n}</button>`).join("")}</div>
       <div class="topic-actions"><button class="mini${dn?' done':''}" data-wtut="nback">Einführung${dn?' ✓':''}</button><button class="mini solid" id="goNb">Üben ›</button></div>
+    </div><div style="height:14px"></div>
+    <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div class="topic-info"><b>${WM.bdpq.name}</b><span>Zählen unter Zeitdruck — wie oft kommt ein Buchstabe vor?</span></div>
+      <div class="topic-actions"><button class="mini${db?' done':''}" data-wtut="bdpq">Einführung${db?' ✓':''}</button><button class="mini solid" id="goBdpq">Üben ›</button></div>
+    </div><div style="height:14px"></div>
+    <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div class="topic-info"><b>${KONZ.wochentage.name}</b><span>${KONZ.wochentage.teaser}</span></div>
+      <div class="topic-actions"><button class="mini${dw?' done':''}" id="wtagTut">Einführung${dw?' ✓':''}</button><button class="mini solid" id="goWtag">Üben ›</button></div>
     </div></div>`;
   document.getElementById('bk').onclick=home;
   document.querySelectorAll('[data-dir]').forEach(c=>c.onclick=()=>{wmDir=c.dataset.dir;document.querySelectorAll('[data-dir]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.dir===wmDir));});
@@ -652,6 +1489,9 @@ function wmHub(){
   document.querySelectorAll('[data-wtut]').forEach(b=>b.onclick=()=>launchWmTut(b.dataset.wtut));
   document.getElementById('goSpan').onclick=()=>startSpan(wmDir);
   document.getElementById('goNb').onclick=()=>startNback(wmN);
+  document.getElementById('goBdpq').onclick=()=>startBdpq();
+  document.getElementById('wtagTut').onclick=()=>launchTut('wm','wochentage');
+  document.getElementById('goWtag').onclick=()=>trainGen('wm','wochentage','A');
 }
 
 /* ---- GMAT LANDING ---- */
@@ -672,32 +1512,48 @@ function bankLanding(id){
 /* ---- TAGESTRAINING HUB ---- */
 function dailyHub(){
   setHomeBtn(false); tag.textContent="tagestraining";
-  const opts=[{m:5,d:"≈ 12 Aufgaben"},{m:10,d:"≈ 24 Aufgaben"},{m:15,d:"≈ 36 Aufgaben"}];const done=tutDone('daily');
-  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Tagestraining</h2></div>
-    <p class="lede">Ein <b>selbst-adaptives</b> Set aus allen Bereichen – schwächere Themen kommen häufiger, starke werden schwerer.</p>
-    <div class="topic"><div class="topic-info"><b>Einführung</b><span>Wie das adaptive Tagestraining funktioniert</span></div>
-      <div class="topic-actions"><button class="mini${done?' done':''}" id="dtut">Einführung${done?' ✓':''}</button></div></div>
+  const opts=[{m:5,d:"\u2248 12 Aufgaben"},{m:10,d:"\u2248 24 Aufgaben"},{m:15,d:"\u2248 36 Aufgaben"}];const done=tutDone('daily');
+  const st=dailySubState();
+  const areaHtml=st.areas.map(a=>{
+    const chips=a.cats.map(c=>`<button class="chip" data-sub="${c.key}" aria-pressed="${st.enabled.has(c.key)}">${c.name}</button>`).join("");
+    return `<div class="seclabel" style="margin-top:10px">${a.label}</div><div class="modes" style="flex-wrap:wrap;gap:8px;margin:0">${chips}</div>`;
+  }).join("");
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">\u2039</button><h2>Tagestraining</h2></div>
+    <p class="lede">Ein <b>selbst-adaptives</b> Set \u2013 schw\u00e4chere Themen kommen h\u00e4ufiger, starke werden schwerer.</p>
+    <div class="topic"><div class="topic-info"><b>Einf\u00fchrung</b><span>Wie das adaptive Tagestraining funktioniert</span></div>
+      <div class="topic-actions"><button class="mini${done?' done':''}" id="dtut">Einf\u00fchrung${done?' \u2713':''}</button></div></div>
+    <div style="height:14px"></div>
+    <div class="seclabel">Welche Subkategorien sollen drankommen?</div>
+    <p class="lede" style="font-size:12px;color:var(--muted);margin:2px 0 0">Mindestens eine bleibt aktiv. Adaptive Schwierigkeit gilt nur f\u00fcr die ausgew\u00e4hlten.</p>
+    ${areaHtml}
     <div style="height:16px"></div><div class="seclabel">Wie viel Zeit hast du?</div>
-    <div class="cat-list">${opts.map(o=>`<button class="cat" data-min="${o.m}"><span class="cat-mark">${o.m}'</span><span class="cat-body"><span class="cat-title">${o.m} Minuten</span><span class="cat-desc">${o.d}</span></span><span class="cat-stat">start ›</span></button>`).join("")}</div></div>`;
+    <div class="cat-list">${opts.map(o=>`<button class="cat" data-min="${o.m}"><span class="cat-mark">${o.m}'</span><span class="cat-body"><span class="cat-title">${o.m} Minuten</span><span class="cat-desc">${o.d}</span></span><span class="cat-stat">start \u203a</span></button>`).join("")}</div></div>`;
   document.getElementById('bk').onclick=home;
   document.getElementById('dtut').onclick=launchDailyTut;
+  document.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{
+    const stt=dailySubState();const key=b.dataset.sub;const set=new Set(stt.enabled);
+    if(set.has(key)){if(set.size<=1)return;set.delete(key);}else set.add(key);
+    const ordered=stt.all.filter(k=>set.has(k));
+    Store.data.settings.dailySettings={enabledSubcategories:ordered};Store.persist();
+    b.setAttribute('aria-pressed',set.has(key));
+  });
   document.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startDaily(+b.dataset.min));
 }
 
 /* =========================================================
    EINFÜHRUNG / TUTORIAL-ENGINE
 ========================================================= */
-function launchTut(group,id){const reg=group==='math'?MATH:LOGIC,t=reg[id];
+function launchTut(group,id){const reg=regOf(group),t=reg[id];
   runTutorial({key:group+':'+id,title:t.name,concept:t.tut.concept,ex:t.tut.ex,example:t.tut.example,steps:t.tut.steps,
     practice:{type:'qa',make:()=>({render:'input',...t.gen(1)})},
-    startReal:()=>trainGen(group,id,1),backTo:()=>group==='math'?mathHub():logicHub()});}
+    startReal:()=>trainGen(group,id,1),backTo:()=>({math:mathHub,logic:logicHub,wm:wmHub,deutsch:deutschHub,elektro:elektroHub,cfa:cfaHub}[group]||logicHub)()});}
 function launchWmTut(id){const t=WM[id];
   runTutorial({key:'wm:'+id,title:t.name,concept:t.tut.concept,ex:t.tut.ex,example:t.tut.example,steps:t.tut.steps,
-    practice:id==='span'?{type:'span'}:null,
-    startReal:()=>id==='span'?startSpan(wmDir):startNback(wmN),backTo:wmHub});}
+    practice:id==='span'?{type:'span'}:id==='bdpq'?{type:'qa',make:()=>genBdpq(1)}:null,
+    startReal:()=>id==='span'?startSpan(wmDir):id==='nback'?startNback(wmN):startBdpq(),backTo:wmHub});}
 function launchGmatTut(id){const g=GTUT[id];
   runTutorial({key:id,title:BANKS[id].title,concept:g.concept,ex:'',example:g.example,steps:g.steps,
-    practice:{type:'qa',make:()=>normItem(BANKS[id].type,pick(BANKS[id].bank))},
+    practice:{type:'qa',make:()=>gmatItem(id)},
     startReal:()=>trainBank(id),backTo:()=>bankLanding(id)});}
 function launchDailyTut(){runTutorial({key:'daily',title:'Tagestraining',concept:DAILY_TUT.concept,ex:'',example:DAILY_TUT.example,steps:DAILY_TUT.steps,practice:null,startReal:dailyHub,backTo:dailyHub});}
 
@@ -727,7 +1583,7 @@ function runTutorial(cfg){
     if(cfg.practice.type==='span')return slideSpanPractice(makeSpan(4,'fwd'));
     const q=cfg.practice.make();let inner;
     if(q.render==='input') inner=(q.text?`<div class="q-text">${q.prompt}</div>`:`<div class="q-math">${q.prompt}</div>`)+`<input class="num-input" id="ans" placeholder="?"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
-    else {const keys="ABCDE",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
+    else {const keys="ABCDEFG",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
       inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;}
     shell(`<div class="seclabel">Geführter Versuch — der Tipp ist schon da</div>${inner}
       <div class="tip-text" style="margin-top:14px"><b>Tipp:</b> ${qHints(q)[0]||''}</div><div class="feedback" id="fb"></div><div id="nextrow"></div>`);
@@ -749,7 +1605,7 @@ function runTutorial(cfg){
       const chk=()=>{const raw=inp.value.trim();if(!raw)return;inp.disabled=true;const ok=norm(raw)===norm(q.answer);inp.style.borderColor=ok?'var(--good)':'var(--bad)';document.getElementById('sub').style.display='none';
         const fb=document.getElementById('fb');fb.className='feedback '+(ok?'good':'bad');fb.innerHTML=(ok?'Richtig.':`Korrekt: ${dispAns(q)}.`)+`<div class="explain">${q.explain}</div>`;finishRow();};
       inp.addEventListener('keydown',e=>{if(e.key==='Enter')chk();});document.getElementById('sub').onclick=chk;}
-    setTimeout(step,450);}
+    startCountdown(stage,alive,step);}
   function slideDone(){
     markTut(cfg.key);
     shell(`<div class="done-badge">✓</div><div class="res-label" style="margin-bottom:18px">Einführung abgeschlossen. Du hast jetzt ein Gefühl für den Aufgabentyp.</div>
@@ -761,14 +1617,30 @@ function runTutorial(cfg){
 
 /* ---- SESSION-START ---- */
 function trainGen(group,id,level){
-  const reg=group==='math'?MATH:LOGIC,t=reg[id],key=group+':'+id;
+  const reg=regOf(group),t=reg[id],key=group+':'+id;
+  if(level==='D'){ const st=mathStatFor(key), gl=st?levelToGenLevel(st.level):2;
+    startSession({kind:'agen',gen:t.gen,group,aLevel:gl,goodStreak:0,total:ROUND,label:t.name+' · Mein Niveau (L'+(st?st.level:'–')+')',key,restart:()=>trainGen(group,id,'D')}); return; }
   if(level==='A') startSession({kind:'agen',gen:t.gen,group,aLevel:2,goodStreak:0,total:ROUND,label:t.name+' · adaptiv',key,restart:()=>trainGen(group,id,'A')});
   else startSession({kind:'list',list:Array.from({length:ROUND},()=>{const q={render:'input',...t.gen(level)};q.cat=key;q.group=group;q.diff=level;return q;}),total:ROUND,label:t.name+' · L'+level,key,restart:()=>trainGen(group,id,level)});
 }
-function trainBank(id){const b=BANKS[id];const list=shuffle(b.bank.slice()).slice(0,ROUND).map(it=>{const o=normItem(b.type,it);o.cat=id;o.group='gmat';o.diff=2;return o;});
-  startSession({kind:'list',list,total:list.length,label:b.title,key:id,restart:()=>trainBank(id)});}
+function trainBank(id){const list=buildGmatList(id).map(o=>{o.cat=id;o.group='gmat';o.diff=2;return o;});
+  startSession({kind:'list',list,total:list.length,label:BANKS[id].title,key:id,restart:()=>trainBank(id)});}
 function startSpan(dir){startSession({kind:'span',spanDir:dir,spanLen:clamp(2+curLevel('wm:span'),3,8),maxSpan:0,total:ROUND,label:'Zahlenspanne '+(dir==='bwd'?'rückwärts':'vorwärts'),key:'wm:span:'+dir,restart:()=>startSpan(dir)});}
 function startDaily(min){const list=generateDailyAdaptivePool(min);startSession({kind:'list',daily:true,duration:min,list,total:list.length,label:`Tagestraining · ${min}′`,key:'daily:'+min,restart:()=>startDaily(min)});}
+function genBdpq(L){
+  const len=({1:24,2:32,3:40,4:48})[clamp(Math.round(L||2),1,4)]||32;
+  const letters=['b','d','p','q']; let str='';
+  for(let i=0;i<len;i++)str+=pick(letters);
+  const target=pick(letters);
+  const count=(str.match(new RegExp(target,'g'))||[]).length;
+  const block=`<div style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:21px;letter-spacing:5px;line-height:2;word-break:break-all;margin-top:10px;color:var(--ink)">${str}</div>`;
+  const hl=str.replace(new RegExp(target,'g'),`<b style="color:var(--accent)">${target}</b>`);
+  return {render:'input',text:true,prompt:`Zähle, wie oft <b>${target}</b> vorkommt:${block}`,answer:count,
+    hints:['Gehe die Reihe ruhig von links nach rechts durch.','Achte genau auf die Richtung – b/d und p/q sehen sich gespiegelt sehr ähnlich.'],
+    explain:`„${target}“ kommt ${count}-mal vor:<div style="font-family:monospace;letter-spacing:4px;word-break:break-all;margin-top:6px">${hl}</div>`};
+}
+function startBdpq(){const L=clamp(curLevel('wm:bdpq'),1,4);
+  startSession({kind:'agen',gen:genBdpq,group:'wm',aLevel:L,goodStreak:0,total:ROUND,label:'b d p q · Zählen',key:'wm:bdpq',restart:startBdpq});}
 
 function normItem(type,it){const base=type==='ds'
   ? {render:'choice',q:it.q,stmts:[it.s1,it.s2],opts:DS_OPTS,c:it.c,explain:it.e}
@@ -824,7 +1696,7 @@ function fillQA(q){
     inner=(q.text?`<div class="q-text">${q.prompt}</div>`:`<div class="q-math">${q.prompt}</div>`)
       +`<input class="num-input" id="ans" autocomplete="off" placeholder="?"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
   } else {
-    const keys="ABCDE",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
+    const keys="ABCDEFG",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
     inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;
   }
   body.innerHTML=`<div class="qkind">${state.label}</div>${inner}
@@ -835,6 +1707,13 @@ function fillQA(q){
     inp.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});
     document.getElementById('sub').onclick=()=>state.answered?next():checkInput();}
   else document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>checkChoice(+b.dataset.k));
+}
+function startCountdown(stage,alive,go){
+  setTimeout(()=>{ if(!alive())return; stage.textContent='Fertig …';
+    setTimeout(()=>{ if(!alive())return; stage.textContent='Los!';
+      setTimeout(()=>{ if(!alive())return; stage.textContent=''; setTimeout(go,250); }, 600);
+    }, 850);
+  }, 250);
 }
 function fillSpan(q){
   const myToken=state.token;
@@ -853,7 +1732,7 @@ function fillSpan(q){
     document.getElementById('tiprow').innerHTML=`<button class="tip-btn" id="tip">💡 Tipp anzeigen</button><div class="tip-text" id="tiptext" hidden></div>`;tipController(q);
     const inp=document.getElementById('ans');inp.focus();inp.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});
     document.getElementById('sub').onclick=()=>state.answered?next():checkInput();}
-  setTimeout(step,450);
+  startCountdown(stage,alive,step);
 }
 
 function parseNum(raw){raw=raw.replace(',','.').trim();if(raw.includes('/')){const[a,b]=raw.split('/');return parseFloat(a)/parseFloat(b);}return parseFloat(raw);}
@@ -865,6 +1744,8 @@ function maybeAdaptInSession(ok){
 function record(q,ok){
   const timeMs=Date.now()-(state.qStart||Date.now());
   if(q.cat)updateAdaptiveProfile({key:q.cat,group:q.group,ok,difficulty:q.diff,timeMs});
+  if(q.cat&&q.cat.indexOf('math:')===0)updateMathProfile(q.cat,ok,q.diff,timeMs,q);
+  if(q.cat&&q.cat.indexOf('cfa:')===0)updateCfaProfile(q.cat,ok);
   maybeAdaptInSession(ok);
   if(state.daily){const g=q.group;(state.areaLog[g]||(state.areaLog[g]={att:0,cor:0}));state.areaLog[g].att++;if(ok)state.areaLog[g].cor++;}
 }
@@ -889,7 +1770,7 @@ function checkChoice(k){
   if(state.answered)return;state.answered=true;const q=state.list[state.i],ok=k===q.c;
   document.querySelectorAll('.opt').forEach((b,idx)=>{b.disabled=true;if(idx===q.c)b.classList.add('correct');if(idx===k&&!ok)b.classList.add('wrong');});
   ok?(state.correct++,state.streak++):(state.streak=0);record(q,ok);
-  const L="ABCDE";
+  const L="ABCDEFG";
   pushReview(q,ok,`${L[k]}) ${q.opts[k]}`,`${L[q.c]}) ${q.opts[q.c]}`);
   showFeedback(ok,q.explain);
 }
@@ -938,6 +1819,7 @@ function reviewHTML(){
 function results(){
   setHomeBtn(false); tag.textContent="auswertung";
   Streak.registerToday();                          // ein Trainingstag, max. 1× pro Kalendertag
+  if(state.mathStartLevel){ recomputeMathAggregates(); Store.persist(); }
   if(state.daily)return dailyResults();
   const total=state.total,acc=Math.round(state.correct/total*100),secs=Math.round((Date.now()-state.t0)/1000),per=(secs/total).toFixed(1);
   const prev=loadBest(state.key);let best=false;
@@ -946,8 +1828,13 @@ function results(){
   if(!note&&state.kind==='span')note=`Höchste Spanne: ${state.maxSpan} Ziffern`;
   if(!note&&state.kind==='agen')note=`Erreichtes Level: ${state.aLevel}`;
   const v=acc>=90?"Stark.":acc>=70?"Solide.":acc>=50?"Geht voran.":"Dranbleiben.";
+  let mathLevelNote='';
+  if(state.mathStartLevel){const cs=Store.data.mathProfile&&Store.data.mathProfile.categoryStats;
+    if(cs){const parts=[];for(const k in state.mathStartLevel){const s0=state.mathStartLevel[k],s1=cs[k]?cs[k].level:s0;
+      if(s1>s0)parts.push(catName(k)+' '+s0+'→'+s1+' ↑'); else if(s1<s0)parts.push(catName(k)+' '+s0+'→'+s1+' ↓');}
+      mathLevelNote=parts.length?parts.join(' · '):'Level gehalten';}}
   root.innerHTML=`<div class="card"><div class="res-score">${state.correct}<small>/${total}</small></div>
-    <div class="res-label">${v} ${state.label}</div>${note?`<div class="res-note">${note}</div>`:'<div style="height:18px"></div>'}
+    <div class="res-label">${v} ${state.label}</div>${note?`<div class="res-note">${note}</div>`:''}${mathLevelNote?`<div class="res-note">${mathLevelNote}</div>`:''}${(!note&&!mathLevelNote)?'<div style="height:18px"></div>':''}
     <div class="res-grid"><div class="res-cell"><b>${acc}%</b><span>Trefferquote</span></div><div class="res-cell"><b>${secs}s</b><span>Gesamtzeit</span></div><div class="res-cell"><b>${per}s</b><span>pro Aufgabe</span></div></div>
     ${best?'<div class="best">★ Neuer Bestwert</div>':''}
     ${reviewHTML()}
@@ -993,6 +1880,9 @@ if('serviceWorker' in navigator){
   loadProfile();
   const foot=document.querySelector('.foot'); if(foot) foot.textContent='Cortex v'+APP_VERSION+' · Daten lokal auf diesem Gerät';
   document.getElementById('homeBtn').onclick=goHome;   // einmalig, kein doppelter Listener
+  const __flush=()=>{try{Store.flush();}catch(e){}};
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden')__flush(); });
+  window.addEventListener('pagehide',__flush);
   home();
 })();
 </script>

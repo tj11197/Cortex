@@ -214,6 +214,30 @@
   .all-correct{text-align:center;color:var(--good);font-weight:500;font-size:13.5px;background:var(--good-soft);border-radius:11px;padding:12px;margin-bottom:18px}
 
   @media (prefers-reduced-motion:reduce){.qwrap,.step,.toast{animation:none}.progress>i{transition:none}}
+  /* ---- Kombi-Memory ---- */
+  .combo-list{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:6px 0 4px}
+  .combo-el{display:inline-block;font-family:var(--mono);font-weight:600;font-size:22px;background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:10px 16px}
+  .combo-el.ok{background:var(--good-soft);color:var(--good)} .combo-el.no{background:var(--bad-soft);color:var(--bad)}
+  .combo-bar{height:6px;background:var(--line);border-radius:999px;overflow:hidden;margin-top:18px}
+  .combo-bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:999px}
+  .combo-recall{display:flex;flex-direction:column;gap:10px}
+  .combo-recall-row{display:flex;align-items:center;gap:12px}
+  .combo-idx{font-family:var(--mono);color:var(--faint);width:20px;text-align:right;flex:0 0 auto}
+  .combo-input{flex:1;min-width:0;text-align:center;font-family:var(--mono);font-size:22px;border:1.5px solid var(--line);border-radius:12px;padding:12px 10px;background:var(--surface);color:var(--ink)}
+  .combo-input:focus{outline:none;border-color:var(--accent)}
+  .combo-chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
+  .combo-chip{font-size:15px;padding:10px 16px}
+  .combo-sel{min-height:46px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:var(--bg);border-radius:12px;margin-bottom:12px}
+  .combo-res{background:var(--bg);border-radius:14px;padding:16px;margin-bottom:8px}
+  .combo-res-line{display:flex;justify-content:space-between;align-items:center;font-size:15px;padding:6px 0}
+  .combo-res-line b.good{color:var(--good)} .combo-res-line b.bad{color:var(--bad)}
+  .combo-res-sub{margin:2px 0 8px;display:flex;flex-wrap:wrap;gap:6px}
+  .combo-res-sub .combo-el{font-size:16px;padding:6px 10px}
+  .combo-res-note{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .combo-seg{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;flex-wrap:wrap}
+  .combo-seg-label{font-size:14px;color:var(--muted);flex:0 0 auto}
+  .combo-note{font-size:13px;color:var(--muted);background:var(--bg);border-radius:12px;padding:12px 14px;margin-top:6px;line-height:1.5}
+
 </style>
 </head>
 <body>
@@ -265,7 +289,7 @@ const Backend = {
   async save(str){ try{ localStorage.setItem(STORE_KEY,str); }catch(e){ MEM[STORE_KEY]=str; } }
 };
 
-function defaultData(){return{version:1,best:{},profile:{},tut:{},streak:{last:null,current:0,best:0,history:[]},settings:{},mathProfile:null,cfaProfile:null};}
+function defaultData(){return{version:1,best:{},profile:{},tut:{},streak:{last:null,current:0,best:0,history:[]},settings:{},mathProfile:null,cfaProfile:null,gmatProfile:null,wmComboProfile:null};}
 function safeParse(s){try{const d=JSON.parse(s);return (d&&typeof d==='object')?d:null;}catch(e){return null;}}
 
 // Alt-Daten (frühere Einzelschlüssel) einmalig in den Blob übernehmen – kein Datenverlust beim Update.
@@ -839,6 +863,81 @@ function updateCfaProfile(catKey,ok){
   else{const ex=c.reviewQueue.find(r=>r.cat===catKey); if(ex){ex.tries=(ex.tries||0)+1;ex.dueAt=Date.now();} else c.reviewQueue.push({cat:catKey,dueAt:Date.now(),tries:1,addedAt:Date.now()}); if(c.reviewQueue.length>30)c.reviewQueue=c.reviewQueue.slice(c.reviewQueue.length-30);}
   Store.persist();
 }
+
+/* ========= GMAT-PROFIL (additiv; analog cfaProfile, für GMAT Quant/PS) =========
+   Eigenes Profil für die GMAT-Bänke ps/ds/cr. Reine, additive Datengrundlage für
+   späteres adaptives GMAT-Training – steuert (noch) NICHTS an der Aufgabenauswahl.
+   mathProfile und cfaProfile bleiben unberührt. Alte Nutzerdaten ohne gmatProfile
+   funktionieren weiter (Store.init ergänzt fehlende Felder; ensureGmatProfile heilt). */
+const GMAT_TYPE={ps:'problem_solving',ds:'data_sufficiency',cr:'critical_reasoning'};
+function gmatItemMeta(item){                                     // Fallbacks für Items ohne neue Metadaten
+  const bank=(item&&(item.bank||item.cat))||'ps';               // topic/bank → ps
+  const topic=(item&&(item.subtopic||item.topic))||bank;        // Subtopic/Topic bevorzugt, sonst bank (ps/ds/cr)
+  const type=(item&&(item.type||item.gmatType))||GMAT_TYPE[bank]||'problem_solving';  // Fragestil bevorzugt, sonst Bank-Typ
+  let diff=item&&(item.difficulty!=null?item.difficulty:item.diff);
+  diff=(typeof diff==='number'&&isFinite(diff))?diff:2;         // Frage-Difficulty, sonst Session, sonst 2
+  return {bank,topic,type,difficulty:diff};
+}
+function ensureGmatProfile(){
+  const d=Store.data;
+  if(!d.gmatProfile||typeof d.gmatProfile!=='object')
+    d.gmatProfile={attempts:0,correct:0,errorRate:0,avgTimeMs:0,lastPracticed:null,
+      topicStats:{},currentDifficulty:2,weakTopics:[],masteredTopics:[],reviewQueue:[]};
+  const g=d.gmatProfile;                                        // fehlende Felder defensiv nachziehen
+  if(typeof g.attempts!=='number')g.attempts=0;
+  if(typeof g.correct!=='number')g.correct=0;
+  if(typeof g.errorRate!=='number')g.errorRate=0;
+  if(typeof g.avgTimeMs!=='number')g.avgTimeMs=0;
+  if(typeof g.currentDifficulty!=='number'||!isFinite(g.currentDifficulty))g.currentDifficulty=2;
+  if(!g.topicStats||typeof g.topicStats!=='object')g.topicStats={};
+  if(!Array.isArray(g.weakTopics))g.weakTopics=[];
+  if(!Array.isArray(g.masteredTopics))g.masteredTopics=[];
+  if(!Array.isArray(g.reviewQueue))g.reviewQueue=[];
+  return g;
+}
+function gmatTopicErr(t){return t&&t.attempts?1-t.correct/t.attempts:0;}
+function gmatRecomputeTopicLists(g){                            // schwach: ≥5 Versuche & Fehlerquote ≥40 %
+  const keys=Object.keys(g.topicStats);                        // gemeistert: ≥8 Versuche & Fehlerquote ≤15 %
+  g.weakTopics=keys.filter(k=>{const t=g.topicStats[k];return t.attempts>=5&&gmatTopicErr(t)>=0.4;})
+    .sort((a,b)=>gmatTopicErr(g.topicStats[b])-gmatTopicErr(g.topicStats[a]));
+  g.masteredTopics=keys.filter(k=>{const t=g.topicStats[k];return t.attempts>=8&&gmatTopicErr(t)<=0.15;})
+    .sort((a,b)=>gmatTopicErr(g.topicStats[a])-gmatTopicErr(g.topicStats[b]));
+}
+function gmatEnqueueReview(g,meta){                             // dedup pro Thema+Typ (wie cfaProfile pro cat)
+  const ex=g.reviewQueue.find(r=>r.topic===meta.topic&&r.type===meta.type);
+  if(ex){ex.tries=(ex.tries||0)+1;ex.dueAt=Date.now();}
+  else g.reviewQueue.push({topic:meta.topic,type:meta.type,bank:meta.bank,difficulty:meta.difficulty,
+    addedAt:Date.now(),dueAt:Date.now(),tries:1});
+  if(g.reviewQueue.length>30)g.reviewQueue=g.reviewQueue.slice(g.reviewQueue.length-30);  // Kappung auf 30
+}
+function gmatDequeueReview(g,meta){
+  const i=g.reviewQueue.findIndex(r=>r.topic===meta.topic&&r.type===meta.type);
+  if(i>=0)g.reviewQueue.splice(i,1);
+}
+function updateGmatProfile(item,isCorrect,elapsedMs){
+  const g=ensureGmatProfile(),meta=gmatItemMeta(item);
+  const ms=(typeof elapsedMs==='number'&&isFinite(elapsedMs)&&elapsedMs>=0)?elapsedMs:0;
+  // Gesamt: attempts zählt jede Antwort (sonst wäre errorRate stets 0); correct nur bei richtig.
+  const prev=g.attempts;
+  g.attempts++; if(isCorrect)g.correct++;
+  g.errorRate=Math.round((1-g.correct/g.attempts)*100)/100;
+  g.avgTimeMs=Math.round((g.avgTimeMs*prev+ms)/g.attempts);      // laufender Mittelwert über alle Versuche
+  g.lastPracticed=Date.now();
+  // Pro Thema (aktuell topic = bank: ps/ds/cr)
+  const t=g.topicStats[meta.topic]||(g.topicStats[meta.topic]={attempts:0,correct:0,errorRate:0,avgTimeMs:0,type:meta.type,lastPracticed:null});
+  const tprev=t.attempts;
+  t.attempts++; if(isCorrect)t.correct++;
+  t.errorRate=Math.round((1-t.correct/t.attempts)*100)/100;
+  t.avgTimeMs=Math.round((t.avgTimeMs*tprev+ms)/t.attempts);
+  t.type=meta.type; t.lastPracticed=Date.now();
+  // Grobe adaptive Schwierigkeit (Treppe, asymmetrisch; wird gepflegt, steuert noch keine Auswahl)
+  g.currentDifficulty=Math.round(clamp(g.currentDifficulty+(isCorrect?0.34:-0.5),1,5)*100)/100;  // GMAT-Skala 1–5
+  // Abgeleitete Listen + Review-Queue
+  gmatRecomputeTopicLists(g);
+  if(isCorrect)gmatDequeueReview(g,meta); else gmatEnqueueReview(g,meta);
+  Store.persist();
+  return g;
+}
 const _cfaReturns=[
  ["Was beschreibt der Holding Period Return (HPR)?","die Gesamtrendite über die gesamte Halteperiode (Kursänderung plus Erträge)",["die auf ein Jahr annualisierte Rendite","ausschließlich die Dividendenrendite","die inflationsbereinigte Rendite"],"Der HPR fasst Kursgewinn und Erträge über die komplette Haltedauer zusammen – nicht pro Jahr.",["‚Holding period‘ = gesamte Haltedauer, nicht annualisiert."],1],
  ["Welche Durchschnittsrendite eignet sich am besten, um die Wertentwicklung über mehrere Perioden ohne Einfluss von Mittelzu-/abflüssen zu beurteilen?","die geometrische (zeitgewichtete) Rendite",["die arithmetische Rendite","die geldgewichtete Rendite (IRR)","die einfache Nominalrendite"],"Die zeitgewichtete (geometrische) Rendite blendet das Timing von Cashflows aus und misst die reine Wertentwicklung.",["Zeitgewichtet = unabhängig vom Cashflow-Timing."],3],
@@ -942,6 +1041,8 @@ const WM = {
   bdpq:{name:"b d p q (Zählen)",
     tut:{concept:"Beim b-d-p-q-Test zählst du unter Zeitdruck, wie oft ein bestimmter Buchstabe in einer Reihe aus b, d, p und q vorkommt. Die vier Buchstaben sehen sich gespiegelt sehr ähnlich – gefragt sind Konzentration und Genauigkeit.",ex:"Zähle die d in „bdpbpd“ → 2",example:`Zähle die <b>d</b>:<div style="font-family:monospace;letter-spacing:4px;font-size:20px;margin-top:8px">bdpbppdbd</div>`,steps:["Gehe die Reihe einmal ruhig von links nach rechts durch.","Achte auf die Richtung: b/d und p/q sind leicht zu verwechseln.","Hier kommt d dreimal vor → Antwort 3."]}},
 };
+WM.combo={name:"Kombi-Memory",
+  tut:{concept:"Bei Kombi-Memory prägst du dir zuerst eine kurze Liste ein – Wörter, Zahlen oder Codes. Danach löst du ein paar kurze Kopfrechenaufgaben als Ablenkung. Erst danach gibst du das Gemerkte wieder. Das trainiert, Informationen trotz Störung im Arbeitsgedächtnis zu halten – und stärkt das Wiedereinholen unter Interferenz.",ex:"Merke: Apfel · Turm · Segel – dann 8 × 6 = ? – dann: Wie hieß die Liste?",example:"Merke: Apfel · Turm · Segel  →  Ablenkung: 24 + 18  →  Abruf: die drei Wörter",steps:["Verbinde die Liste zu einem Bild oder einer kleinen Geschichte.","Löse die Ablenkungsaufgaben zügig, ohne die Liste innerlich mitzusprechen.","Ruf die Liste danach bewusst wieder ab – ab Stufe 4 zählt die Reihenfolge."]}};
 
 /* ========= GMAT ========= */
 const GEN_PS_HELPERS=1;
@@ -966,6 +1067,8 @@ function mcStr(correct,distractors){
   let guard=0; while(vals.length<5 && guard++<60){ const t=rnd(1,9)+' : '+rnd(2,9); if(!vals.includes(t))vals.push(t); }
   const sh=shuffle(vals.slice(0,5)); return {o:sh, c:sh.indexOf(correct)};
 }
+// Choice-Helfer für vorformulierte String-Optionen (z. B. Brüche): mischt und findet den Index. Optionen müssen paarweise verschieden sein.
+const psChoice=(correct,ds)=>{const sh=shuffle([correct,...ds]);return {o:sh,c:sh.indexOf(correct)};};
 const GEN_PS=[
   ()=>{const p=pick([10,15,20,25,30,40,50,75]),base=pick([40,60,80,120,160,200,240,300]);const correct=base*p/100;
     return {q:`${p} % von ${plain(base)} sind:`,...mc(correct,[base*(100-p)/100,correct*2,Math.round(correct/2),correct+p]),h:"1 % ist der Hundertstel der Zahl.",e:`${plain(base)} ÷ 100 × ${p} = ${plain(correct)}.`};},
@@ -1017,7 +1120,153 @@ const GEN_PS=[
   ()=>{const a=rnd(1,5),b=rnd(1,5),tot=a+b;const correct=Math.round(a/tot*100);
     return {q:`Ein Beutel enthält ${a} rote und ${b} blaue Kugeln. Wahrscheinlichkeit für rot (in %)?`,...mc(correct,[Math.round(b/tot*100),50,correct+10,correct-10],pctt),h:"Günstige ÷ alle × 100.",e:`${a} ÷ ${tot} ≈ ${correct} %.`};},
   ()=>{const [w,correct]=pick([['LEVEL',30],['ERDE',12],['KOMMA',60],['OTTO',6],['RADAR',30],['TOTO',6]]);
-    return {q:`Wie viele unterschiedliche Anordnungen hat das Wort ${w}?`,...mc(correct,[fact(w.length),correct*2,Math.round(correct/2),correct+6]),h:"Buchstaben! geteilt durch die Fakultäten der Wiederholungen.",e:`${w.length}! ÷ (Wiederholungen) = ${correct}.`};}
+    return {q:`Wie viele unterschiedliche Anordnungen hat das Wort ${w}?`,...mc(correct,[fact(w.length),correct*2,Math.round(correct/2),correct+6]),h:"Buchstaben! geteilt durch die Fakultäten der Wiederholungen.",e:`${w.length}! ÷ (Wiederholungen) = ${correct}.`};},
+
+  /* ===== NEU (Schritt 3): 40 GMAT Problem-Solving-Fragen · Metadaten topic/difficulty(1–5)/type =====
+     Eigens formuliert (keine offiziellen GMAT-Fragen), pendlertauglich, im Kopf lösbar.
+     type ∈ {concept, mini_calc, problem_solving, trap_recognition}. */
+  /* -- Arithmetic / Prozent / Verhältnis / Durchschnitt (10) -- */
+  ()=>({q:"20 % von 150 sind:",...mc(30,[15,45,3,75]),h:"10 % ist ein Zehntel – dann verdoppeln.",e:"150 ÷ 10 × 2 = 30.",topic:"arith",difficulty:1,type:"mini_calc"}),
+  ()=>({q:"Ein Wert steigt von 80 auf 100. Um wie viel Prozent?",...mc(25,[20,80,125,5],pctt),h:"Zuwachs ÷ Ausgangswert × 100 – Ausgangswert ist 80.",e:"20 ÷ 80 × 100 = 25 %.",topic:"arith",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Ein Preis steigt um 20 % und fällt danach um 20 %. Wie ändert er sich insgesamt?",o:["Er bleibt gleich.","Er sinkt um 4 %.","Er steigt um 4 %.","Er sinkt um 40 %."],c:1,h:"1,2 × 0,8 ist nicht 1.",e:"1,20 × 0,80 = 0,96 → 4 % Verlust.",topic:"arith",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"Der Durchschnitt von fünf Zahlen ist 12. Eine sechste kommt hinzu, der Durchschnitt bleibt 12. Welchen Wert hat die sechste Zahl?",...mc(12,[6,60,0,14]),h:"Damit der Schnitt gleich bleibt, muss die neue Zahl genau dem Schnitt entsprechen.",e:"Neue Zahl = Durchschnitt = 12.",topic:"arith",difficulty:3,type:"concept"}),
+  ()=>({q:"Zwei Zahlen im Verhältnis 3 : 5 ergeben zusammen 40. Die kleinere ist:",...mc(15,[25,5,24,20]),h:"Insgesamt 3 + 5 = 8 Teile.",e:"40 ÷ 8 = 5; kleinere = 3 × 5 = 15.",topic:"arith",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"10 Jungen haben Schnitt 80, 15 Mädchen Schnitt 90. Gesamtschnitt der 25?",...mc(86,[85,84,88,170]),h:"Nach Anzahl gewichten – nicht einfach (80 + 90) ÷ 2.",e:"(800 + 1350) ÷ 25 = 86.",topic:"arith",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"Welcher Ausdruck bedeutet „x ist um 30 % größer als y“?",o:["x = 0,3y","x = 1,3y","x = y − 0,3y","x = y + 0,3","x = 30y"],c:1,h:"Größer heißt Grundwert plus Zuschlag.",e:"30 % größer → x = y + 0,3y = 1,3y.",topic:"arith",difficulty:2,type:"concept"}),
+  ()=>({q:"50 % von 40 % von 200?",...mc(40,[90,20,45,400]),h:"Nacheinander: 0,4 × 200, davon die Hälfte.",e:"0,4 × 200 = 80; die Hälfte = 40.",topic:"arith",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"Ein Hemd wird um 40 % reduziert. Um wie viel Prozent muss der reduzierte Preis steigen, um wieder den Originalpreis zu erreichen?",o:["40 %","60 %","66,7 %","150 %"],c:2,h:"Nicht 40 % – der Bezugswert ist jetzt kleiner.",e:"0,6 × (1 + p) = 1 → p ≈ 66,7 %.",topic:"arith",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Der Durchschnitt von 4 Zahlen ist 15. Drei davon sind 10, 14 und 18. Die vierte?",...mc(18,[15,16,20,12]),h:"Erst die Gesamtsumme: Durchschnitt × Anzahl.",e:"60 − (10 + 14 + 18) = 18.",topic:"arith",difficulty:2,type:"problem_solving"}),
+  /* -- Fractions & Decimals (10) · ausschließlich Multiple Choice -- */
+  ()=>({q:"1/4 + 1/6 = ?",...psChoice("5/12",["10/24","12/5","1/5","0,24"]),h:"Gemeinsamer Nenner 12, dann die Zähler addieren.",e:"3/12 + 2/12 = 5/12.",topic:"fractions",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"2/3 × 3/4 = ?",...psChoice("1/2",["6/12","8/9","5/7","0,66"]),h:"Zähler × Zähler, Nenner × Nenner – dann kürzen.",e:"6/12 = 1/2.",topic:"fractions",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Welcher Bruch ist am größten?",...psChoice("3/4",["5/8","2/3","7/12"]),h:"Als Dezimalzahl schätzen oder auf Nenner 24 bringen.",e:"3/4 = 0,75 ist am größten.",topic:"fractions",difficulty:3,type:"concept"}),
+  ()=>({q:"(3/4) ÷ (1/2) = ?",...psChoice("3/2",["6/4","3/8","2/3","1,25"]),h:"Durch einen Bruch teilen = mit dem Kehrwert multiplizieren.",e:"3/4 × 2/1 = 6/4 = 3/2.",topic:"fractions",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"Was ist größer: 1/3 oder 0,3?",o:["Sie sind gleich groß.","0,3 ist größer.","1/3 ist größer.","Das lässt sich nicht vergleichen."],c:2,h:"1/3 = 0,333… – vergleiche die Dezimalstellen.",e:"1/3 ≈ 0,333 > 0,3.",topic:"fractions",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"3/5 als Dezimalzahl?",...psChoice("0,6",["0,35","0,53","1,67","0,3"]),h:"3 ÷ 5.",e:"3 ÷ 5 = 0,6.",topic:"fractions",difficulty:1,type:"mini_calc"}),
+  ()=>({q:"Von einer Torte isst A 1/4, dann isst B ein Drittel vom Rest. Welcher Anteil der ganzen Torte bleibt übrig?",...psChoice("1/2",["5/12","1/3","2/3","7/12"]),h:"B isst 1/3 vom REST (3/4), nicht von der ganzen Torte.",e:"Rest 3/4; B isst 1/4 → gegessen 1/2 → bleibt 1/2.",topic:"fractions",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Welche Rechnung ergibt „die Hälfte von drei Vierteln“?",o:["3/4 + 1/2","3/4 × 1/2","3/4 ÷ 1/2","1/2 − 3/4","3/4 − 1/2"],c:1,h:"„von“ bedeutet mal.",e:"Die Hälfte von 3/4 = 3/4 × 1/2 = 3/8.",topic:"fractions",difficulty:2,type:"concept"}),
+  ()=>({q:"1/2 + 1/3 + 1/6 = ?",...psChoice("1",["5/6","3/11","6/11","0,83"]),h:"Gemeinsamer Nenner 6.",e:"3/6 + 2/6 + 1/6 = 6/6 = 1.",topic:"fractions",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"Für eine Zahl x mit 0 < x < 1 – was gilt für 1/x?",o:["1/x liegt zwischen 0 und 1.","1/x ist größer als 1.","1/x ist negativ.","1/x = x."],c:1,h:"Setze z. B. x = 1/2 ein.",e:"Für 0 < x < 1 ist 1/x > 1 (x = 1/2 → 1/x = 2).",topic:"fractions",difficulty:5,type:"concept"}),
+  /* -- Algebra / Gleichungen / Ungleichungen (10) -- */
+  ()=>({q:"Wenn 3x = 21, dann x = ?",...mc(7,[3,18,24,63]),h:"Beide Seiten durch 3 teilen.",e:"21 ÷ 3 = 7.",topic:"algebra",difficulty:1,type:"mini_calc"}),
+  ()=>({q:"2x + 5 = 17. x = ?",...mc(6,[11,7,5,22]),h:"Erst 5 abziehen, dann durch 2.",e:"2x = 12 → x = 6.",topic:"algebra",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Welche Gleichung beschreibt „eine Zahl, um 4 vermehrt, ergibt ihr Dreifaches“?",o:["x + 4 = 3x","x + 4 = x/3","4x = 3x","x − 4 = 3x","3x + 4 = x"],c:0,h:"„Dreifaches der Zahl“ = 3x.",e:"x + 4 = 3x (→ x = 2).",topic:"algebra",difficulty:2,type:"concept"}),
+  ()=>({q:"x + y = 10 und x − y = 4. Wie groß ist x · y?",...mc(21,[10,24,40,14]),h:"Addieren ergibt x, subtrahieren ergibt y.",e:"x = 7, y = 3 → 21.",topic:"algebra",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Wenn −2x > 6, dann gilt für x:",o:["x > −3","x < −3","x > 3","x < 3"],c:1,h:"Beim Teilen durch eine negative Zahl dreht sich das Ungleichzeichen um.",e:"x < −3.",topic:"algebra",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Für welchen Wert von x ist (x − 3)/(x + 2) gleich null?",o:["x = −2","x = 3","x = 0","Es gibt keinen solchen Wert."],c:1,h:"Ein Bruch ist null, wenn der Zähler null ist (und der Nenner nicht).",e:"Zähler x − 3 = 0 → x = 3 (Nenner ≠ 0).",topic:"algebra",difficulty:3,type:"concept"}),
+  ()=>({q:"Wenn x/5 = 4, dann x = ?",...mc(20,[9,45,1,25]),h:"Beide Seiten mal 5.",e:"4 × 5 = 20.",topic:"algebra",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Eine Zahl (ungleich 0) ist gleich ihrem Quadrat geteilt durch 4. Wie groß ist sie?",o:["2","4","8","16","nur 0"],c:1,h:"x = x²/4 → x² = 4x → x = 4 (x ≠ 0).",e:"x = 4 erfüllt 4 = 16 ÷ 4.",topic:"algebra",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Für welche x gilt x² < x?",o:["alle x > 0","0 < x < 1","alle x < 1","x > 1"],c:1,h:"Teste x = 1/2 und x = 2.",e:"Nur für 0 < x < 1 ist x² kleiner als x.",topic:"algebra",difficulty:5,type:"concept"}),
+  ()=>({q:"Wenn a > b, folgt daraus immer a² > b²?",o:["Ja, immer.","Nein, z. B. bei negativen Zahlen.","Ja, wenn beide positiv sind.","Nur wenn a = b."],c:1,h:"Probiere a = 1, b = −2.",e:"1 > −2, aber 1 < 4 – also nicht immer.",topic:"algebra",difficulty:4,type:"trap_recognition"}),
+  /* -- Word Problems (10) -- */
+  ()=>({q:"Ein Zug fährt 240 km in 3 Stunden. Durchschnittsgeschwindigkeit?",...mc(80,[60,120,720,40],kmh),h:"Strecke ÷ Zeit.",e:"240 ÷ 3 = 80 km/h.",topic:"word",difficulty:1,type:"mini_calc"}),
+  ()=>({q:"A schafft eine Arbeit in 6 h, B in 3 h. Wie lange zusammen?",...mc(2,[9,4.5,3,1.5],hrs),h:"Zusammen = (x · y) ÷ (x + y).",e:"18 ÷ 9 = 2 h.",topic:"word",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Hin mit 60 km/h, dieselbe Strecke zurück mit 40 km/h. Durchschnittsgeschwindigkeit?",o:["50 km/h","48 km/h","52 km/h","100 km/h"],c:1,h:"Nicht der Mittelwert der Tempos – Gesamtstrecke ÷ Gesamtzeit.",e:"2 · 60 · 40 ÷ (60 + 40) = 48 km/h.",topic:"word",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Ein Produkt kostet nach 20 % Rabatt 48 €. Welche Gleichung liefert den Originalpreis p?",o:["0,8p = 48","1,2p = 48","p − 20 = 48","0,2p = 48","p = 48 × 0,8"],c:0,h:"Der reduzierte Preis sind 80 % des Originals.",e:"0,8p = 48 → p = 60 €.",topic:"word",difficulty:2,type:"concept"}),
+  ()=>({q:"Drei Äpfel kosten 1,20 €. Was kosten fünf Äpfel?",...mc(2,[2.4,1.8,3.6,0.4],money),h:"Erst den Preis für einen Apfel.",e:"1,20 ÷ 3 = 0,40 €; × 5 = 2,00 €.",topic:"word",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Anna ist heute dreimal so alt wie Ben. In 4 Jahren ist sie doppelt so alt wie er. Wie alt ist Ben heute?",o:["2","4","6","8"],c:1,h:"Setze Anna = 3·Ben und stelle die zweite Bedingung als Gleichung auf.",e:"3b + 4 = 2(b + 4) → b = 4.",topic:"word",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"In einem Korb sind doppelt so viele rote wie grüne Äpfel, insgesamt 18. Wie viele rote?",o:["6","9","12","15"],c:2,h:"Zusammen 3 Teile (2 rot + 1 grün).",e:"18 ÷ 3 = 6 grün → 12 rot.",topic:"word",difficulty:2,type:"problem_solving"}),
+  ()=>({q:"Rohr A füllt ein Becken in 4 h, Rohr B leert es in 6 h. Beide offen – was passiert?",o:["Der Füllstand bleibt gleich.","Es füllt sich, in 12 h voll.","Es füllt sich, in 2 h voll.","Es leert sich."],c:1,h:"Zuflussrate minus Abflussrate: 1/4 − 1/6.",e:"1/4 − 1/6 = 1/12 pro Stunde → 12 h.",topic:"word",difficulty:4,type:"concept"}),
+  ()=>({q:"Ein Rabatt macht aus 250 € einen Preis von 200 €. Wie viel Prozent Rabatt?",...mc(20,[50,25,80,10],pctt),h:"Ersparnis ÷ Originalpreis × 100.",e:"50 ÷ 250 × 100 = 20 %.",topic:"word",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Einkauf 80 €. Nach einem geplanten Rabatt von 20 % soll noch 20 % Gewinn auf den Einkauf bleiben. Welchen Auszeichnungspreis (vor Rabatt) wählen?",o:["96 €","115 €","120 €","144 €"],c:2,h:"Nach 20 % Rabatt sollen 96 € (= 80 × 1,2) übrig bleiben: 0,8 · L = 96.",e:"0,8 · L = 96 → L = 120 €.",topic:"word",difficulty:5,type:"problem_solving"}),
+
+  /* ===== NEU (Block 2): 40 anspruchsvollere GMAT-PS-Fragen · mehrstufig, mehr L4/L5, Ansatz vor Kopfrechnen =====
+     Kein Kopfrechen-Zwang mehr; Papier erlaubt, aber keine Taschenrechner-/Excel-Rechnungen, keine unnötig großen Zahlen.
+     Subtopics erweitert: rate (Rate/Work/Mixture/Speed), numprop (Number Properties). */
+  /* -- Rate / Work / Mixture / Speed (10) -- */
+  ()=>({q:"Maschine A schafft einen Auftrag allein in 12 h, Maschine B in 8 h. Sie arbeiten 3 h zusammen, dann fällt B aus. Wie lange braucht A allein für den Rest?",...mc(4.5,[4,5,3.6,6],hrs),h:"Erst gemeinsame Rate und den in 3 h erledigten Anteil, dann Restanteil ÷ A-Rate.",e:"Zusammen 5/24 pro h → in 3 h 5/8 fertig; Rest 3/8 ÷ (1/12) = 4,5 h.",topic:"rate",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Eine 40-Liter-Lösung enthält 25 % Säure. Wie viele Liter reines Wasser muss man zugeben, damit die Lösung nur noch 20 % Säure enthält?",...mc(10,[5,8,12.5,2]),h:"Die Säuremenge bleibt konstant; nur das Gesamtvolumen ändert sich.",e:"Säure = 10 L; 10 ÷ 0,20 = 50 L gesamt → 50 − 40 = 10 L Wasser.",topic:"rate",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Ein Auto fährt die erste Hälfte der Strecke mit 60 km/h, die zweite mit 90 km/h. Durchschnittsgeschwindigkeit über die ganze Strecke?",...mc(72,[75,70,74,76],kmh),h:"Gleiche Strecken, nicht gleiche Zeiten – Gesamtstrecke ÷ Gesamtzeit, nicht 75.",e:"2·60·90 ÷ (60 + 90) = 72 km/h.",topic:"rate",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"Drei Rohre an einem Becken: A füllt in 6 h, B füllt in 4 h, C leert in 12 h. Alle gleichzeitig offen – wie lange bis voll?",...mc(3,[2,4,3.6,2.4],hrs),h:"Zuflüsse addieren, Abfluss subtrahieren: 1/6 + 1/4 − 1/12.",e:"Netto 1/3 pro h → 3 h.",topic:"rate",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Zwei Züge starten gleichzeitig aus 300 km entfernten Städten und fahren aufeinander zu, mit 70 km/h und 80 km/h. Nach wie vielen Stunden treffen sie sich?",...mc(2,[2.5,4,1.5,3],hrs),h:"Bei Aufeinander-zu addieren sich die Geschwindigkeiten.",e:"300 ÷ (70 + 80) = 2 h.",topic:"rate",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"8 kg Kaffee zu 12 €/kg werden mit 4 kg zu 18 €/kg gemischt. Preis pro kg der Mischung?",...mc(14,[15,13,16,30],money),h:"Gewichteter Mittelwert nach Menge, nicht (12 + 18) ÷ 2.",e:"(96 + 72) ÷ 12 = 14 €/kg.",topic:"rate",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"6 Arbeiter bauen eine Mauer in 10 Tagen. Wie viele Tage brauchen 4 Arbeiter (gleiches Tempo) für dieselbe Mauer?",...mc(15,[12,20,40,7.5],days),h:"Personen-Tage bleiben konstant: 6 × 10.",e:"60 Personen-Tage ÷ 4 = 15 Tage.",topic:"rate",difficulty:2,type:"problem_solving"}),
+  ()=>({q:"Ein Läufer startet mit 8 km/h. 30 Minuten später startet ein Radfahrer vom selben Punkt mit 20 km/h. Nach wie vielen Minuten (ab Start des Radfahrers) holt er den Läufer ein?",...mc(20,[15,30,24,12]),h:"Vorsprung in km berechnen, dann durch die Differenzgeschwindigkeit teilen.",e:"Vorsprung 4 km; 4 ÷ (20 − 8) = 1/3 h = 20 min.",topic:"rate",difficulty:5,type:"problem_solving"}),
+  ()=>({q:"Aus 20 Litern reinem Alkohol werden 4 Liter entnommen und durch Wasser ersetzt. Wie viele Liter Alkohol sind danach noch enthalten?",...mc(16,[12.8,20,4,15]),h:"Nur einmal ersetzt: die entnommene reine Alkoholmenge abziehen.",e:"20 − 4 = 16 L Alkohol (Wasser ersetzt nur Volumen).",topic:"rate",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"Ein Boot fährt stromabwärts 30 km in 2 h und stromaufwärts dieselbe Strecke in 3 h. Wie hoch ist die Fließgeschwindigkeit des Wassers?",...mc(2.5,[12.5,5,2,1.25],kmh),h:"Abwärts = Boot + Strömung, aufwärts = Boot − Strömung.",e:"15 = b + c, 10 = b − c → c = 2,5 km/h.",topic:"rate",difficulty:4,type:"problem_solving"}),
+  /* -- Number Properties (8) -- */
+  ()=>({q:"Wenn n eine ungerade ganze Zahl ist, welcher Ausdruck ist immer gerade?",o:["n + 1","n²","2n − 1","n + 2","3n"],c:0,h:"Ungerade + 1 = gerade; teste n = 3.",e:"n ungerade → n + 1 gerade (die anderen bleiben ungerade).",topic:"numprop",difficulty:2,type:"concept"}),
+  ()=>({q:"Wie viele ganze Zahlen von 1 bis 100 sind durch 3 oder durch 5 teilbar?",...mc(47,[53,46,40,50]),h:"Inklusion-Exklusion: |durch 3| + |durch 5| − |durch 15|.",e:"33 + 20 − 6 = 47.",topic:"numprop",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Eine Zahl lässt bei Division durch 5 den Rest 3 und bei Division durch 3 den Rest 2. Welche Zahl erfüllt beides?",...mc(8,[11,13,18,20]),h:"Suche die kleinste Zahl, die beide Reste erfüllt (aufwärts probieren).",e:"8: 8 ÷ 5 Rest 3, 8 ÷ 3 Rest 2. (Lösungen wiederholen sich alle 15.)",topic:"numprop",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"p ist eine Primzahl größer als 3. Welche Aussage über p² − 1 ist immer wahr?",o:["ist durch 24 teilbar","ist eine Primzahl","ist ungerade","endet auf 5"],c:0,h:"p² − 1 = (p − 1)(p + 1); teste p = 5 und p = 7.",e:"Für Primzahlen p > 3 ist p² − 1 stets durch 24 teilbar (24, 48, …).",topic:"numprop",difficulty:5,type:"concept"}),
+  ()=>({q:"Auf welche Ziffer endet 7⁴?",...mc(1,[9,7,3,5]),h:"Die Einerziffern der 7er-Potenzen wiederholen sich: 7, 9, 3, 1, …",e:"7⁴ endet auf 1 (7 → 9 → 3 → 1).",topic:"numprop",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"Die Summe fünf aufeinanderfolgender ganzer Zahlen ist 100. Wie groß ist die größte davon?",...mc(22,[20,24,21,25]),h:"Bei ungerader Anzahl ist die mittlere Zahl der Durchschnitt.",e:"Mitte = 100 ÷ 5 = 20 → größte = 22.",topic:"numprop",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Wie viele positive Teiler hat 36?",...mc(9,[6,8,12,4]),h:"Primfaktorzerlegung, Exponenten je + 1, dann multiplizieren.",e:"36 = 2²·3² → (2 + 1)(2 + 1) = 9 Teiler.",topic:"numprop",difficulty:4,type:"concept"}),
+  ()=>({q:"Wenn x < 0 < y, welche Aussage muss wahr sein?",o:["x · y < 0","x + y < 0","x² < y²","x − y > 0"],c:0,h:"Negativ mal positiv ist immer negativ; die anderen hängen von den Beträgen ab.",e:"x < 0 und y > 0 → x · y < 0 (die anderen sind nicht sicher).",topic:"numprop",difficulty:4,type:"trap_recognition"}),
+  /* -- Algebra / Gleichungen / Ungleichungen (8) -- */
+  ()=>({q:"3x + 2y = 16 und x + y = 6. Was ist x?",...mc(4,[2,6,8,3]),h:"Eine Variable einsetzen (Substitution).",e:"y = 6 − x → 3x + 12 − 2x = 16 → x = 4.",topic:"algebra",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Wenn x² − 5x + 6 = 0, was ist die Summe der möglichen Werte von x?",...mc(5,[6,1,-5,3]),h:"Faktorisieren oder Vieta: Summe der Wurzeln = −b/a.",e:"(x − 2)(x − 3) = 0 → 2 + 3 = 5.",topic:"algebra",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Für welche x gilt (x − 2)(x + 3) < 0?",o:["x < −3 oder x > 2","−3 < x < 2","x < 2","−2 < x < 3"],c:1,h:"Ein Produkt ist negativ, wenn genau ein Faktor negativ ist – also zwischen den Nullstellen.",e:"Nullstellen −3 und 2; negativ dazwischen: −3 < x < 2.",topic:"algebra",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Wenn 2^x = 8 und 3^y = 81, was ist x + y?",...mc(7,[12,5,11,6]),h:"8 = 2³, 81 = 3⁴.",e:"x = 3, y = 4 → 7.",topic:"algebra",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"Ein Rechteck ist dreimal so lang wie breit, der Umfang ist 48. Welche Gleichung bestimmt die Breite b?",o:["8b = 48","4b = 48","6b = 48","3b = 48","2b = 48"],c:0,h:"Umfang = 2·(Länge + Breite), Länge = 3b.",e:"2(3b + b) = 8b = 48 → b = 6.",topic:"algebra",difficulty:3,type:"concept"}),
+  ()=>({q:"Vor 5 Jahren war Anna doppelt so alt wie Ben. In 5 Jahren wird sie 1,5-mal so alt sein wie er. Wie alt ist Anna heute?",...mc(25,[20,30,15,35]),h:"Zwei Gleichungen aus „vor 5 Jahren“ und „in 5 Jahren“ aufstellen.",e:"A = 2B − 5 und A = 1,5B + 2,5 → B = 15, A = 25.",topic:"algebra",difficulty:5,type:"problem_solving"}),
+  ()=>({q:"Wie viele Lösungen hat |x − 3| = 5?",o:["keine","genau eine","genau zwei","unendlich viele"],c:2,h:"Der Betrag deckt zwei Vorzeichen ab.",e:"x = 8 oder x = −2 → zwei Lösungen.",topic:"algebra",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"Wenn x + 1/x = 3, was ist x² + 1/x²?",...mc(7,[9,6,11,3]),h:"Quadriere x + 1/x und ziehe die 2 ab.",e:"(x + 1/x)² = x² + 2 + 1/x² = 9 → 7.",topic:"algebra",difficulty:5,type:"problem_solving"}),
+  /* -- Word Problems, mehrstufig (6) -- */
+  ()=>({q:"Ein Händler kauft für 200 € und zeichnet 50 % über dem Einkauf aus. Beim Verkauf gibt er 20 % Rabatt auf den Auszeichnungspreis. Wie viel Prozent Gewinn (auf den Einkauf) macht er?",...mc(20,[30,25,10,50],pctt),h:"Auszeichnungspreis, dann Rabatt anwenden, dann Gewinn ÷ Einkauf.",e:"300 × 0,8 = 240; Gewinn 40 ÷ 200 = 20 %.",topic:"word",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Ein Betrag wächst bei 10 % jährlichem Zinseszins in 2 Jahren auf 605 €. Wie hoch war der Anfangsbetrag?",...mc(500,[550,484,600,495],money),h:"Rückwärts durch 1,1² = 1,21 teilen.",e:"605 ÷ 1,21 = 500 €.",topic:"word",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"In einer Klasse ist Jungen : Mädchen = 3 : 2. Kommen 10 Mädchen dazu, wird es 3 : 4. Wie viele Jungen sind in der Klasse?",...mc(15,[10,20,30,12]),h:"Setze Jungen 3k, Mädchen 2k und stelle die neue Verhältnisgleichung auf.",e:"3k / (2k + 10) = 3/4 → k = 5 → Jungen = 15.",topic:"word",difficulty:5,type:"problem_solving"}),
+  ()=>({q:"Jemand hat 20 Münzen, nur 1-€- und 2-€-Münzen, im Gesamtwert von 34 €. Wie viele 2-€-Münzen?",...mc(14,[6,10,12,16]),h:"Zwei Gleichungen: Anzahl und Wert.",e:"2x + (20 − x) = 34 → x = 14.",topic:"word",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Der Durchschnitt von 6 Zahlen ist 15. Entfernt man die größte, sinkt der Durchschnitt der übrigen 5 auf 13. Wie groß war die entfernte Zahl?",...mc(25,[2,15,20,28]),h:"Gesamtsummen vergleichen: 6 × 15 minus 5 × 13.",e:"90 − 65 = 25.",topic:"word",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"In einer Gruppe von 40 Personen spielen 25 Tennis, 20 Golf und 5 keines von beiden. Wie viele spielen beides?",...mc(10,[5,15,45,12]),h:"Zuerst „mindestens eines“ (40 − 5), dann Inklusion-Exklusion.",e:"35 = 25 + 20 − beide → beide = 10.",topic:"word",difficulty:5,type:"problem_solving"}),
+  /* -- Arithmetic / Prozent / Verhältnis / Durchschnitt (5) -- */
+  ()=>({q:"Ein Gehalt steigt um 20 % und sinkt im Jahr darauf um 10 %. Um wie viel Prozent hat es sich insgesamt geändert?",o:["+10 %","+8 %","+2 %","−8 %"],c:1,h:"Faktoren multiplizieren: 1,2 × 0,9.",e:"1,2 × 0,9 = 1,08 → +8 %.",topic:"arith",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"90 € werden im Verhältnis 2 : 3 : 4 aufgeteilt. Wie groß ist der größte Anteil?",...mc(40,[30,20,45,36],money),h:"2 + 3 + 4 = 9 Teile.",e:"90 ÷ 9 = 10 → größter Anteil 4 × 10 = 40 €.",topic:"arith",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Nach einer Preissenkung um 25 % kostet ein Artikel 60 €. Wie hoch war der ursprüngliche Preis?",...mc(80,[75,85,45,90],money),h:"60 sind 75 % des Originals.",e:"60 ÷ 0,75 = 80 €.",topic:"arith",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Eine Klasse hat Notenschnitt 3,0. Die 12 Jungen haben Schnitt 3,4. Welchen Schnitt haben die 8 Mädchen?",...mc(2.4,[2.6,2,2.8,3]),h:"Gesamtsumme minus Jungensumme, geteilt durch 8.",e:"20 × 3,0 = 60; 60 − 40,8 = 19,2 ÷ 8 = 2,4.",topic:"arith",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"A ist 25 % größer als B. Um wie viel Prozent ist B kleiner als A?",o:["25 %","20 %","30 %","75 %"],c:1,h:"Die Bezugsgröße wechselt von B auf A.",e:"A = 1,25B → B = 0,8A → 20 % kleiner.",topic:"arith",difficulty:4,type:"trap_recognition"}),
+  /* -- Fractions & Decimals (3) · Multiple Choice -- */
+  ()=>({q:"(1/2 + 1/3) ÷ (1 − 1/4) = ?",...psChoice("10/9",["20/18","9/10","5/8","1,25"]),h:"Zähler und Nenner getrennt vereinfachen, dann mit dem Kehrwert multiplizieren.",e:"(5/6) ÷ (3/4) = 5/6 × 4/3 = 10/9.",topic:"fractions",difficulty:4,type:"mini_calc"}),
+  ()=>({q:"Ein Tank ist zu 3/8 gefüllt. Nach Zugabe von 15 Litern ist er zu 3/4 gefüllt. Wie groß ist der Tank (in Litern)?",...mc(40,[24,20,120,60]),h:"15 Liter entsprechen der Differenz 3/4 − 3/8 des Tanks.",e:"3/8 · T = 15 → T = 40 L.",topic:"fractions",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Welcher Bruch liegt am nächsten bei 1?",...psChoice("11/12",["7/8","9/10","5/6"]),h:"Kleiner Abstand zwischen Zähler und Nenner heißt nah an 1.",e:"11/12 ≈ 0,917 liegt am nächsten bei 1.",topic:"fractions",difficulty:3,type:"concept"}),
+
+  /* ===== NEU (Block 3): 40 GMAT-PS-Fragen · Exponents/Roots, Statistics, Geometry light, Mixed Advanced =====
+     Schwerpunkt mittel/schwer; Papier erlaubt, keine Taschenrechner-/Excel-Rechnungen, keine unnötig großen Zahlen.
+     Subtopics: exponents, statistics, geometry, mixed. */
+  /* -- Exponents / Roots (10) -- */
+  ()=>({q:"2³ · 2⁴ = ?",...mc(128,[64,512,16,2187]),h:"Bei gleicher Basis die Exponenten addieren.",e:"2³·2⁴ = 2⁷ = 128.",topic:"exponents",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"(2³)² = ?",...mc(64,[32,128,12,256]),h:"Potenz einer Potenz: Exponenten multiplizieren.",e:"(2³)² = 2⁶ = 64.",topic:"exponents",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"2⁻³ = ?",...psChoice("1/8",["−8","8","−1/8","1/6"]),h:"Negativer Exponent bedeutet Kehrwert der Potenz.",e:"2⁻³ = 1/2³ = 1/8.",topic:"exponents",difficulty:3,type:"concept"}),
+  ()=>({q:"√50 vereinfacht?",...psChoice("5√2",["25√2","2√5","√25","10√5"]),h:"Größten Quadratfaktor herausziehen: 50 = 25 · 2.",e:"√50 = √25 · √2 = 5√2.",topic:"exponents",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"√12 + √27 = ?",...psChoice("5√3",["√39","5√6","6√3","13√3"]),h:"Beide auf √3 bringen: 2√3 + 3√3.",e:"√12 = 2√3, √27 = 3√3 → 5√3.",topic:"exponents",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Welche Zahl ist am größten?",o:["2¹⁰","3⁶","5⁴","10³"],c:0,h:"Grob abschätzen: 2¹⁰ = 1024, 10³ = 1000, 3⁶ = 729, 5⁴ = 625.",e:"2¹⁰ = 1024 ist am größten.",topic:"exponents",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Wenn 2^(x+1) = 16, was ist x?",...mc(3,[4,5,2,8]),h:"16 = 2⁴, dann die Exponenten gleichsetzen.",e:"x + 1 = 4 → x = 3.",topic:"exponents",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Zwischen welchen ganzen Zahlen liegt √40?",o:["5 und 6","6 und 7","7 und 8","4 und 5"],c:1,h:"6² = 36, 7² = 49.",e:"36 < 40 < 49 → √40 liegt zwischen 6 und 7.",topic:"exponents",difficulty:2,type:"concept"}),
+  ()=>({q:"Wenn 3^x = 5, was ist 3^(2x)?",...mc(25,[10,15,125,50]),h:"3^(2x) = (3^x)².",e:"(3^x)² = 5² = 25.",topic:"exponents",difficulty:5,type:"problem_solving"}),
+  ()=>({q:"√(1/9) = ?",...psChoice("1/3",["1/9","3","9","1/81"]),h:"Wurzel von Zähler und Nenner getrennt ziehen.",e:"√1 ÷ √9 = 1/3.",topic:"exponents",difficulty:3,type:"mini_calc"}),
+  /* -- Statistics Basics (10) -- */
+  ()=>({q:"Der Median von 3, 7, 9, 4, 6 ist?",...mc(6,[5.8,7,9,3]),h:"Erst sortieren, dann die mittlere Zahl nehmen.",e:"Sortiert 3, 4, 6, 7, 9 → Median 6.",topic:"statistics",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Die Spannweite (Range) von 12, 5, 20, 8 ist?",...mc(15,[20,8,45,11.25]),h:"Größter minus kleinster Wert.",e:"20 − 5 = 15.",topic:"statistics",difficulty:1,type:"mini_calc"}),
+  ()=>({q:"Der Durchschnitt von 5 Zahlen ist 12. Kommt eine sechste hinzu, steigt der Durchschnitt auf 14. Wie groß ist die sechste Zahl?",...mc(24,[14,16,26,2]),h:"Neue Gesamtsumme minus alte Gesamtsumme.",e:"6 × 14 − 5 × 12 = 84 − 60 = 24.",topic:"statistics",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"In einem Test haben 3 Schüler je 90 Punkte und 2 Schüler je 40 Punkte. Durchschnitt?",...mc(70,[65,75,60,130]),h:"Nach Anzahl gewichten, nicht (90 + 40) ÷ 2.",e:"(270 + 80) ÷ 5 = 70.",topic:"statistics",difficulty:3,type:"trap_recognition"}),
+  ()=>({q:"Die Datenreihe ist 2, 4, 6, 8, 100. Was ist größer – Mittelwert oder Median?",o:["Mittelwert","Median","gleich","nicht bestimmbar"],c:0,h:"Ein großer Ausreißer zieht den Mittelwert hoch, den Median kaum.",e:"Mittelwert 24, Median 6 → Mittelwert größer.",topic:"statistics",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Zwei Datensätze mit gleichem Mittelwert: A = 10, 10, 10; B = 5, 10, 15. Welcher hat die größere Standardabweichung?",o:["A","B","gleich","nicht bestimmbar"],c:1,h:"Die Standardabweichung misst die Streuung um den Mittelwert.",e:"A streut nicht (0), B streut → B ist größer.",topic:"statistics",difficulty:3,type:"concept"}),
+  ()=>({q:"Der Durchschnitt von 10 Zahlen ist 15. Entfernt man die Zahlen 8 und 12, wie groß ist der Durchschnitt der übrigen 8?",...mc(16.25,[15,17.5,13.75,16]),h:"Neue Summe ÷ neue Anzahl.",e:"150 − 20 = 130 ÷ 8 = 16,25.",topic:"statistics",difficulty:4,type:"problem_solving"}),
+  ()=>({q:"Median von 4, 8, 10, 20?",...mc(9,[8,10,10.5,7]),h:"Bei gerader Anzahl: Mittel der beiden mittleren Werte.",e:"(8 + 10) ÷ 2 = 9.",topic:"statistics",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Fünf verschiedene positive ganze Zahlen haben den Mittelwert 10. Wie groß kann die größte Zahl höchstens sein?",...mc(40,[46,10,50,36]),h:"Die anderen vier so klein wie möglich (1, 2, 3, 4), Rest ist die größte.",e:"Summe 50; 1 + 2 + 3 + 4 = 10 → größte = 40.",topic:"statistics",difficulty:5,type:"problem_solving"}),
+  ()=>({q:"Der Mittelwert von 6 Zahlen ist 10. Wird jede Zahl um 3 erhöht, wie groß ist der neue Mittelwert?",...mc(13,[10,18,30,16]),h:"Eine konstante Erhöhung jeder Zahl verschiebt den Mittelwert um denselben Betrag.",e:"10 + 3 = 13.",topic:"statistics",difficulty:2,type:"concept"}),
+  /* -- Geometry light (8) -- */
+  ()=>({q:"Ein Rechteck ist 8 cm lang und 5 cm breit. Fläche?",...mc(40,[26,13,80,45]),h:"Fläche = Länge × Breite.",e:"8 × 5 = 40 cm².",topic:"geometry",difficulty:1,type:"mini_calc"}),
+  ()=>({q:"Ein Dreieck hat Grundseite 10 und Höhe 6. Fläche?",...mc(30,[60,16,15,8]),h:"Fläche = ½ · Grundseite · Höhe.",e:"½ · 10 · 6 = 30.",topic:"geometry",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"Ein rechtwinkliges Dreieck hat Katheten 6 und 8. Wie lang ist die Hypotenuse?",...mc(10,[14,48,7,100]),h:"a² + b² = c².",e:"√(36 + 64) = √100 = 10.",topic:"geometry",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Ein Kreis hat Radius 3. Fläche (in Vielfachen von π)?",...psChoice("9π",["6π","3π","9","18π"]),h:"Fläche = π · r².",e:"π · 3² = 9π.",topic:"geometry",difficulty:3,type:"mini_calc"}),
+  ()=>({q:"Zwei ähnliche Rechtecke haben das Längenverhältnis 2 : 3. Wie verhalten sich ihre Flächen?",o:["2 : 3","4 : 9","4 : 6","8 : 27"],c:1,h:"Flächen skalieren mit dem Quadrat des Längenverhältnisses.",e:"(2 : 3)² = 4 : 9.",topic:"geometry",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Wie weit ist der Punkt (3, 4) vom Ursprung entfernt?",...mc(5,[7,25,12,3.5]),h:"Abstand = √(x² + y²).",e:"√(3² + 4²) = √25 = 5.",topic:"geometry",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"In einem Dreieck sind zwei Winkel 50° und 60°. Wie groß ist der dritte?",...mc(70,[80,110,90,60]),h:"Die Winkelsumme im Dreieck ist 180°.",e:"180 − (50 + 60) = 70°.",topic:"geometry",difficulty:2,type:"mini_calc"}),
+  ()=>({q:"Ein Quadrat und ein Kreis haben denselben Umfang. Welcher hat die größere Fläche?",o:["das Quadrat","der Kreis","gleich","hängt von der Größe ab"],c:1,h:"Bei gleichem Umfang schließt der Kreis die größte Fläche ein.",e:"Der Kreis hat bei gleichem Umfang stets die größere Fläche.",topic:"geometry",difficulty:4,type:"concept"}),
+  /* -- Mixed Advanced Problem Solving (12) -- */
+  ()=>({q:"Nach einer Erhöhung um 25 % kostet ein Abo 50 €. Im nächsten Jahr sinkt der Preis um 20 %. Wie viel kostet es dann?",...mc(40,[45,37.5,42,60],money),h:"Die zweite Änderung wirkt auf den aktuellen Preis (50 €); die 25 % sind hier überflüssig.",e:"50 × 0,8 = 40 €.",topic:"mixed",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"In einem Korb ist Äpfel : Birnen = 5 : 3, insgesamt 16 Früchte. Wie viele Äpfel?",...mc(10,[6,8,12,5]),h:"5 + 3 = 8 Teile.",e:"16 ÷ 8 = 2 → Äpfel = 5 × 2 = 10.",topic:"mixed",difficulty:2,type:"problem_solving"}),
+  ()=>({q:"n ist eine positive ganze Zahl. Wenn n² gerade ist, was gilt für n?",o:["n ist gerade","n ist ungerade","n ist durch 4 teilbar","n kann beides sein"],c:0,h:"Das Quadrat einer ungeraden Zahl ist ungerade.",e:"n² gerade → n gerade (ungerade² wäre ungerade).",topic:"mixed",difficulty:4,type:"concept"}),
+  ()=>({q:"Ein Tank ist zu 60 % gefüllt. Ein Zufluss füllt pro Stunde 25 % des Tanks. Wie lange bis der Tank voll ist?",...mc(1.6,[2.4,1,4,0.4],hrs),h:"Restanteil ÷ Rate: 40 % ÷ 25 % pro h.",e:"40 ÷ 25 = 1,6 h.",topic:"mixed",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Anna löst eine Aufgabenliste in 40 min, Ben in 60 min. Sie teilen sie so, dass beide gleichzeitig fertig werden. Welchen Bruchteil bearbeitet Anna?",...psChoice("3/5",["2/5","3/2","1/2","5/8"]),h:"Anteil ist proportional zur Arbeitsrate: (1/40) ÷ (1/40 + 1/60).",e:"3/120 ÷ 5/120 = 3/5.",topic:"mixed",difficulty:5,type:"problem_solving"}),
+  ()=>({q:"Die Summe zweier Zahlen ist 30, ihre Differenz ist 8. Was ist ihr Produkt?",...mc(209,[240,225,200,152]),h:"x = (30 + 8) ÷ 2, y = (30 − 8) ÷ 2.",e:"19 und 11 → 19 × 11 = 209.",topic:"mixed",difficulty:3,type:"problem_solving"}),
+  ()=>({q:"Ein Rechteck wird 20 % länger und 20 % breiter. Um wie viel Prozent wächst die Fläche?",o:["20 %","40 %","44 %","144 %"],c:2,h:"Länge und Breite skalieren beide: 1,2 × 1,2.",e:"1,2 × 1,2 = 1,44 → +44 %.",topic:"mixed",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"x und y sind positive ganze Zahlen mit x · y = 12. Welchen Wert kann x + y NICHT annehmen?",o:["7","8","10","13"],c:2,h:"Prüfe die Faktorpaare von 12: 1·12, 2·6, 3·4.",e:"Mögliche Summen: 13, 8, 7 – 10 ist nicht möglich.",topic:"mixed",difficulty:5,type:"problem_solving"}),
+  ()=>({q:"Ein Vater ist viermal so alt wie sein Sohn (Alter s). In 10 Jahren ist er doppelt so alt. Welche Gleichung modelliert die zweite Bedingung?",o:["4s + 10 = 2(s + 10)","4s = 2s + 10","4s + 10 = 2s","s + 10 = 2(4s + 10)","4s = 2(s + 10)"],c:0,h:"Vateralter in 10 Jahren = 2 × Sohnalter in 10 Jahren.",e:"4s + 10 = 2(s + 10).",topic:"mixed",difficulty:3,type:"concept"}),
+  ()=>({q:"Jemand fährt 2 h mit 30 km/h und danach 3 h mit 50 km/h. Durchschnittsgeschwindigkeit über die ganze Fahrt?",...mc(42,[40,45,80,38],kmh),h:"Gesamtstrecke ÷ Gesamtzeit – nicht (30 + 50) ÷ 2.",e:"(60 + 150) ÷ 5 = 42 km/h.",topic:"mixed",difficulty:4,type:"trap_recognition"}),
+  ()=>({q:"Für welche Startzahlen ist die Summe dreier aufeinanderfolgender ganzer Zahlen durch 3 teilbar?",o:["nur für gerade Startzahlen","nur für ungerade Startzahlen","für alle ganzen Zahlen","nie"],c:2,h:"Schreibe die Summe als n + (n + 1) + (n + 2).",e:"n + (n+1) + (n+2) = 3(n+1) – immer durch 3 teilbar.",topic:"mixed",difficulty:4,type:"concept"}),
+  ()=>({q:"In einer Lösung ist Wasser : Sirup = 3 : 1. Wie viele Liter Sirup muss man zu 20 Litern dieser Lösung geben, damit das Verhältnis 3 : 2 wird?",...mc(5,[2.5,10,4,7.5]),h:"Wasser bleibt 15 L; stelle 15 : (5 + x) = 3 : 2 auf.",e:"15 ÷ (5 + x) = 3/2 → x = 5 L Sirup.",topic:"mixed",difficulty:5,type:"problem_solving"})
 ];
 const GEN_DS=[
   ()=>{const x=rnd(2,9),y=rnd(1,x-1);return {q:"Welchen Wert hat x?",s1:`x + y = ${x+y}`,s2:`x − y = ${x-y}`,c:2,h:"Eine Gleichung, zwei Unbekannte – reicht das?",e:`Einzeln je zwei Unbekannte; zusammen x = ${x}. Antwort C.`};},
@@ -1075,9 +1324,70 @@ const bankCR=[
 ];
 const BANKS={ps:{title:"GMAT · Problem Solving",type:"choice",gen:GEN_PS},ds:{title:"GMAT · Data Sufficiency",type:"ds",gen:GEN_DS},cr:{title:"GMAT · Critical Reasoning",type:"choice",bank:bankCR}};
 function gmatItem(id){const g=BANKS[id];return g.gen?normItem(g.type,pick(g.gen)()):normItem(g.type,pick(g.bank));}
+/* ---- GMAT-PS Difficulty-Auswahl (additiv; NUR PS – DS/CR/Daily unverändert) ----
+   Zieht PS-Fragen passend zum aktuellen GMAT-Level (gmatProfile.currentDifficulty, 1–5)
+   statt rein zufällig. Regel: bevorzugt das exakte Level; zu wenige → ±1 Level; immer
+   noch zu wenige → ganzer Pool. currentDifficulty bleibt ein Skalar 1–5 und wird
+   unverändert per Antwort fortgeschrieben (max. kleiner Schritt pro Antwort). */
+let _gmatPsMeta=null;
+function gmatPsMeta(){                                   // GEN_PS einmalig indexieren, dann cachen
+  if(_gmatPsMeta)return _gmatPsMeta;
+  _gmatPsMeta=GEN_PS.map(fn=>{ let d=2,tp='ps',ty='problem_solving';
+    try{ const it=fn(); if(typeof it.difficulty==='number'&&isFinite(it.difficulty))d=it.difficulty; if(it.subtopic||it.topic)tp=it.subtopic||it.topic; if(it.type)ty=it.type; }catch(e){}
+    return {fn,difficulty:clamp(Math.round(d),1,5),topic:tp,type:ty}; });
+  return _gmatPsMeta;
+}
+function gmatTargetLevel(topic){                          // Ziel-Level für die PS-Auswahl
+  const g=Store.data&&Store.data.gmatProfile;
+  if(g){
+    if(topic&&g.topicStats&&g.topicStats[topic]&&typeof g.topicStats[topic].level==='number')  // optionaler Pro-Topic-Hook
+      return clamp(Math.round(g.topicStats[topic].level),1,5);
+    if(typeof g.currentDifficulty==='number'&&isFinite(g.currentDifficulty))
+      return clamp(Math.round(g.currentDifficulty),1,5);
+  }
+  return 2;                                               // kein Profil → Standard-Level 2
+}
+function pickGmatPsGenerators(n,level,topic){
+  const meta=gmatPsMeta();
+  const byTopic=topic?meta.filter(m=>m.topic===topic):meta;         // optional auf Subtopic einschränken
+  const base=byTopic.length>=n?byTopic:meta;                        // Subtopic zu klein → ganzer PS-Pool
+  let pool=base.filter(m=>m.difficulty===level);                    // 1) exakt das Level
+  if(pool.length<n)pool=base.filter(m=>Math.abs(m.difficulty-level)<=1);  // 2) ±1 Level
+  if(pool.length<n)pool=base.slice();                              // 3) ganzer Pool (Fallback)
+  const sh=shuffle(pool.slice()),out=[];
+  for(let i=0;i<n;i++)out.push(sh[i%sh.length].fn);
+  return out;
+}
+/* ---- Difficulty-BAND für die Standalone-PS-Session (additiv; NUR buildGmatList/PS) ----
+   Ziel: Ziel-Difficulty wird bevorzugt gezogen, aber ±1 wird bewusst eingemischt, sodass
+   z. B. Level 3 → überwiegend 2–4 und Level 5 → überwiegend 4–5 liefert (statt hartem
+   Ein-Stufen-Schnitt). Tiered-Fallback bleibt: ±1-Band; zu klein → ±2; zu klein → ganzer
+   Pool. Gewichte innerhalb des Pools sind nie 0, currentDifficulty driftet über 1–5 →
+   dauerhaft bleibt keine Frage unerreichbar. gmatPsMeta/gmatTargetLevel unverändert. */
+function pickGmatPsBand(n,level,topic){
+  const meta=gmatPsMeta();
+  const byTopic=topic?meta.filter(m=>m.topic===topic):meta;        // optional auf Subtopic einschränken
+  const base=byTopic.length>=n?byTopic:meta;                       // Subtopic zu klein → ganzer PS-Pool
+  let pool=base.filter(m=>Math.abs(m.difficulty-level)<=1);        // 1) ±1-Band (bevorzugt)
+  if(pool.length<n)pool=base.filter(m=>Math.abs(m.difficulty-level)<=2);  // 2) ±2-Band
+  if(pool.length<n)pool=base.slice();                              // 3) ganzer Pool (Fallback)
+  const wOf=m=>{const d=Math.abs(m.difficulty-level);return d===0?3:d===1?1:d===2?0.35:0.12;}; // Ziel bevorzugt, nie 0
+  const out=[]; let bag=pool.slice();
+  for(let i=0;i<n;i++){
+    if(!bag.length)bag=pool.slice();                               // nachfüllen, falls Pool < n (Wiederholung nur dann)
+    const tot=bag.reduce((s,m)=>s+wOf(m),0); let r=Math.random()*tot,idx=0;
+    for(let k=0;k<bag.length;k++){ r-=wOf(bag[k]); if(r<=0){idx=k;break;} }
+    out.push(bag[idx].fn); bag.splice(idx,1);                      // ohne Zurücklegen innerhalb einer Runde → Varianz
+  }
+  return out;
+}
 function buildGmatList(id){const g=BANKS[id];
-  if(g.bank) return shuffle(g.bank.slice()).slice(0,ROUND).map(it=>normItem(g.type,it));
-  const tpls=shuffle(g.gen.slice());const list=[];for(let i=0;i<ROUND;i++) list.push(normItem(g.type,tpls[i%tpls.length]()));return list;}
+  if(g.bank) return shuffle(g.bank.slice()).slice(0,ROUND).map(it=>normItem(g.type,it));   // CR: unverändert
+  if(id==='ps'){                                                    // PS: difficulty-Band (Ziel bevorzugt, ±1 eingemischt)
+    const fns=pickGmatPsBand(ROUND,gmatTargetLevel());
+    return fns.map(fn=>normItem(g.type,fn()));
+  }
+  const tpls=shuffle(g.gen.slice());const list=[];for(let i=0;i<ROUND;i++) list.push(normItem(g.type,tpls[i%tpls.length]()));return list;}  // DS u. a. gen-Bänke: unverändert
 const GTUT={
   ps:{lede:"Quantitative Aufgaben mit fünf Optionen, von denen genau eine stimmt.",
     concept:"Beim Problem Solving löst du eine Rechenaufgabe und wählst aus fünf Optionen die einzig richtige. Tempo entsteht durch ein sauberes Vorgehen statt durch Raten – oft hilft Rückwärtsrechnen oder das Einsetzen der Optionen.",
@@ -1123,6 +1433,7 @@ function allCategories(){
   ['ps','ds','cr'].forEach(id=>list.push({key:id,group:'gmat',bank:id,name:BANKS[id].title}));
   list.push({key:'wm:span',group:'wm',span:true,name:'Zahlenspanne'});
   list.push({key:'wm:bdpq',group:'wm',gen:genBdpq,name:'b d p q'});
+  list.push({key:'wm:combo',group:'wm',combo:true,name:'Kombi-Memory'});
   return list;
 }
 function groupLevel(group){
@@ -1132,10 +1443,47 @@ function groupLevel(group){
   return clamp(Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),1,4);
 }
 function weightedPick(weighted){const tot=weighted.reduce((s,x)=>s+x.w,0);let r=Math.random()*tot;for(const x of weighted){r-=x.w;if(r<=0)return x.c;}return weighted[weighted.length-1].c;}
-function makeDailyItem(cat,L){
+/* ---- GMAT-PS im Tagestraining: adaptive Subtopic-/Difficulty-/Review-Auswahl (additiv) ----
+   NUR PS. DS/CR laufen weiter über gmatItem(). Greift nur, wenn 'ps' als Subkategorie
+   aktiviert und ausgewählt ist (Subkategorie-Auswahl bleibt strikt maßgeblich). */
+function pickWeightedGmatSubtopic(g){
+  const topics=[...new Set(gmatPsMeta().map(m=>m.topic))];
+  const weak=new Set((g&&g.weakTopics)||[]), mastered=new Set((g&&g.masteredTopics)||[]);
+  const weighted=topics.map(t=>({c:t, w: weak.has(t)?3 : (mastered.has(t)?0.4 : 1)}));  // schwach häufiger, gemeistert seltener (nie 0)
+  return weightedPick(weighted);
+}
+function pickGmatPsGeneratorFor(topic,type,level){          // Review: Generator zu Topic + Typ, nahe am Level
+  const meta=gmatPsMeta();
+  let pool=meta.filter(m=>m.topic===topic&&m.type===type);
+  if(!pool.length)pool=meta.filter(m=>m.topic===topic);
+  if(!pool.length)return null;
+  let band=pool.filter(m=>m.difficulty===level);
+  if(!band.length)band=pool.filter(m=>Math.abs(m.difficulty-level)<=1);
+  if(!band.length)band=pool;
+  return pick(band).fn;
+}
+function dailyGmatPsItem(){
+  const g=Store.data&&Store.data.gmatProfile, level=gmatTargetLevel();
+  // 1) FÄLLIGE Review-Einträge (nur PS-fähige Themen) bevorzugt einstreuen – aber nicht dominant (~50 %).
+  //    Richtige Antwort auf ein Review-Item entfernt den Eintrag via updateGmatProfile→gmatDequeueReview.
+  if(g&&Array.isArray(g.reviewQueue)&&g.reviewQueue.length){
+    const now=Date.now(), psTopics=new Set(gmatPsMeta().map(m=>m.topic));
+    const due=g.reviewQueue.filter(r=>(r.dueAt==null||r.dueAt<=now)&&(psTopics.has(r.topic)||r.bank==='ps'));
+    if(due.length&&Math.random()<0.5){
+      const r=pick(due), fn=pickGmatPsGeneratorFor(r.topic,r.type,level);
+      if(fn){ const it=normItem('choice',fn()); it.review=true; return it; }
+    }
+  }
+  // 2) Subtopic nach Performance (schwach häufiger, gemeistert seltener), Difficulty nach currentDifficulty
+  const fns=pickGmatPsGenerators(1,level,pickWeightedGmatSubtopic(g));
+  return normItem('choice',fns[0]());
+}
+function makeDailyItem(cat,L,dailyDuration){
   let it;
+  if(cat.combo){ it=makeComboItem({daily:true, dailyDuration:dailyDuration}); it.cat=cat.key; it.group=cat.group; it.diff=it.memLevel; return it; }
   if(cat.span){const dir=Math.random()<.5?'fwd':'bwd';it=makeSpan(clamp(2+L,3,8),dir);}
-  else if(cat.bank){it=gmatItem(cat.bank);}
+  else if(cat.bank==='ps'){it=dailyGmatPsItem();}          // PS: adaptiv (Subtopic/Difficulty/Review)
+  else if(cat.bank){it=gmatItem(cat.bank);}                // DS/CR: unverändert
   else {it={render:'input',...cat.gen(L)};}
   it.cat=cat.key; it.group=cat.group; it.diff=L; return it;
 }
@@ -1152,7 +1500,7 @@ function generateDailyAdaptivePool(duration){
     const now=Date.now(),seen=new Set(),due=[];
     for(const r of mp.reviewQueue){ if(r.dueAt<=now && enabledKeys.has(r.cat) && !seen.has(r.cat)){seen.add(r.cat);due.push(r.cat);} }
     const maxReview=Math.min(due.length, Math.max(1,Math.round(count*0.2)));
-    for(let i=0;i<maxReview;i++){const c=cats.find(x=>x.key===due[i]);if(c){const it=makeDailyItem(c,lvlFor(c));it.review=true;items.push(it);}}
+    for(let i=0;i<maxReview;i++){const c=cats.find(x=>x.key===due[i]);if(c){const it=makeDailyItem(c,lvlFor(c),duration);it.review=true;items.push(it);}}
   }
   // 2) Gewichtete Auffüllung (Mathe via theta/rd/Fokus, sonst altes Profil)
   const weighted=cats.map(c=>{
@@ -1161,7 +1509,7 @@ function generateDailyAdaptivePool(duration){
     else { const p=getProf(c.key); const tried=p.attempts>0; const err=tried?p.errorRate:0.4; w=1+1.8*err+(tried?0:0.3); }
     return {c,w:Math.max(0.15,w)};
   });
-  for(let i=items.length;i<count;i++){const c=weightedPick(weighted);items.push(makeDailyItem(c,lvlFor(c)));}
+  for(let i=items.length;i<count;i++){const c=weightedPick(weighted);items.push(makeDailyItem(c,lvlFor(c),duration));}
   return shuffle(items);
 }
 
@@ -1360,10 +1708,10 @@ function placementResult(){
 const root=document.getElementById('root'),tag=document.getElementById('tag');
 let state={}, lastLevel=2, wmDir='fwd', wmN=2, SESSION_TOKEN=0;
 function setHomeBtn(v){const b=document.getElementById('homeBtn');if(b)b.hidden=!v;}
-function teardown(){SESSION_TOKEN++; state={};}
+function teardown(){SESSION_TOKEN++; state={}; comboSession=null;}
 function resetToHome(){teardown(); home();}
 function goHome(){
-  const started = state && (state.i>0 || state.correct>0 || state.answered || state.kind==='nback');
+  const started = state && (state.i>0 || state.correct>0 || state.answered || state.kind==='nback' || state.kind==='combo');
   if(started) confirmLeave(resetToHome); else resetToHome();
 }
 function confirmLeave(onYes){
@@ -1463,7 +1811,7 @@ const cfaHub=()=>hub('cfa',CFA,'CFA Level 1 Quick Prep');
 function wmHub(){
   setHomeBtn(false); tag.textContent="working memory & konzentration";
   if(PROFILE['wm:span'])wmN=clamp(Math.round((PROFILE['wm:span'].curDiff)/1.4),1,3);
-  const ds=tutDone('wm:span'), dn=tutDone('wm:nback'), db=tutDone('wm:bdpq'), dw=tutDone('wm:wochentage');
+  const ds=tutDone('wm:span'), dn=tutDone('wm:nback'), db=tutDone('wm:bdpq'), dc=tutDone('wm:combo'), dw=tutDone('wm:wochentage');
   root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Working Memory & Konzentration</h2></div>
     <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
       <div class="topic-info"><b>${WM.span.name}</b><span>Ziffernfolge merken & wiedergeben — Länge passt sich an</span></div>
@@ -1480,6 +1828,10 @@ function wmHub(){
       <div class="topic-actions"><button class="mini${db?' done':''}" data-wtut="bdpq">Einführung${db?' ✓':''}</button><button class="mini solid" id="goBdpq">Üben ›</button></div>
     </div><div style="height:14px"></div>
     <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div class="topic-info"><b>${WM.combo.name}</b><span>Merken → Kopfrechnen als Ablenkung → Abruf · Umfang & Ablenkung passen sich an</span></div>
+      <div class="topic-actions"><button class="mini${dc?' done':''}" data-wtut="combo">Einführung${dc?' ✓':''}</button><button class="mini solid" id="goCombo">Üben ›</button></div>
+    </div><div style="height:14px"></div>
+    <div class="topic" style="flex-direction:column;align-items:stretch;gap:12px">
       <div class="topic-info"><b>${KONZ.wochentage.name}</b><span>${KONZ.wochentage.teaser}</span></div>
       <div class="topic-actions"><button class="mini${dw?' done':''}" id="wtagTut">Einführung${dw?' ✓':''}</button><button class="mini solid" id="goWtag">Üben ›</button></div>
     </div></div>`;
@@ -1490,6 +1842,7 @@ function wmHub(){
   document.getElementById('goSpan').onclick=()=>startSpan(wmDir);
   document.getElementById('goNb').onclick=()=>startNback(wmN);
   document.getElementById('goBdpq').onclick=()=>startBdpq();
+  document.getElementById('goCombo').onclick=()=>comboSetup();
   document.getElementById('wtagTut').onclick=()=>launchTut('wm','wochentage');
   document.getElementById('goWtag').onclick=()=>trainGen('wm','wochentage','A');
 }
@@ -1550,7 +1903,7 @@ function launchTut(group,id){const reg=regOf(group),t=reg[id];
 function launchWmTut(id){const t=WM[id];
   runTutorial({key:'wm:'+id,title:t.name,concept:t.tut.concept,ex:t.tut.ex,example:t.tut.example,steps:t.tut.steps,
     practice:id==='span'?{type:'span'}:id==='bdpq'?{type:'qa',make:()=>genBdpq(1)}:null,
-    startReal:()=>id==='span'?startSpan(wmDir):id==='nback'?startNback(wmN):startBdpq(),backTo:wmHub});}
+    startReal:()=>id==='span'?startSpan(wmDir):id==='nback'?startNback(wmN):id==='combo'?comboSetup():startBdpq(),backTo:wmHub});}
 function launchGmatTut(id){const g=GTUT[id];
   runTutorial({key:id,title:BANKS[id].title,concept:g.concept,ex:'',example:g.example,steps:g.steps,
     practice:{type:'qa',make:()=>gmatItem(id)},
@@ -1647,6 +2000,7 @@ function normItem(type,it){const base=type==='ds'
   : {render:'choice',q:it.q,opts:it.o,c:it.c,explain:it.e};
   base.hints=[it.h]; if(type==='ds')base.hints.push("Teste (1) allein, dann (2) allein, dann beide zusammen.");
   else base.hints.push("Schließe zuerst die klar unplausiblen Optionen aus.");
+  ['topic','subtopic','difficulty','type'].forEach(k=>{ if(it[k]!=null)base[k]=it[k]; });  // Metadaten für gmatProfile durchreichen
   return base;}
 function makeSpan(len,dir){const digits=Array.from({length:len},()=>rnd(0,9));const expected=(dir==='bwd'?[...digits].reverse():digits).join('');
   return{render:'span',dir,digits,len,answer:expected,disp:(dir==='bwd'?[...digits].reverse():digits).join(' '),
@@ -1680,6 +2034,488 @@ function tipController(q){
 }
 
 /* ---- RENDER ---- */
+/* ---- Kombi-Memory Zustand ---- */
+let comboCfg={adaptive:true, mem:2, intf:2, math:2}, comboSession=null;  // Session-Konfiguration (nur diese Session, nie persistiert)
+
+/* =========================================================
+   KOMBI-MEMORY  (Working Memory · Merken -> Ablenkung -> Abruf)
+   Neue WM-Unterkategorie ab v1.12.0. Selbst-adaptiv auf zwei Achsen:
+   Memory Load (Anzahl gemerkter Elemente) und Interferenz Load
+   (Anzahl der Mathe-Ablenkungsaufgaben dazwischen).
+   Nutzt bestehende Bausteine (Session-Shell, record/pushReview/next,
+   updateAdaptiveProfile). Bricht keine bestehende WM-Logik.
+========================================================= */
+
+/* ---- Inhalts-Baenke ---- */
+const COMBO_WORDS=["Apfel","Berg","Blume","Brot","Bruecke","Dach","Feder","Fluss","Garten","Hafen","Hand","Haus","Hund","Insel","Kaffee","Katze","Kerze","Koenig","Lampe","Loeffel","Maus","Meer","Mond","Nadel","Ofen","Pferd","Regen","Ring","Schuh","Segel","Sonne","Stern","Stuhl","Tisch","Turm","Uhr","Vogel","Wald","Wasser","Wolke"];
+const COMBO_CODE_LETTERS="ABCDEFGHKLMNPRSTVWXYZ".split(''); // ohne leicht verwechselbare I,J,O,Q,U
+/* ---- Drei unabhängige Achsen (je Stufe 1–3) ----
+   Merklast   -> Anzahl + Komplexität der Elemente + ob Reihenfolge zählt
+   Interferenz-> nur ANZAHL der Ablenkungs-Matheaufgaben
+   Mathe      -> nur SCHWIERIGKEIT der Ablenkungsaufgaben (entkoppelt von Interferenz) */
+const COMBO_MEM={
+  1:{count:[2,3], contents:['words','numbers'],          order:()=>false},
+  2:{count:[4,4], contents:['numbers','codes','words'],  order:()=>Math.random()<0.4},
+  3:{count:[5,6], contents:['codes','mixed'],            order:()=>true}
+};
+const COMBO_INTF={1:[1,1], 2:[2,3], 3:[4,5]};              // Anzahl Ablenkungsaufgaben je Stufe
+const COMBO_MEM_LABEL={1:'niedrig',2:'mittel',3:'hoch'};
+const COMBO_INTF_LABEL={1:'niedrig',2:'mittel',3:'hoch'};
+const COMBO_MATH_LABEL={1:'leicht',2:'mittel',3:'schwer'};
+function comboModeLabel(m){return ({adaptive:'Adaptiv',words:'Woerter',numbers:'Zahlen',codes:'Codes',mixed:'Gemischt'})[m]||m;}
+function comboContentNoun(mode){return mode==='words'?'Woerter':mode==='numbers'?'Zahlen':mode==='codes'?'Codes':'Elemente';}
+function comboElNoun(t){return t==='word'?'Wort':t==='number'?'Zahl':'Code';}
+
+function comboMakeElements(mode,count){
+  count=clamp(count,1,8);
+  const used=new Set(); const els=[];
+  for(let i=0;i<count;i++){
+    let t = mode==='mixed'?pick(['word','number','code']):({words:'word',numbers:'number',codes:'code'})[mode]||'word';
+    let val,g=0;
+    do{
+      if(t==='word')val=pick(COMBO_WORDS);
+      else if(t==='number')val=String(rnd(10,99));
+      else val=pick(COMBO_CODE_LETTERS)+rnd(1,9);
+    }while(used.has(t+':'+val.toUpperCase())&&++g<80);
+    used.add(t+':'+val.toUpperCase());
+    els.push({type:t,val:val});
+  }
+  return els;
+}
+
+/* ---- Interferenz-Mathe (kurz, im Kopf loesbar) ----
+   num  -> Freitext-Eingabe (nie Brueche)
+   mc   -> Multiple-Choice (Brueche NUR hier) */
+const COMBO_FRAC_POOL=['1/2','1/3','2/3','1/4','3/4','1/6','5/6','2/5','3/5','1/5'];
+const COMBO_INT_POOL=['2','3','4','5','6','8','9','10','12','15','16','20','24'];
+function comboFracMC(){
+  const templates=[
+    ()=>{const t=pick([['1/4','1/4','1/2'],['1/2','1/4','3/4'],['1/3','1/3','2/3'],['1/6','1/3','1/2'],['2/5','1/5','3/5'],['1/2','1/3','5/6'],['1/6','1/6','1/3']]);
+      return {q:t[0]+' + '+t[1]+' = ?',c:t[2],frac:true};},
+    ()=>{const fr=pick([['1/2',1,2],['1/4',1,4],['3/4',3,4],['1/3',1,3],['2/3',2,3]]),base=pick([8,12,16,20,24]);
+      if((base*fr[1])%fr[2]!==0)return null; return {q:fr[0]+' von '+base+' = ?',c:String(base*fr[1]/fr[2]),frac:false};},
+    ()=>{const t=pick([['2/4','1/2'],['3/6','1/2'],['4/8','1/2'],['2/6','1/3'],['3/9','1/3'],['4/6','2/3'],['6/8','3/4'],['2/10','1/5']]);
+      return {q:t[0]+' gekuerzt = ?',c:t[1],frac:true};}
+  ];
+  let r=null,g=0; while(!r&&g++<12)r=pick(templates)();
+  if(!r)r={q:'1/2 + 1/4 = ?',c:'3/4',frac:true};
+  const pool=r.frac?COMBO_FRAC_POOL:COMBO_INT_POOL;
+  const opts=new Set([r.c]); let g2=0;
+  while(opts.size<4&&g2++<60){const d=pick(pool); if(d!==r.c)opts.add(d);}
+  const arr=shuffle([...opts]);
+  return {kind:'mc',prompt:r.q,opts:arr,c:arr.indexOf(r.c)};
+}
+function comboNumMathQ(mathLevel){
+  const L=clamp(mathLevel,1,3);
+  const types=['add','sub','mulS'];                                    // leicht: Addition/Subtraktion, kleines Einmaleins
+  if(L>=2)types.push('add2','mulB','pct','eqAdd','eqMul');             // mittel: größeres 1×1, Prozent leicht, einfache Gleichungen
+  if(L>=3)types.push('mul2x1','add3','pctHard','eqMul2');              // schwer: mehrschrittig, 2-stellig
+  const t=pick(types);
+  const R=(kind,prompt,answer)=>({kind:kind,prompt:prompt,answer:answer,type:t});
+  if(t==='add'){const a=rnd(4,L>=2?60:20),b=rnd(4,L>=2?60:20);return R('num',a+' + '+b,a+b);}
+  if(t==='add2'){const a=rnd(20,90),b=rnd(15,70);return R('num',a+' + '+b,a+b);}
+  if(t==='add3'){const a=rnd(20,60),b=rnd(15,50),c=rnd(10,Math.min(45,a+b));return R('num',a+' + '+b+' \u2212 '+c,a+b-c);}
+  if(t==='sub'){const a=rnd(10,L>=2?90:30),b=rnd(2,a);return R('num',a+' \u2212 '+b,a-b);}
+  if(t==='mulS'){const a=rnd(2,9),b=rnd(2,9);return R('num',a+' \u00d7 '+b,a*b);}
+  if(t==='mulB'){const a=rnd(11,15),b=rnd(2,9);return R('num',a+' \u00d7 '+b,a*b);}
+  if(t==='mul2x1'){const a=rnd(12,19),b=rnd(3,8);return R('num',a+' \u00d7 '+b,a*b);}
+  if(t==='pct'){const p=pick([10,20,25,50]),base=pick([20,40,60,80,120,160,200]);return R('num',p+'% von '+base,base*p/100);}
+  if(t==='pctHard'){const p=pick([15,30,35,40,60,75]),base=pick([40,60,80,120,160,180,240]);const v=base*p/100;if(!Number.isInteger(v))return comboNumMathQ(2);return R('num',p+'% von '+base,v);}
+  if(t==='eqAdd'){const x=rnd(3,20),a=rnd(2,30);return R('num','x + '+a+' = '+(x+a)+'  \u00b7  x = ?',x);}
+  if(t==='eqMul'){const x=rnd(2,9),a=rnd(2,9);return R('num',a+' \u00b7 x = '+(a*x)+'  \u00b7  x = ?',x);}
+  if(t==='eqMul2'){const x=rnd(3,12),a=rnd(3,8),b=rnd(2,20);return R('num',a+'x + '+b+' = '+(a*x+b)+'  \u00b7  x = ?',x);}
+  const a=rnd(5,20),b=rnd(5,20);return R('num',a+' + '+b,a+b);
+}
+function comboMathQ(mathLevel){
+  const L=clamp(mathLevel,1,3);
+  if(L>=3&&Math.random()<0.35){const q=comboFracMC();q.type='frac';return q;}   // Brüche nur bei „schwer"
+  return comboNumMathQ(L);
+}
+
+/* ---- Profil: getrennte Level für Merklast / Interferenz / Mathe (1–3) ---- */
+function ensureWmComboProfile(){
+  const d=Store.data;
+  let p=d.wmComboProfile;
+  if(!p||typeof p!=='object'){ p=d.wmComboProfile={}; }
+  const map5to3=v=> (v==null?null : (v<=2?1 : (v<=3?2 : 3)));   // Migration altes 1–5-Modell
+  if(p.memoryLoadLevel==null)     p.memoryLoadLevel     = map5to3(p.currentMemoryLoad)      || 2;
+  if(p.interferenceLevel==null)   p.interferenceLevel   = map5to3(p.currentInterferenceLoad)|| 2;
+  if(p.mathDifficultyLevel==null) p.mathDifficultyLevel = map5to3(p.currentInterferenceLoad)|| 2;
+  if(p.attempts==null)p.attempts=0;
+  if(p.correctMemory==null)p.correctMemory=0;
+  if(p.mathAttempts==null)p.mathAttempts=0;
+  if(p.correctMath==null)p.correctMath=0;
+  if(p.memoryAccuracy==null)p.memoryAccuracy=0;
+  if(p.mathAccuracy==null)p.mathAccuracy=0;
+  if(p.avgRecallTimeMs==null)p.avgRecallTimeMs=0;
+  if(p.lastPracticed===undefined)p.lastPracticed=null;
+  if(p.weakMode===undefined)p.weakMode=null;
+  if(!Array.isArray(p.recentSessions))p.recentSessions=[];
+  if(!p.modeStats)p.modeStats={};
+  ['words','numbers','codes','mixed'].forEach(m=>{if(!p.modeStats[m])p.modeStats[m]={att:0,mem:0};});
+  return p;
+}
+function updateWmComboProfile(result,item){
+  const p=ensureWmComboProfile();
+  p.attempts=(p.attempts||0)+1;
+  if(result.memoryOk)p.correctMemory=(p.correctMemory||0)+1;
+  p.mathAttempts=(p.mathAttempts||0)+(result.mathTotal||0);
+  p.correctMath=(p.correctMath||0)+(result.mathCorrect||0);
+  p.memoryAccuracy=+(p.correctMemory/p.attempts).toFixed(3);
+  p.mathAccuracy=p.mathAttempts?+(p.correctMath/p.mathAttempts).toFixed(3):0;
+  const rt=result.recallMs||0;
+  p.avgRecallTimeMs=p.avgRecallTimeMs?Math.round(p.avgRecallTimeMs*0.7+rt*0.3):Math.round(rt);
+  p.lastPracticed=Date.now();
+  const cm=item.contentMode; if(cm&&p.modeStats[cm]){p.modeStats[cm].att++; if(result.memoryOk)p.modeStats[cm].mem++;}
+  let worst=null,worstAcc=2;
+  for(const m of ['words','numbers','codes','mixed']){const s=p.modeStats[m]; if(s&&s.att>=3){const a=s.mem/s.att; if(a<worstAcc){worstAcc=a;worst=m;}}}
+  p.weakMode=worst;
+  p.recentSessions.push({ts:Date.now(),mode:cm,memLevel:item.memLevel,intfLevel:item.intfLevel,mathLevel:item.mathLevel,memoryOk:!!result.memoryOk,mathCorrect:result.mathCorrect||0,mathTotal:result.mathTotal||0,recallMs:rt,daily:!!item.daily});
+  if(p.recentSessions.length>20)p.recentSessions=p.recentSessions.slice(-20);
+  Store.persist();
+}
+// Adaptive Regeln je Achse, max ±1 pro Session:
+//  Memory gut / Mathe schlecht -> Mathe senken, Merklast halten, Interferenz nicht erhöhen
+//  Memory schlecht / Mathe gut -> Merklast senken, Mathe halten, Interferenz separat (bei hoher Interferenz senken)
+//  beide gut -> genau EINE Achse (die niedrigste) leicht erhöhen
+//  beide schlecht -> Achsen senken, aber max −1 je Achse
+function adaptComboLevels(memAcc,mathAcc,hadHighInterference){
+  const p=ensureWmComboProfile();
+  const memGood=memAcc>=0.75, mathGood=mathAcc>=0.7;
+  let dMem=0,dIntf=0,dMath=0;
+  if(memGood&&mathGood){
+    const axes=[['mem',p.memoryLoadLevel],['intf',p.interferenceLevel],['math',p.mathDifficultyLevel]].sort((a,b)=>a[1]-b[1]);
+    const up=axes[0][0]; if(up==='mem')dMem=1; else if(up==='intf')dIntf=1; else dMath=1;   // nur eine Achse
+  } else if(memGood&&!mathGood){
+    dMath=-1;                                             // Mathe senken; Merklast halten; Interferenz nicht erhöhen
+  } else if(!memGood&&mathGood){
+    dMem=-1; if(hadHighInterference)dIntf=-1;             // Merklast senken; Interferenz separat bewerten
+  } else {
+    dMem=-1; dMath=-1; if(hadHighInterference)dIntf=-1;   // beide schlecht: senken, max −1 je Achse
+  }
+  p.memoryLoadLevel    =clamp((p.memoryLoadLevel||1)+dMem,1,3);
+  p.interferenceLevel  =clamp((p.interferenceLevel||1)+dIntf,1,3);
+  p.mathDifficultyLevel=clamp((p.mathDifficultyLevel||1)+dMath,1,3);
+  Store.persist();
+  return {dMem,dIntf,dMath,mem:p.memoryLoadLevel,intf:p.interferenceLevel,math:p.mathDifficultyLevel};
+}
+
+/* ---- Item-Bau: drei unabhängige Achsen ---- */
+function makeComboItem(opts){
+  opts=opts||{};
+  const p=ensureWmComboProfile();
+  let memLevel =opts.memLevel !=null?opts.memLevel : p.memoryLoadLevel;     // fehlt -> adaptiv aus Profil
+  let intfLevel=opts.intfLevel!=null?opts.intfLevel: p.interferenceLevel;
+  let mathLevel=opts.mathLevel!=null?opts.mathLevel: p.mathDifficultyLevel;
+  memLevel=clamp(memLevel,1,3); intfLevel=clamp(intfLevel,1,3); mathLevel=clamp(mathLevel,1,3);
+  let dur=0;
+  if(opts.daily){                                                          // Tagestraining: kompakt + Interferenz nach Dauer deckeln
+    dur=opts.dailyDuration||10;
+    memLevel=clamp(memLevel,1,2);
+    intfLevel=clamp(intfLevel,1,dur<=5?2:3);                              // 5 min: max mittel; 10/15 min: bis hoch
+  }
+  const memCfg=COMBO_MEM[memLevel];
+  const count=rnd(memCfg.count[0],memCfg.count[1]);
+  const contentMode=pick(memCfg.contents);
+  const order=memCfg.order();
+  const els=comboMakeElements(contentMode,count);
+  let nMath=rnd(COMBO_INTF[intfLevel][0],COMBO_INTF[intfLevel][1]);
+  if(opts.daily)nMath=clamp(nMath,1,dur<=5?3:4);                          // Block sprengt das Tagestraining nicht
+  const mathQs=Array.from({length:nMath},()=>comboMathQ(mathLevel));
+  const showMs=clamp(1000+els.length*(contentMode==='words'?1100:contentMode==='mixed'?1000:900),2000,8000);
+  return {render:'combo',cat:'wm:combo',group:'wm',diff:memLevel,
+    memLevel:memLevel,intfLevel:intfLevel,mathLevel:mathLevel,contentMode:contentMode,order:order,
+    els:els,mathQs:mathQs,showMs:showMs,daily:!!opts.daily,
+    prompt:'Kombi-Memory \u00b7 '+els.length+' '+comboContentNoun(contentMode)+' merken',
+    q:'Kombi-Memory ('+els.length+' Elemente \u00b7 '+nMath+' Ablenkung'+(nMath>1?'en':'')+')'};
+}
+
+/* ---- Auswertung des Abrufs ---- */
+function comboNormToken(type,raw){
+  raw=(raw==null?'':String(raw)).trim();
+  if(type==='number'){const n=parseNum(raw); return isNaN(n)?('?'+raw.toLowerCase()):('#'+n);}
+  if(type==='code'){return 'c:'+norm(raw);}
+  return 'w:'+raw.toLowerCase().replace(/\s+/g,'');
+}
+// given: [{type?, raw}]. Bei Reihenfolge zaehlt -> positionsweise mit Typ.
+// Sonst -> Multiset ueber alle Typ-Normalisierungen (typ-tolerant, gut fuer Gemischt).
+function comboEvaluate(item,given){
+  const els=item.els;
+  let perOk,memoryOk;
+  if(item.order){
+    perOk=els.map((e,i)=> i<given.length && comboNormToken(e.type,given[i].raw)===comboNormToken(e.type,e.val));
+    memoryOk = given.length===els.length && perOk.every(Boolean);
+  } else {
+    const remaining=els.map(e=>comboNormToken(e.type,e.val));
+    perOk=els.map(()=>false);
+    given.forEach(g=>{
+      const cands=[comboNormToken('word',g.raw),comboNormToken('number',g.raw),comboNormToken('code',g.raw)];
+      for(let ti=0;ti<remaining.length;ti++){ if(remaining[ti]!==null&&cands.indexOf(remaining[ti])>=0){remaining[ti]=null; perOk[ti]=true; break;} }
+    });
+    memoryOk = perOk.every(Boolean) && given.filter(g=>String(g.raw).trim()!=='').length===els.length;
+  }
+  return {perOk:perOk,memoryOk:memoryOk,expected:els.map(e=>e.val),given:given.map(g=>g.raw)};
+}
+function comboFeedbackText(result,item){
+  if(result.memoryOk && result.mathTotal && result.mathCorrect===result.mathTotal) return 'Stark \u2013 Merken und Ablenkung beide sauber. Die Schwierigkeit zieht langsam an.';
+  if(!result.memoryOk && result.mathCorrect<result.mathTotal) return 'Merken und Ablenkungsmathe waren beide wacklig \u2013 wir halten die Stufe, bleib dran.';
+  if(!result.memoryOk) return 'Die Ablenkung hat das Gemerkte verdraengt \u2013 genau das trainiert Kombi-Memory. Der Merk-Umfang bleibt oder sinkt leicht.';
+  if(result.mathTotal && result.mathCorrect<result.mathTotal) return 'Gut gemerkt! Bei der Ablenkungsmathe war eine Aufgabe daneben.';
+  return 'Gut gemacht.';
+}
+
+/* ---- Block-Runner (drei Phasen), fuer Standalone UND Tagestraining ---- */
+function runComboBlock(host,item,opts){
+  opts=opts||{};
+  const myToken=SESSION_TOKEN;
+  const alive=()=>myToken===SESSION_TOKEN && document.body.contains(host);
+  let phase='memorize';
+  const mathResults=[];
+  let recallStart=0;
+
+  showMemorize();
+
+  function showMemorize(){
+    const chips=item.els.map(e=>'<span class="combo-el">'+e.val+'</span>').join('');
+    host.innerHTML=
+      '<div class="qkind">Kombi-Memory \u00b7 Merken</div>'+
+      '<div class="q-text" style="text-align:center;color:var(--muted);margin-bottom:10px">Praege dir diese '+item.els.length+' '+comboContentNoun(item.contentMode)+' ein'+(item.order?' \u2013 in dieser Reihenfolge':'')+'.</div>'+
+      '<div class="combo-list">'+chips+'</div>'+
+      '<div class="combo-bar"><i id="cbar"></i></div>'+
+      '<button class="btn" id="cgo" style="margin-top:18px">Bereit \u203a</button>';
+    const bar=host.querySelector('#cbar');
+    if(bar){ bar.style.transition='width '+item.showMs+'ms linear';
+      const setW=()=>{if(alive())bar.style.width='100%';};
+      if(typeof requestAnimationFrame==='function')requestAnimationFrame(setW); else setTimeout(setW,20); }
+    const to=setTimeout(()=>{ if(alive()&&phase==='memorize')startInterference(); },item.showMs);
+    const go=host.querySelector('#cgo');
+    if(go)go.onclick=()=>{ clearTimeout(to); if(alive()&&phase==='memorize')startInterference(); };
+  }
+
+  function startInterference(){
+    phase='interference';
+    if(!item.mathQs.length)return startRecall();
+    let mi=0;
+    renderMath(mi);
+    function renderMath(k){
+      const q=item.mathQs[k], isMC=q.kind==='mc';
+      host.innerHTML=
+        '<div class="qkind">Ablenkung \u00b7 Aufgabe '+(k+1)+' / '+item.mathQs.length+'</div>'+
+        (isMC?'<div class="q-text" style="text-align:center;font-size:22px;margin:6px 0 16px">'+q.prompt+'</div>':'<div class="q-math">'+q.prompt+'</div>')+
+        '<div id="mzone"></div>'+
+        '<div class="feedback" id="mfb"></div>';
+      const zone=host.querySelector('#mzone');
+      if(isMC){
+        zone.innerHTML='<div class="opts">'+q.opts.map((o,i)=>'<button class="opt" data-k="'+i+'"><span class="key">'+'ABCD'[i]+'</span><span>'+o+'</span></button>').join('')+'</div>';
+        zone.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+          const kk=+b.dataset.k, ok=kk===q.c;
+          zone.querySelectorAll('.opt').forEach((x,xi)=>{x.disabled=true; if(xi===q.c)x.classList.add('correct'); if(xi===kk&&!ok)x.classList.add('wrong');});
+          finishMath(ok, q.opts[q.c]);
+        });
+      } else {
+        zone.innerHTML='<input class="num-input" id="mans" inputmode="numeric" autocomplete="off" placeholder="?"><button class="btn" id="msub" style="margin-top:12px">Pruefen</button>';
+        const inp=zone.querySelector('#mans'); if(inp)inp.focus();
+        const chk=()=>{ const raw=(inp.value||'').trim(); if(raw==='')return; inp.disabled=true;
+          const ok=Math.abs(parseNum(raw)-q.answer)<1e-6; inp.style.borderColor=ok?'var(--good)':'var(--bad)';
+          const sb=zone.querySelector('#msub'); if(sb)sb.style.display='none'; finishMath(ok, fmt(q.answer)); };
+        if(inp)inp.addEventListener('keydown',e=>{ if(e.key==='Enter')chk(); });
+        const sb=zone.querySelector('#msub'); if(sb)sb.onclick=chk;
+      }
+      function finishMath(ok,correctDisp){
+        mathResults.push(!!ok);
+        const fb=host.querySelector('#mfb'); if(fb){fb.className='feedback '+(ok?'good':'bad'); fb.innerHTML=ok?'Richtig.':('Richtig: '+correctDisp);}
+        setTimeout(()=>{ if(!alive())return; mi++; if(mi<item.mathQs.length)renderMath(mi); else startRecall(); }, ok?550:1100);
+      }
+    }
+  }
+
+  function startRecall(){
+    phase='recall'; recallStart=Date.now();
+    if(item.contentMode==='words')renderChipsRecall(); else renderInputRecall();
+  }
+
+  function renderInputRecall(){
+    const rows=item.els.map((e,i)=>
+      '<div class="combo-recall-row"><span class="combo-idx">'+(i+1)+'</span>'+
+      '<input class="combo-input" data-i="'+i+'" inputmode="'+(e.type==='number'?'numeric':'text')+'" autocomplete="off" autocapitalize="'+(e.type==='code'?'characters':'off')+'" placeholder="'+comboElNoun(e.type)+'"></div>').join('');
+    host.innerHTML=
+      '<div class="qkind">Abruf'+(item.order?' \u00b7 Reihenfolge zaehlt':' \u00b7 Reihenfolge egal')+'</div>'+
+      '<div class="q-text" style="color:var(--muted);margin-bottom:14px">Gib die gemerkten '+comboContentNoun(item.contentMode)+' wieder.</div>'+
+      '<div class="combo-recall">'+rows+'</div>'+
+      '<button class="btn" id="csub" style="margin-top:16px">Pruefen</button>';
+    const inputs=[].slice.call(host.querySelectorAll('.combo-input'));
+    if(inputs[0])inputs[0].focus();
+    inputs.forEach((inp,i)=>inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(i<inputs.length-1)inputs[i+1].focus(); else evaluateInputs(inputs);} }));
+    const sub=host.querySelector('#csub'); if(sub)sub.onclick=()=>evaluateInputs(inputs);
+  }
+  function evaluateInputs(inputs){
+    const given=inputs.map((inp,i)=>({type:item.els[i].type,raw:(inp.value||'').trim()}));
+    finishBlock(comboEvaluate(item,given), given.map(g=>g.raw));
+  }
+
+  function renderChipsRecall(){
+    const targets=item.els.map(e=>e.val), used=new Set(targets.map(v=>v.toUpperCase()));
+    const dcount=clamp(item.els.length+2,4,8), distr=[]; let g=0;
+    while(distr.length<dcount&&g++<300){const w=pick(COMBO_WORDS); if(!used.has(w.toUpperCase())){used.add(w.toUpperCase()); distr.push(w);}}
+    const chipsVals=shuffle(targets.concat(distr));
+    let selection=[];
+    host.innerHTML=
+      '<div class="qkind">Abruf'+(item.order?' \u00b7 Reihenfolge zaehlt':'')+'</div>'+
+      '<div class="q-text" style="color:var(--muted);margin-bottom:6px">'+(item.order?'Tippe die W\u00f6rter in der richtigen Reihenfolge an.':'Tippe die '+item.els.length+' W\u00f6rter an, die du dir gemerkt hast.')+'</div>'+
+      '<div class="combo-sel" id="csel"></div>'+
+      '<div class="combo-chips" id="cchips">'+chipsVals.map(v=>'<button class="chip combo-chip" data-v="'+v+'" aria-pressed="false">'+v+'</button>').join('')+'</div>'+
+      '<div class="btn-row"><button class="btn ghost" id="cundo">Zur\u00fcck</button><button class="btn" id="csub">Pruefen</button></div>';
+    const selBox=host.querySelector('#csel');
+    function refresh(){
+      selBox.innerHTML=selection.length?selection.map((v,i)=>'<span class="combo-el">'+(item.order?(i+1)+'. ':'')+v+'</span>').join(''):'<span style="color:var(--faint);font-size:13px">\u2013 noch nichts gew\u00e4hlt \u2013</span>';
+      host.querySelectorAll('.combo-chip').forEach(b=>b.setAttribute('aria-pressed', selection.indexOf(b.dataset.v)>=0?'true':'false'));
+    }
+    host.querySelectorAll('.combo-chip').forEach(b=>b.onclick=()=>{
+      const v=b.dataset.v;
+      if(item.order){ if(selection.length<item.els.length&&selection.indexOf(v)<0)selection.push(v); }
+      else { const idx=selection.indexOf(v); if(idx>=0)selection.splice(idx,1); else if(selection.length<item.els.length)selection.push(v); }
+      refresh();
+    });
+    const undo=host.querySelector('#cundo'); if(undo)undo.onclick=()=>{selection.pop(); refresh();};
+    const sub=host.querySelector('#csub'); if(sub)sub.onclick=()=>{
+      finishBlock(comboEvaluate(item,selection.map(v=>({type:'word',raw:v}))), selection.slice());
+    };
+    refresh();
+  }
+
+  function finishBlock(memRes,givenDisplay){
+    const mathTotal=item.mathQs.length, mathCorrect=mathResults.filter(Boolean).length;
+    const recallMs=recallStart?Date.now()-recallStart:0;
+    const result={memoryOk:memRes.memoryOk,perOk:memRes.perOk,mathCorrect:mathCorrect,mathTotal:mathTotal,recallMs:recallMs,expected:memRes.expected,given:givenDisplay};
+    const rightList=item.els.map((e,i)=>'<span class="combo-el '+(result.perOk[i]?'ok':'no')+'">'+e.val+'</span>').join('');
+    const mathCls=(mathTotal&&mathCorrect===mathTotal)?'good':(mathCorrect>0?'':'bad');
+    host.innerHTML=
+      '<div class="qkind">Ergebnis</div>'+
+      '<div class="combo-res">'+
+        '<div class="combo-res-line"><span>Gemerkt</span><b class="'+(result.memoryOk?'good':'bad')+'">'+(result.memoryOk?'richtig':'nicht vollst\u00e4ndig')+'</b></div>'+
+        '<div class="combo-res-sub">'+rightList+'</div>'+
+        '<div class="combo-res-line"><span>Ablenkung (Mathe)</span><b class="'+mathCls+'">'+mathCorrect+' / '+mathTotal+'</b></div>'+
+        '<div class="combo-res-note">'+comboFeedbackText(result,item)+'</div>'+
+      '</div>'+
+      '<div class="feedback" id="fb"></div><div id="nextrow"></div>';
+    if(opts.onComplete)opts.onComplete(result);
+    const nr=host.querySelector('#nextrow');
+    nr.innerHTML='<button class="btn" id="cnext" style="margin-top:8px">'+(opts.continueLabel||'Weiter')+'</button>';
+    const btn=host.querySelector('#cnext');
+    if(btn){ btn.onclick=()=>{ if(opts.onContinue)opts.onContinue(result); }; btn.focus(); }
+  }
+}
+
+/* ---- Standalone-Session (aus dem WM-Hub) ---- */
+/* ---- Start-Screen: Adaptiv + drei unabhängige Segment-Auswahlen ---- */
+function resolveComboLevels(){
+  const p=ensureWmComboProfile();
+  if(comboCfg.adaptive)return {mem:p.memoryLoadLevel,intf:p.interferenceLevel,math:p.mathDifficultyLevel,adaptive:true};
+  return {mem:comboCfg.mem,intf:comboCfg.intf,math:comboCfg.math,adaptive:false};   // manuell: nur diese Session
+}
+function comboSetup(){
+  ensureWmComboProfile();
+  setHomeBtn(false); tag.textContent='kombi-memory';
+  const seg=(label,name,opts,cur)=>'<div class="combo-seg"><span class="combo-seg-label">'+label+'</span>'+
+    '<div class="modes" style="margin:0" data-seg="'+name+'">'+opts.map(o=>'<button class="chip" data-val="'+o.v+'" aria-pressed="'+(cur===o.v)+'">'+o.t+'</button>').join('')+'</div></div>';
+  root.innerHTML='<div class="card">'+
+    '<div class="head"><button class="back" id="bk">\u2039</button><h2>Kombi-Memory</h2></div>'+
+    '<p class="lead" style="margin:0 0 14px;color:var(--muted)">Merken \u2192 Kopfrechnen als Ablenkung \u2192 Abruf. W\u00e4hle die Schwierigkeit \u2013 oder lass die App adaptiv steuern.</p>'+
+    '<div class="combo-seg"><span class="combo-seg-label">Adaptiv</span><div class="modes" style="margin:0" data-seg="adaptive"><button class="chip" data-val="1" aria-pressed="'+comboCfg.adaptive+'">An</button><button class="chip" data-val="0" aria-pressed="'+(!comboCfg.adaptive)+'">Aus</button></div></div>'+
+    '<div id="manualSegs"'+(comboCfg.adaptive?' hidden':'')+'>'+
+      seg('Merklast','mem',[{v:1,t:'niedrig'},{v:2,t:'mittel'},{v:3,t:'hoch'}],comboCfg.mem)+
+      seg('Interferenz','intf',[{v:1,t:'niedrig'},{v:2,t:'mittel'},{v:3,t:'hoch'}],comboCfg.intf)+
+      seg('Mathe','math',[{v:1,t:'leicht'},{v:2,t:'mittel'},{v:3,t:'schwer'}],comboCfg.math)+
+    '</div>'+
+    '<div id="adaptiveNote" class="combo-note"'+(comboCfg.adaptive?'':' hidden')+'>Adaptiv aktiv \u2013 Merklast, Interferenz und Mathe kommen aus deinem Profil (aktuell '+COMBO_MEM_LABEL[ensureWmComboProfile().memoryLoadLevel]+' / '+COMBO_INTF_LABEL[ensureWmComboProfile().interferenceLevel]+' / '+COMBO_MATH_LABEL[ensureWmComboProfile().mathDifficultyLevel]+').</div>'+
+    '<button class="btn" id="goStart" style="margin-top:16px">Start \u203a</button></div>';
+  document.getElementById('bk').onclick=wmHub;
+  root.querySelectorAll('[data-seg]').forEach(box=>{
+    const seg=box.dataset.seg;
+    box.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+      const val=+b.dataset.val;
+      if(seg==='adaptive')comboCfg.adaptive=(val===1); else comboCfg[seg]=val;
+      box.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed', seg==='adaptive'?((comboCfg.adaptive?'1':'0')===x.dataset.val):(+x.dataset.val===comboCfg[seg])));
+      if(seg==='adaptive'){document.getElementById('manualSegs').hidden=comboCfg.adaptive; document.getElementById('adaptiveNote').hidden=!comboCfg.adaptive;}
+    });
+  });
+  document.getElementById('goStart').onclick=()=>startCombo();
+}
+function startCombo(){
+  ensureWmComboProfile();
+  const lv=resolveComboLevels();
+  const total=5;
+  comboSession={levels:lv,total:total,idx:0,memOks:0,mathC:0,mathT:0,recallSum:0,token:++SESSION_TOKEN};
+  state={kind:'combo',token:comboSession.token,answered:false,correct:0,i:0,total:total,label:'Kombi-Memory',restart:()=>startCombo()};
+  setHomeBtn(true); tag.textContent='kombi-memory';
+  comboRunNext();
+}
+function comboRunNext(){
+  const cs=comboSession; if(!cs)return;
+  if(cs.idx>=cs.total)return comboResults();
+  const n=cs.idx+1, prog=Math.round(cs.idx/cs.total*100);
+  root.innerHTML='<div class="card">'+
+    '<div class="session-top"><span>Block '+n+' / '+cs.total+'</span><span class="streak '+(cs.memOks?'':'cold')+'">'+cs.memOks+' gemerkt</span></div>'+
+    '<div class="progress"><i style="width:'+prog+'%"></i></div>'+
+    '<div class="qwrap" id="qbody"></div></div>';
+  const host=document.getElementById('qbody');
+  const item=makeComboItem({memLevel:cs.levels.mem, intfLevel:cs.levels.intf, mathLevel:cs.levels.math});
+  state.answered=false; state.i=cs.idx;
+  runComboBlock(host,item,{
+    continueLabel: cs.idx>=cs.total-1?'Auswertung':'Weiter',
+    onComplete:(r)=>{
+      state.answered=true;
+      if(r.memoryOk){cs.memOks++; state.correct++;}
+      cs.mathC+=r.mathCorrect; cs.mathT+=r.mathTotal; cs.recallSum+=r.recallMs;
+      updateAdaptiveProfile({key:'wm:combo',group:'wm',ok:r.memoryOk,difficulty:item.memLevel,timeMs:r.recallMs});
+      updateWmComboProfile(r,item);
+    },
+    onContinue:()=>{ cs.idx++; comboRunNext(); }
+  });
+}
+function comboResults(){
+  const cs=comboSession; if(!cs)return;
+  setHomeBtn(false); tag.textContent='auswertung';
+  Streak.registerToday();
+  const memAcc=cs.total?cs.memOks/cs.total:0, mathAcc=cs.mathT?cs.mathC/cs.mathT:1;
+  const chg=adaptComboLevels(memAcc,mathAcc, cs.levels.intf>=2);   // Interferenz besonders nach mehreren Aufgaben bewerten
+  const p=ensureWmComboProfile();
+  const acc=Math.round(memAcc*100);
+  const v=acc>=90?'Stark.':acc>=70?'Solide.':acc>=50?'Geht voran.':'Dranbleiben.';
+  const raised=chg.dMem>0||chg.dIntf>0||chg.dMath>0, lowered=chg.dMem<0||chg.dIntf<0||chg.dMath<0;
+  const loadNote=raised?'Schwierigkeit leicht erh\u00f6ht \u2191':(lowered?'Schwierigkeit etwas gesenkt \u2193':'Schwierigkeit gehalten');
+  root.innerHTML='<div class="card">'+
+    '<div class="res-score">'+cs.memOks+'<small>/'+cs.total+'</small></div>'+
+    '<div class="res-label">'+v+' Kombi-Memory</div>'+
+    '<div class="res-grid">'+
+      '<div class="res-cell"><b>'+acc+'%</b><span>gemerkt</span></div>'+
+      '<div class="res-cell"><b>'+(cs.mathT?Math.round(mathAcc*100)+'%':'\u2013')+'</b><span>Ablenkung</span></div>'+
+      '<div class="res-cell"><b>'+(cs.total?(Math.round(cs.recallSum/cs.total/100)/10):0)+'s</b><span>\u00d8 Abruf</span></div></div>'+
+    '<div class="res-note">Profil: Merklast '+COMBO_MEM_LABEL[p.memoryLoadLevel]+' \u00b7 Interferenz '+COMBO_INTF_LABEL[p.interferenceLevel]+' \u00b7 Mathe '+COMBO_MATH_LABEL[p.mathDifficultyLevel]+' \u00b7 '+loadNote+'</div>'+
+    (cs.levels.adaptive?'':'<div class="res-note">Diese Session war manuell ('+COMBO_MEM_LABEL[cs.levels.mem]+' / '+COMBO_INTF_LABEL[cs.levels.intf]+' / '+COMBO_MATH_LABEL[cs.levels.math]+') \u2013 dein Profil wurde nur anhand der Leistung angepasst.</div>')+
+    '<div class="btn-row"><button class="btn ghost" id="hm">Startseite</button><button class="btn" id="rt">Nochmal</button></div></div>';
+  document.getElementById('hm').onclick=resetToHome;
+  document.getElementById('rt').onclick=()=>comboSetup();
+  comboSession=null;
+}
+
+/* ---- Tagestraining-Einbindung (ein kompakter Block = ein Item) ---- */
+function fillCombo(q){
+  const host=document.getElementById('qbody');
+  runComboBlock(host,q,{
+    continueLabel: state.i>=state.total-1?'Auswertung':'Weiter',
+    onComplete:(r)=>{
+      state.answered=true;
+      const ok=r.memoryOk;
+      ok?(state.correct++,state.streak++):(state.streak=0);
+      record(q,ok);                                   // areaLog['wm'] + updateAdaptiveProfile('wm:combo')
+      updateWmComboProfile(r,q);                       // Genauigkeit/recentSessions – Level-Anpassung nur in Standalone-Sessions
+      pushReview(q,ok, (r.given.filter(x=>String(x).trim()!=='').join(' \u00b7 '))||'\u2013', r.expected.join(' \u00b7 '));
+    },
+    onContinue: next
+  });
+}
+
 function renderQ(){
   setHomeBtn(true);
   const q=currentQuestion(),n=state.i+1;state.answered=false;state.qStart=Date.now();tag.textContent=state.label;
@@ -1688,6 +2524,7 @@ function renderQ(){
     <div class="session-top"><span>Aufgabe ${n} / ${state.total}</span><span class="${sc}">${state.streak>=2?"🔥 "+state.streak+" in Folge":"Serie "+state.streak}</span></div>
     <div class="progress"><i style="width:${prog}%"></i></div><div class="qwrap" id="qbody"></div></div>`;
   if(q.render==='span')return fillSpan(q);
+  if(q.render==='combo')return fillCombo(q);
   fillQA(q);
 }
 function fillQA(q){
@@ -1746,6 +2583,7 @@ function record(q,ok){
   if(q.cat)updateAdaptiveProfile({key:q.cat,group:q.group,ok,difficulty:q.diff,timeMs});
   if(q.cat&&q.cat.indexOf('math:')===0)updateMathProfile(q.cat,ok,q.diff,timeMs,q);
   if(q.cat&&q.cat.indexOf('cfa:')===0)updateCfaProfile(q.cat,ok);
+  if(q.group==='gmat')updateGmatProfile(q,ok,timeMs);
   maybeAdaptInSession(ok);
   if(state.daily){const g=q.group;(state.areaLog[g]||(state.areaLog[g]={att:0,cor:0}));state.areaLog[g].att++;if(ok)state.areaLog[g].cor++;}
 }

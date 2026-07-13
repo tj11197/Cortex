@@ -21,15 +21,41 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Theme vor dem ersten Paint setzen (kein FOUC). Liest DENSELBEN Store-Key, keine parallele Logik. -->
+<script>(function(){try{
+  var raw=localStorage.getItem('cortex:data:v1');
+  var choice=raw?((JSON.parse(raw)||{}).settings||{}).theme:null; if(!choice)choice='light';
+  var dark = choice==='dark' || (choice==='system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  var r = dark?'dark':'light';
+  document.documentElement.setAttribute('data-theme', r);
+  var mc=document.querySelector('meta[name="theme-color"]'); if(mc)mc.setAttribute('content', dark?'#0F1420':'#E9ECF2');
+  var cs=document.querySelector('meta[name="color-scheme"]'); if(cs)cs.setAttribute('content', r);
+}catch(e){}})();</script>
 <style>
   :root{
     --bg:#E9ECF2; --surface:#FFFFFF; --ink:#141B2D; --muted:#5B6577; --faint:#8B94A6;
     --accent:#2F4BFF; --accent-soft:#E5E9FF; --good:#0E9F6E; --good-soft:#E2F5ED;
     --bad:#E11D48; --bad-soft:#FCE4EA; --warn:#B7791F; --warn-soft:#FBF1DD; --line:#D7DCE6;
+    /* zusaetzliche semantische Tokens (Default = helles Design, unveraendert) */
+    --card:#FFFFFF; --soft:#FBFCFE; --input-bg:#FFFFFF; --on-accent:#FFFFFF;
+    --chip-active-bg:#141B2D; --chip-active-fg:#FFFFFF; --toast-bg:#141B2D; --toast-fg:#FFFFFF;
+    color-scheme:light;
     --display:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
     --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
     --body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   }
+  /* ===== Dunkles Design – nur Variablen-Overrides, keine Layoutaenderung ===== */
+  html[data-theme="dark"]{
+    --bg:#0F1420; --surface:#191F2E; --card:#191F2E; --ink:#E7EAF1; --muted:#9AA4B8; --faint:#6B7488;
+    --accent:#7C93FF; --accent-soft:#242E4A; --good:#34D399; --good-soft:#122A20;
+    --bad:#FB7185; --bad-soft:#2A1620; --warn:#E0B44B; --warn-soft:#2A2314; --line:#2A3242;
+    --soft:#20283A; --input-bg:#121826; --on-accent:#0F1420;
+    --chip-active-bg:#E7EAF1; --chip-active-fg:#141B2D; --toast-bg:#E7EAF1; --toast-fg:#141B2D;
+    color-scheme:dark;
+  }
+  /* Sichtbare Tastatur-Fokuszustaende in beiden Themes */
+  button:focus-visible,.chip:focus-visible,.opt:focus-visible,input:focus-visible,a:focus-visible{
+    outline:2px solid var(--accent);outline-offset:2px}
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   html{-webkit-text-size-adjust:100%}
@@ -78,7 +104,7 @@
   .modes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
   .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 15px;font-size:13px;
     cursor:pointer;font:inherit;color:var(--muted);transition:all .15s}
-  .chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--chip-active-bg);color:var(--chip-active-fg);border-color:var(--chip-active-bg)}
 
   .topics{display:flex;flex-direction:column;gap:9px}
   .topic{border:1px solid var(--line);border-radius:13px;padding:13px 15px;display:flex;align-items:center;gap:12px}
@@ -89,11 +115,11 @@
   .mini{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 13px;font-size:12.5px;min-height:40px;
     cursor:pointer;font-family:var(--body);color:var(--muted);transition:all .14s;white-space:nowrap}
   .mini:hover{border-color:var(--accent);color:var(--accent)}
-  .mini.solid{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
-  .mini.solid:hover{filter:brightness(1.07);color:#fff}
+  .mini.solid{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+  .mini.solid:hover{filter:brightness(1.07);color:var(--on-accent)}
   .mini.done{border-color:var(--good);color:var(--good)}
 
-  .primer{border:1px solid var(--line);border-radius:13px;padding:18px;margin-bottom:18px;background:#FBFCFE}
+  .primer{border:1px solid var(--line);border-radius:13px;padding:18px;margin-bottom:18px;background:var(--soft)}
   .primer .pk{font-size:11px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
   .primer p{font-size:14.5px;line-height:1.6;color:var(--ink);margin-bottom:16px}
   .primer p:last-child{margin-bottom:0}
@@ -109,7 +135,7 @@
   .done-badge{text-align:center;font-size:44px;color:var(--good);margin:6px 0 4px}
 
   .btn{width:100%;border:none;border-radius:12px;padding:15px;cursor:pointer;font-family:var(--display);font-weight:600;
-    font-size:15px;background:var(--accent);color:#fff;transition:filter .15s,transform .1s}
+    font-size:15px;background:var(--accent);color:var(--on-accent);transition:filter .15s,transform .1s}
   .btn:hover{filter:brightness(1.07)}
   .btn:active{transform:scale(.99)}
   .btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
@@ -131,8 +157,75 @@
   .q-text .stmt{display:block;margin-top:10px;padding-left:14px;border-left:2px solid var(--accent-soft)}
 
   .num-input{width:100%;text-align:center;font-family:var(--mono);font-size:30px;font-weight:500;border:1.5px solid var(--line);
-    border-radius:14px;padding:16px;color:var(--ink);transition:border-color .15s;background:#fff}
+    border-radius:14px;padding:16px;color:var(--ink);transition:border-color .15s;background:var(--input-bg)}
   .num-input:focus{outline:none;border-color:var(--accent)}
+  /* ---- Bruch-Eingabe (Zaehler/Nenner, optional Ganzzahl) ---- */
+  .frac-input{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 2px}
+  .frac-cell{width:104px;text-align:center;font-family:var(--mono);font-size:26px;font-weight:500;
+    border:1.5px solid var(--line);border-radius:12px;padding:12px 8px;color:var(--ink);background:var(--input-bg);transition:border-color .15s}
+  .frac-cell:focus{outline:none;border-color:var(--accent)}
+  .frac-cell:disabled{opacity:.85}
+  .frac-cell::placeholder{color:var(--faint);font-size:14px;font-family:var(--body)}
+  .frac-whole{width:74px}
+  .frac-stack{display:flex;flex-direction:column;gap:6px}
+  .frac-bar{height:2px;background:var(--ink);border-radius:2px;margin:1px 4px}
+  /* ---- x/y-Eingabe fuer Gleichungssysteme ---- */
+  .xy-input{display:flex;flex-direction:column;gap:10px;align-items:center;margin:8px 0 2px}
+  .xy-row{display:flex;align-items:center;gap:10px}
+  .xy-lab{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--muted);width:34px;text-align:right}
+  .xy-cell{width:150px;text-align:center;font-family:var(--mono);font-size:24px;font-weight:500;
+    border:1.5px solid var(--line);border-radius:12px;padding:11px 8px;color:var(--ink);background:var(--input-bg);transition:border-color .15s}
+  .xy-cell:focus{outline:none;border-color:var(--accent)}
+  .xy-cell:disabled{opacity:.85}
+  .xy-cell::placeholder{color:var(--faint)}
+  /* ---- Coach-Karte ---- */
+  .coach-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .coach-tag{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--on-accent);background:var(--accent);padding:3px 10px;border-radius:999px}
+  .coach-dur{font-size:12px;color:var(--muted)}
+  .coach-main{font-size:16px;font-weight:600;color:var(--ink);line-height:1.42}
+  .coach-focus{font-size:13px;color:var(--muted);margin-top:5px}
+  .coach-reasons{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+  .coach-reason{font-size:12px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:3px 11px}
+  .coach-note{font-size:12.5px;color:var(--muted);margin-top:9px}
+  .coach-btns{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .coach-hint{font-size:11.5px;color:var(--faint);margin-top:10px;line-height:1.4}
+  .coach-strategy{font-size:12.5px;color:var(--ink);background:var(--accent-soft);border-radius:9px;padding:8px 11px;margin-top:10px;line-height:1.5}
+  .coach-tipview{background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;padding:0 0 0 4px;cursor:pointer;white-space:nowrap}
+  /* ---- Gedankentipps ---- */
+  .mt-entry{border:1.5px dashed var(--accent);background:var(--accent-soft)}
+  .mt-filters{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 4px}
+  .mt-card{border:1px solid var(--line);border-radius:13px;background:var(--soft);margin-bottom:10px;overflow:hidden}
+  .mt-head{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+    padding:13px 14px;background:none;border:none;text-align:left;cursor:pointer;color:var(--ink)}
+  .mt-title{font-size:14.5px;font-weight:600;line-height:1.35}
+  .mt-meta{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+  .mt-cat{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+  .mt-mode{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+  .mt-lvl{font-size:10.5px;color:var(--faint)}
+  .mt-sum{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .mt-ex{font-family:var(--mono);font-size:13px;color:var(--ink);margin-top:7px;word-break:break-word}
+  .mt-caret{color:var(--faint);font-size:15px;flex-shrink:0;transition:transform .15s}
+  .mt-card.open .mt-caret{transform:rotate(90deg)}
+  .mt-body{display:none;padding:0 14px 14px;border-top:1px solid var(--line)}
+  .mt-card.open .mt-body{display:block}
+  .mt-expl{font-size:13.5px;color:var(--ink);line-height:1.5;margin-top:11px}
+  .mt-steps{font-family:var(--mono);font-size:13px;color:var(--ink);background:var(--input-bg);
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;line-height:1.7;
+    word-break:break-word;overflow-wrap:anywhere}
+  .mt-result{font-size:13px;font-weight:600;color:var(--good);margin-top:8px}
+  .mt-mnemo{font-size:12.5px;color:var(--muted);font-style:italic;margin-top:8px}
+  .mt-applies{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  .mt-applies span{font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+  .mt-empty{font-size:13px;color:var(--muted);text-align:center;padding:22px 8px}
+  /* ---- Gedankentipp im Aufgabenfeedback (Stufe 2) ---- */
+  .fbtip{margin-top:12px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:11px;
+    background:var(--soft);padding:11px 13px;text-align:left}
+  .fbtip-head{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  .fbtip-title{font-size:14px;font-weight:600;color:var(--ink);margin-top:4px}
+  .fbtip-sum{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.45}
+  .fbtip-mnemo{font-size:12.5px;color:var(--muted);font-style:italic;margin-top:5px}
+  .fbtip-more{background:none;border:none;color:var(--accent);font-size:12.5px;font-weight:600;padding:8px 0 2px;cursor:pointer}
+  .fbtip-ex{font-family:var(--mono);font-size:13px;color:var(--ink);margin-top:6px;word-break:break-word}
 
   .opts{display:flex;flex-direction:column;gap:9px}
   .opt{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:13px 15px;
@@ -180,7 +273,7 @@
 
   /* ===== Streak-Banner ===== */
   .streak-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);
-    border-radius:14px;padding:13px 16px;margin-bottom:18px;background:#FBFCFE}
+    border-radius:14px;padding:13px 16px;margin-bottom:18px;background:var(--soft)}
   .streak-banner .sk-main{display:flex;align-items:center;gap:12px}
   .streak-flame{font-size:24px;line-height:1}
   .streak-num{font-family:var(--display);font-weight:600;font-size:15.5px}
@@ -192,7 +285,7 @@
 
   /* ===== Toast ===== */
   .toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translateX(-50%);
-    background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13px;font-weight:500;z-index:60;
+    background:var(--toast-bg);color:var(--toast-fg);padding:11px 18px;border-radius:999px;font-size:13px;font-weight:500;z-index:60;
     box-shadow:0 12px 32px -10px rgba(0,0,0,.5);animation:rise .25s ease both;max-width:88vw;text-align:center}
 
   /* ===== Mobile / App-Feeling ===== */
@@ -206,7 +299,7 @@
   }
   /* ===== Fehlerübersicht in der Auswertung ===== */
   .review{display:flex;flex-direction:column;gap:9px;margin-bottom:18px}
-  .rev-item{border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:11px;padding:12px 14px;background:#FFFCFD}
+  .rev-item{border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:11px;padding:12px 14px;background:var(--soft)}
   .rev-q{font-size:14.5px;line-height:1.4;margin-bottom:7px}
   .rev-ans{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:12.5px;margin-bottom:4px}
   .rev-bad{color:var(--bad)} .rev-good{color:var(--good)}
@@ -331,6 +424,16 @@ function saveBest(k,v){ Store.data.best[k]=v; Store.persist(); }
 function tutDone(k){ return !!Store.data.tut[k]; }
 function markTut(k){ Store.data.tut[k]=true; Store.persist(); }
 
+/* ---- Theme (hell / dunkel / system) – Auswahl im Store unter settings.theme ---- */
+function themeChoice(){ const s=Store.data&&Store.data.settings; return (s&&s.theme)||'light'; }   // Default: hell
+function resolveTheme(choice){ if(choice==='system')return (window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'; return choice==='dark'?'dark':'light'; }
+function applyTheme(){ const r=resolveTheme(themeChoice());
+  document.documentElement.setAttribute('data-theme',r);
+  const mc=document.querySelector('meta[name="theme-color"]'); if(mc)mc.setAttribute('content', r==='dark'?'#0F1420':'#E9ECF2');
+  const cs=document.querySelector('meta[name="color-scheme"]'); if(cs)cs.setAttribute('content', r); }
+function setTheme(choice){ if(['light','dark','system'].indexOf(choice)<0)choice='light';
+  Store.data.settings=Store.data.settings||{}; Store.data.settings.theme=choice; Store.persist(); applyTheme(); }
+
 /* ---- Streak- / Tagesmodell (echte Kalendertage, YYYY-MM-DD) ---- */
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
@@ -406,11 +509,70 @@ const MATH = {
   frac:{name:"Brüche", teaser:"Addieren, multiplizieren, kürzen",
     tut:{concept:"Brüche addierst du nur bei gleichem Nenner – sonst bringst du sie zuvor auf einen gemeinsamen Nenner. Multipliziert wird Zähler × Zähler und Nenner × Nenner. Ergebnisse kürzt man so weit wie möglich.",ex:"1/4 + 1/6 = 5/12",example:"1/4 + 1/6",steps:["Gemeinsamer Nenner: 4 × 6 = 24.","1/4 = 6/24, 1/6 = 4/24.","6/24 + 4/24 = 10/24 = 5/12."]},
     gen:(L)=>{if(L<=2){let d1,d2;if(L===1){d1=d2=rnd(2,9);}else{d1=rnd(2,6);d2=rnd(2,6);}const n1=rnd(1,d1-1),n2=rnd(1,d2-1),num=n1*d2+n2*d1,den=d1*d2;
-        return{prompt:`${n1}/${d1} + ${n2}/${d2}`,answer:num/den,disp:fracStr(num,den),hints:[d1===d2?"Gleicher Nenner – nur die Zähler addieren.":"Auf einen gemeinsamen Nenner bringen.",d1===d2?"Am Ende kürzen, falls möglich.":`Gemeinsamer Nenner ${d1*d2}: erweitere beide Brüche darauf.`],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}
+        return{prompt:`${n1}/${d1} + ${n2}/${d2}`,answer:num/den,disp:fracStr(num,den),answerType:"fraction",hints:[d1===d2?"Gleicher Nenner – nur die Zähler addieren.":"Auf einen gemeinsamen Nenner bringen.",d1===d2?"Am Ende kürzen, falls möglich.":`Gemeinsamer Nenner ${d1*d2}: erweitere beide Brüche darauf.`],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}
       const d1=rnd(2,6),d2=rnd(2,6),n1=rnd(1,d1-1),n2=rnd(1,d2-1);
-      if(L===3){const num=n1*n2,den=d1*d2;return{prompt:`${n1}/${d1} × ${n2}/${d2}`,answer:num/den,disp:fracStr(num,den),hints:["Zähler × Zähler, Nenner × Nenner.","Danach kürzen: suche gemeinsame Teiler von Zähler und Nenner."],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}
+      if(L===3){const num=n1*n2,den=d1*d2;return{prompt:`${n1}/${d1} × ${n2}/${d2}`,answer:num/den,disp:fracStr(num,den),answerType:"fraction",hints:["Zähler × Zähler, Nenner × Nenner.","Danach kürzen: suche gemeinsame Teiler von Zähler und Nenner."],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}
       let A=[n1,d1],B=[n2,d2];if(n1/d1<n2/d2){A=[n2,d2];B=[n1,d1];}const num=A[0]*B[1]-B[0]*A[1],den=A[1]*B[1];
-      return{prompt:`${A[0]}/${A[1]} − ${B[0]}/${B[1]}`,answer:num/den,disp:fracStr(num,den),hints:["Auf gemeinsamen Nenner bringen, dann die Zähler subtrahieren.",`Gemeinsamer Nenner ${A[1]*B[1]}; erst erweitern, dann abziehen.`],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}},
+      return{prompt:`${A[0]}/${A[1]} − ${B[0]}/${B[1]}`,answer:num/den,disp:fracStr(num,den),answerType:"fraction",hints:["Auf gemeinsamen Nenner bringen, dann die Zähler subtrahieren.",`Gemeinsamer Nenner ${A[1]*B[1]}; erst erweitern, dann abziehen.`],explain:`= ${num}/${den} = ${fracStr(num,den)}.`};}},
+  equations:{name:"Gleichungen", teaser:"Nach x auflösen · Umkehroperationen",
+    tut:{concept:"Bei einer Gleichung suchst du die Zahl für x. Du formst um, indem du auf beiden Seiten dieselbe Umkehroperation anwendest: Plus ↔ Minus, Mal ↔ Geteilt. Ziel ist, dass x allein steht.",
+      ex:"2x + 5 = 17 → x = 6", example:"2x + 5 = 17",
+      steps:["Zuerst 5 abziehen: 2x = 12.","Dann durch 2 teilen: x = 6.","Probe: 2·6 + 5 = 17 ✓."]},
+    gen:(L)=>{
+      const R=(a,b)=>rnd(a,b);
+      if(L<=1){ const v=pick(['add','sub','mul','div']);
+        if(v==='add'){const x=R(1,12),a=R(1,12);return{prompt:`x + ${a} = ${x+a}`,answer:x,type:'lin_add',hints:["Auf beiden Seiten die Zahl abziehen.",`x = ${x+a} − ${a}.`],explain:`Umkehrung von +${a}: x = ${x+a} − ${a} = ${x}.`};}
+        if(v==='sub'){const x=R(3,15),a=R(1,x-1);return{prompt:`x − ${a} = ${x-a}`,answer:x,type:'lin_sub',hints:["Auf beiden Seiten die Zahl addieren.",`x = ${x-a} + ${a}.`],explain:`Umkehrung von −${a}: x = ${x-a} + ${a} = ${x}.`};}
+        if(v==='mul'){const x=R(2,9),a=R(2,9);return{prompt:`x · ${a} = ${a*x}`,answer:x,type:'lin_mul',hints:["Auf beiden Seiten durch die Zahl teilen.",`x = ${a*x} / ${a}.`],explain:`Umkehrung von ·${a}: x = ${a*x} / ${a} = ${x}.`};}
+        const a=R(2,9),b=R(2,9),x=a*b;return{prompt:`x / ${a} = ${b}`,answer:x,type:'lin_div',hints:["Auf beiden Seiten mit der Zahl malnehmen.",`x = ${b} · ${a}.`],explain:`Umkehrung von /${a}: x = ${b} · ${a} = ${x}.`};
+      }
+      if(L===2){ const v=pick(['coef','divx','sub']);
+        if(v==='coef'){const a=R(2,9),x=R(2,12);return{prompt:`${a}x = ${a*x}`,answer:x,type:'lin_coef',hints:["ax bedeutet a·x – durch a teilen.",`x = ${a*x} / ${a}.`],explain:`x = ${a*x} / ${a} = ${x}.`};}
+        if(v==='divx'){const a=R(2,9),x=R(2,9),b=a*x;return{prompt:`${b} / x = ${a}`,answer:x,type:'lin_divx',hints:["Erst mit x malnehmen, dann durch die Zahl teilen.",`x = ${b} / ${a}.`],explain:`${b} / x = ${a} → x = ${b} / ${a} = ${x}.`};}
+        const a=R(3,12),x=R(a+2,a+15);return{prompt:`x − ${a} = ${x-a}`,answer:x,type:'lin_sub',hints:["Die Zahl auf beiden Seiten addieren.",`x = ${x-a} + ${a}.`],explain:`x = ${x-a} + ${a} = ${x}.`};
+      }
+      if(L===3){ const v=pick(['axpb','axmb','xdapb']);
+        if(v==='axpb'){const a=R(2,6),x=R(2,12),b=R(1,15);return{prompt:`${a}x + ${b} = ${a*x+b}`,answer:x,type:'two_add',hints:[`Erst ${b} abziehen, dann durch ${a} teilen.`,`x = (${a*x+b} − ${b}) / ${a}.`],explain:`${a}x = ${a*x+b} − ${b} = ${a*x}; x = ${a*x} / ${a} = ${x}.`};}
+        if(v==='axmb'){const a=R(2,6),x=R(2,12),b=R(1,a*x-1);return{prompt:`${a}x − ${b} = ${a*x-b}`,answer:x,type:'two_sub',hints:[`Erst ${b} addieren, dann durch ${a} teilen.`,`x = (${a*x-b} + ${b}) / ${a}.`],explain:`${a}x = ${a*x-b} + ${b} = ${a*x}; x = ${a*x} / ${a} = ${x}.`};}
+        const a=R(2,6),q=R(2,10),x=a*q,b=R(1,12);return{prompt:`x / ${a} + ${b} = ${q+b}`,answer:x,type:'two_divadd',hints:[`Erst ${b} abziehen, dann mit ${a} malnehmen.`,`x = (${q+b} − ${b}) · ${a}.`],explain:`x / ${a} = ${q+b} − ${b} = ${q}; x = ${q} · ${a} = ${x}.`};
+      }
+      // L4: gemischter, negative Lösungen möglich
+      const v=pick(['paren','both','axmb']);
+      if(v==='paren'){const a=R(2,5),x=R(1,10),b=R(1,6);return{prompt:`${a}(x + ${b}) = ${a*(x+b)}`,answer:x,signed:true,type:'paren',hints:[`Erst durch ${a} teilen, dann ${b} abziehen.`,`x = ${a*(x+b)} / ${a} − ${b}.`],explain:`x + ${b} = ${a*(x+b)} / ${a} = ${x+b}; x = ${x+b} − ${b} = ${x}.`};}
+      if(v==='both'){const x=R(-6,10),c=R(2,4),k=R(1,3),a=c+k,b=R(1,10),d=k*x+b,dTerm=d>0?`+ ${d}`:(d<0?`− ${-d}`:'');
+        return{prompt:`${a}x + ${b} = ${c}x${dTerm?' '+dTerm:''}`,answer:x,signed:true,type:'both_sides',hints:["Alle x auf eine Seite, Zahlen auf die andere.",`(${a}−${c})x = ${d} − ${b} → ${k}x = ${d-b}.`],explain:`${a}x − ${c}x = ${d} − ${b} → ${k}x = ${d-b} → x = ${x}.`};}
+      const a=R(2,6),x=R(1,10),b=R(1,15);return{prompt:`${a}x − ${b} = ${a*x-b}`,answer:x,signed:true,type:'two_sub',hints:[`Erst ${b} addieren, dann durch ${a} teilen.`,`x = (${a*x-b} + ${b}) / ${a}.`],explain:`${a}x = ${a*x-b} + ${b} = ${a*x}; x = ${a*x} / ${a} = ${x}.`};
+    }},
+  linsys:{name:"Gleichungssysteme", teaser:"2\u00d72 \u00b7 x und y bestimmen",
+    tut:{concept:"Ein Gleichungssystem hat zwei Gleichungen mit zwei Unbekannten (x und y). Du l\u00f6st es durch Einsetzen (eine Gleichung nach x oder y umstellen und einsetzen) oder durch Addieren/Subtrahieren der Gleichungen, sodass eine Variable wegf\u00e4llt.",
+      ex:"x + y = 7 \u00b7 x \u2212 y = 3 \u2192 x = 5, y = 2", example:"x + y = 7 \u00b7 x \u2212 y = 3",
+      steps:["Beide Gleichungen addieren: 2x = 10 \u2192 x = 5.","x einsetzen: 5 + y = 7 \u2192 y = 2.","L\u00f6sung: x = 5, y = 2."]},
+    gen:(L)=>{
+      const R=(a,b)=>rnd(a,b);
+      const mk=(a,b,c,d,x,y,type,h,e)=>({prompt:`${fmtLin(a,b,a*x+b*y)}<br>${fmtLin(c,d,c*x+d*y)}`,answerType:'xy',ansX:x,ansY:y,disp:`x = ${x}, y = ${y}`,type,hints:h,explain:e});
+      if(L<=1){ const x=R(1,9),y=R(1,9);
+        return Math.random()<0.5
+          ? mk(1,1,1,0,x,y,'given_x',["x ist direkt gegeben.",`y = ${x+y} \u2212 ${x}.`],`x = ${x}; y = ${x+y} \u2212 ${x} = ${y}.`)
+          : mk(1,1,0,1,x,y,'given_y',["y ist direkt gegeben.",`x = ${x+y} \u2212 ${y}.`],`y = ${y}; x = ${x+y} \u2212 ${y} = ${x}.`);
+      }
+      if(L===2){
+        if(Math.random()<0.5){ const x=R(3,9),y=R(1,x-1);
+          return mk(1,1,1,-1,x,y,'add_sub',["Beide Gleichungen addieren \u2013 y f\u00e4llt weg.",`2x = ${2*x} \u2192 x = ${x}.`],`Addieren: 2x = ${2*x} \u2192 x = ${x}; y = ${x+y} \u2212 ${x} = ${y}.`); }
+        const a=R(2,3),x=R(2,6),y=R(1,9);
+        return mk(a,1,1,0,x,y,'subst',["x ist gegeben \u2013 einsetzen.",`${a}\u00b7${x} + y = ${a*x+y} \u2192 y = ${y}.`],`x = ${x}; ${a}\u00b7${x} + y = ${a*x+y} \u2192 y = ${y}.`);
+      }
+      if(L===3){ const x=R(2,7),y=R(1,7);
+        return Math.random()<0.5
+          ? mk(2,1,1,1,x,y,'elim1',["Zweite von erster abziehen \u2013 y f\u00e4llt weg.",`x = ${(2*x+y)-(x+y)} = ${x}.`],`Subtrahieren: x = ${(2*x+y)-(x+y)} = ${x}; y = ${x+y} \u2212 ${x} = ${y}.`)
+          : mk(3,2,1,1,x,y,'elim2',["Erste minus 2\u00b7zweite \u2013 y f\u00e4llt weg.",`x = ${(3*x+2*y)-2*(x+y)} = ${x}.`],`x = ${(3*x+2*y)-2*(x+y)} = ${x}; y = ${x+y} \u2212 ${x} = ${y}.`);
+      }
+      // L4: etwas schwieriger, kleine negative L\u00f6sungen m\u00f6glich
+      const x=R(-3,8),y=R(-3,8);
+      const q=Math.random()<0.5
+        ? mk(2,3,1,1,x,y,'elim3',["Erste minus 2\u00b7zweite \u2192 y.",`y = ${(2*x+3*y)-2*(x+y)} = ${y}.`],`y = ${(2*x+3*y)-2*(x+y)} = ${y}; x = ${x+y} \u2212 ${y} = ${x}.`)
+        : mk(3,-1,1,2,x,y,'elim4',["Erste \u00d72, dann addieren \u2192 7x.",`7x = ${7*x} \u2192 x = ${x}.`],`7x = ${2*(3*x-y)+(x+2*y)} \u2192 x = ${x}; y = (${x+2*y} \u2212 ${x})/2 = ${y}.`);
+      q.signed=true; return q;
+    }},
   pct:{name:"Prozent", teaser:"Anteile von hundert",
     tut:{concept:"Prozent heißt „von hundert“. p % einer Zahl findest du, indem du die Zahl durch 100 teilst (das ist 1 %) und dann mit p multiplizierst.",ex:"20 % von 80 = 16",example:"20 % von 80",steps:["1 % von 80 = 0,8.","20 % = 20 × 0,8.","= 16."]},
     gen:(L)=>{if(L===4){const base=pick([40,60,80,120,160,200,240]),p=pick([10,20,25,50]),val=base*p/100;return{prompt:`${fmt(val)} ist ${p}% von ?`,answer:base,hints:["Hier ist der Anteil bekannt, gesucht ist das Ganze.",`${fmt(val)} sind ${p} %. Teile durch ${p} → 1 %, dann × 100.`],explain:`${fmt(val)} ÷ ${p} × 100 = ${fmt(base)}.`};}
@@ -489,7 +651,7 @@ const MATH = {
     gen:(L)=>{
       const tri=[[3,4,5],[6,8,10],[5,12,13],[8,15,17],[9,12,15],[7,24,25]];
       const ratioQ=()=>{const x=pick(tri),fn=pick(["sin","cos","tan"]);let num,den;if(fn==="sin"){num=x[0];den=x[2];}else if(fn==="cos"){num=x[1];den=x[2];}else{num=x[0];den=x[1];}
-        return{text:true,prompt:`Rechtwinkliges Dreieck: Gegenkathete ${x[0]}, Ankathete ${x[1]}, Hypotenuse ${x[2]}. ${fn}(α) = ?  (als Bruch; α liegt der Gegenkathete gegenüber)`,answer:num/den,disp:fracStr(num,den),
+        return{text:true,prompt:`Rechtwinkliges Dreieck: Gegenkathete ${x[0]}, Ankathete ${x[1]}, Hypotenuse ${x[2]}. ${fn}(α) = ?  (als Bruch; α liegt der Gegenkathete gegenüber)`,answer:num/den,disp:fracStr(num,den),answerType:"fraction",
           hints:["SOH-CAH-TOA: sin = Gegenkathete/Hypotenuse, cos = Ankathete/Hypotenuse, tan = Gegenkathete/Ankathete.",`Setze die passenden Seiten ein: ${fn} = ${num}/${den}.`],
           explain:`${fn}(α) = ${num}/${den} = ${fracStr(num,den)}.`};};
       const specials=[["sin","30°",0.5],["cos","60°",0.5],["tan","45°",1],["sin","90°",1],["cos","0°",1],["sin","0°",0],["cos","90°",0],["tan","0°",0]];
@@ -637,17 +799,56 @@ function genFakt(){const it=nextFakt();
 }
 /* __LOGIK_VERBAL_END__ */
 
+/* ---- Zahlenreihen: Muster-Bausteine (additiv; nur von LOGIC.series genutzt) ----
+   Jeder Builder liefert {seq, show, explain}: seq = volle Folge, show = Anzahl gezeigter Glieder,
+   Antwort = seq[show]. Alle Antworten ganzzahlig & >= 0 (im Dispatcher validiert, sonst Retry). */
+const SERIES_PRIMES=[2,3,5,7,11,13,17,19,23,29,31,37,41];
+const SERIES_PATTERNS={
+  arith:()=>{const a=rnd(1,9),d=rnd(2,6),seq=[];for(let i=0;i<6;i++)seq.push(a+i*d);return{seq,show:5,explain:`Konstante Differenz +${d}. Daher folgt ${seq[4]} + ${d} = ${seq[5]}.`};},
+  double:()=>{const a=rnd(2,3),seq=[];for(let i=0;i<6;i++)seq.push(a*2**i);return{seq,show:5,explain:`Jede Zahl wird verdoppelt (×2). Daher folgt ${seq[4]} × 2 = ${seq[5]}.`};},
+  geo3:()=>{const a=rnd(1,2),seq=[];for(let i=0;i<5;i++)seq.push(a*3**i);return{seq,show:4,explain:`Konstanter Faktor ×3. Daher folgt ${seq[3]} × 3 = ${seq[4]}.`};},
+  incdiff:()=>{const a=rnd(2,6),d0=rnd(3,5),seq=[a];let d=d0;for(let i=1;i<6;i++){seq.push(seq[i-1]+d);d++;}return{seq,show:5,explain:`Die Differenzen steigen um 1: +${d0}, +${d0+1}, +${d0+2}, … Daher folgt ${seq[4]} + ${d0+4} = ${seq[5]}.`};},
+  decdiff:()=>{const start=rnd(38,52),d0=rnd(4,5),seq=[start];let d=d0;for(let i=1;i<6;i++){seq.push(seq[i-1]-d);d++;}if(seq[5]<0)return null;return{seq,show:5,explain:`Fallende Folge mit wachsendem Abzug: −${d0}, −${d0+1}, … Daher folgt ${seq[4]} − ${d0+4} = ${seq[5]}.`};},
+  square:()=>{const k=rnd(1,4),seq=[];for(let i=0;i<6;i++)seq.push((k+i)**2);return{seq,show:5,explain:`Aufeinanderfolgende Quadratzahlen: ${k}², ${k+1}², … Daher folgt ${k+5}² = ${seq[5]}.`};},
+  squarePlus1:()=>{const k=rnd(1,3),seq=[];for(let i=0;i<6;i++)seq.push((k+i)**2+1);return{seq,show:5,explain:`Quadratzahlen + 1 (n² + 1). Daher folgt ${k+5}² + 1 = ${seq[5]}.`};},
+  halve:()=>{const a=rnd(3,7)*16,seq=[a];for(let i=1;i<5;i++)seq.push(seq[i-1]/2);return{seq,show:4,explain:`Jede Zahl wird halbiert (÷2). Daher folgt ${seq[3]} ÷ 2 = ${seq[4]}.`};},
+  seconddiff:()=>{const a=rnd(1,4),d0=rnd(2,4),s=rnd(2,3),seq=[a];let d=d0;for(let i=1;i<6;i++){seq.push(seq[i-1]+d);d+=s;}return{seq,show:5,explain:`Zweite Differenzen sind konstant (+${s}): Differenzen +${d0}, +${d0+s}, +${d0+2*s}, … Daher folgt ${seq[4]} + ${d0+4*s} = ${seq[5]}.`};},
+  fib:()=>{const x=rnd(1,4),y=rnd(x,6),seq=[x,y];for(let i=2;i<6;i++)seq.push(seq[i-1]+seq[i-2]);return{seq,show:5,explain:`Jede Zahl ist die Summe der beiden davor (Fibonacci-artig). Daher folgt ${seq[3]} + ${seq[4]} = ${seq[5]}.`};},
+  primes:()=>{const start=rnd(0,4),seq=SERIES_PRIMES.slice(start,start+6);return{seq,show:5,explain:`Die Primzahlen der Reihe nach. Nach ${seq[4]} kommt die nächste Primzahl ${seq[5]}.`};},
+  times2plus1:()=>{const a=rnd(2,3),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*2+1);return{seq,show:5,explain:`Jedes Glied entsteht aus dem vorherigen: ×2 + 1. Daher folgt ${seq[4]} × 2 + 1 = ${seq[5]}.`};},
+  twosub:()=>{const a1=rnd(2,5),da=rnd(2,3),b1=rnd(3,7),db=rnd(3,5);const A=[a1,a1+da,a1+2*da,a1+3*da],B=[b1,b1+db,b1+2*db];const seq=[A[0],B[0],A[1],B[1],A[2],B[2],A[3]];return{seq,show:6,explain:`Zwei verschachtelte Reihen: Position 1/3/5/… steigt um +${da}, Position 2/4/6 um +${db}. Die nächste (ungerade) Position folgt: ${A[2]} + ${da} = ${A[3]}.`};},
+  combovary:()=>{const a=rnd(2,5),seq=[a];for(let i=1;i<5;i++)seq.push(seq[i-1]*2+i);return{seq,show:4,explain:`×2 mit wachsendem Zuschlag: ×2+1, ×2+2, ×2+3, … Daher folgt ${seq[3]} × 2 + 4 = ${seq[4]}.`};},
+  altops:()=>{const start=8*rnd(1,6)+6;const ops=['half','add3','half','add3','half','add3'];const seq=[start];for(let i=0;i<6;i++){const v=seq[i];if(ops[i]==='half'){if(v%2!==0)return null;seq.push(v/2);}else seq.push(v+3);}return{seq,show:6,explain:`Abwechselnd ÷2 und +3. Nach ${seq[5]} folgt +3 → ${seq[5]} + 3 = ${seq[6]}.`};},
+  cubes:()=>{const k=rnd(1,2),seq=[];for(let i=0;i<5;i++)seq.push((k+i)**3);return{seq,show:4,explain:`Aufeinanderfolgende Kubikzahlen: ${k}³, ${k+1}³, … Daher folgt ${k+4}³ = ${seq[4]}.`};},
+  doubleprimes:()=>{const start=rnd(0,3),ps=SERIES_PRIMES.slice(start,start+6),seq=ps.map(p=>2*p);return{seq,show:5,explain:`Jeweils 2 × Primzahl (${ps.slice(0,5).join(', ')} → ×2). Daher folgt 2 × ${ps[5]} = ${seq[5]}.`};},
+  plusprimes:()=>{const a=rnd(2,4),start=rnd(0,1),ps=SERIES_PRIMES.slice(start),seq=[a];for(let i=0;i<5;i++)seq.push(seq[i]+ps[i]);return{seq,show:5,explain:`Es werden nacheinander Primzahlen addiert: +${ps[0]}, +${ps[1]}, +${ps[2]}, … Daher folgt ${seq[4]} + ${ps[4]} = ${seq[5]}.`};},
+  pronic:()=>{const n0=rnd(1,4),seq=[];for(let i=0;i<6;i++){const n=n0+i;seq.push(n*(n+1));}return{seq,show:5,explain:`Pronische Zahlen n·(n+1): ${n0}·${n0+1}, ${n0+1}·${n0+2}, … Daher folgt ${n0+5}·${n0+6} = ${seq[5]}.`};},
+  triangular:()=>{const n0=rnd(1,3),seq=[];for(let i=0;i<6;i++){const n=n0+i;seq.push(n*(n+1)/2);}return{seq,show:5,explain:`Dreieckszahlen: jeweils + die nächste ganze Zahl. Daher folgt ${seq[4]} + ${n0+5} = ${seq[5]}.`};},
+  times3plus1:()=>{const a=rnd(2,3),seq=[a];for(let i=1;i<5;i++)seq.push(seq[i-1]*3+1);return{seq,show:4,explain:`×3 + 1 in jedem Schritt. Daher folgt ${seq[3]} × 3 + 1 = ${seq[4]}.`};}
+};
+const SERIES_POOLS={
+  1:['arith','double','geo3'],
+  2:['incdiff','decdiff','square','squarePlus1','halve','double'],
+  3:['seconddiff','fib','primes','times2plus1','twosub'],
+  4:['combovary','altops','cubes','doubleprimes','plusprimes','pronic','triangular','times3plus1','fib','times2plus1','twosub'],
+  5:['combovary','altops','twosub','doubleprimes','plusprimes','seconddiff','times3plus1','cubes']
+};
+function seriesBuild(L){
+  const lvl=clamp(Math.round(L)||1,1,5), pool=SERIES_POOLS[lvl]||SERIES_POOLS[4];
+  for(let tries=0;tries<10;tries++){
+    let b=null; try{ b=SERIES_PATTERNS[pick(pool)](); }catch(e){ b=null; }
+    if(b&&Array.isArray(b.seq)&&b.seq.length>b.show&&b.seq.every(n=>Number.isInteger(n)&&n>=0)){
+      return {prompt:`${b.seq.slice(0,b.show).join(' , ')} , ?`,answer:b.seq[b.show],
+        hints:["Untersuche die Differenzen oder Verhältnisse benachbarter Zahlen.","Sind sie konstant, wachsend, steckt ein Faktor dahinter – oder sind zwei Reihen verschachtelt?"],explain:b.explain};
+    }
+  }
+  const a=rnd(1,9),d=rnd(2,6),seq=[];for(let i=0;i<6;i++)seq.push(a+i*d);       // sicherer Fallback: konstante Differenz
+  return {prompt:`${seq.slice(0,5).join(' , ')} , ?`,answer:seq[5],hints:["Untersuche die Differenzen benachbarter Zahlen."],explain:`Konstante Differenz +${d}. Daher folgt ${seq[4]} + ${d} = ${seq[5]}.`};
+}
 const LOGIC = {
   series:{name:"Zahlenreihen", teaser:"Nächste Zahl finden",
     tut:{concept:"Bei Zahlenreihen suchst du die Regel hinter der Abfolge. Hilfreich ist, die Differenzen oder Verhältnisse benachbarter Zahlen zu betrachten: konstant = fester Zuwachs oder Faktor, wachsend deutet auf Quadrate oder Summenmuster.",ex:"2, 5, 8, 11 → 14",example:"2 , 5 , 8 , 11 , ?",steps:["Differenzen ansehen: +3, +3, +3.","Das Muster ist konstant +3.","11 + 3 = 14."]},
-    gen:(L)=>{const types=['arith'];if(L>=2)types.push('geo');if(L>=3)types.push('square','fib');if(L>=4)types.push('incdiff');
-      const t=pick(types);let seq=[],rule="";
-      if(t==='arith'){const a=rnd(1,9),d=rnd(2,L>=3?9:6);for(let i=0;i<6;i++)seq.push(a+i*d);rule=`konstante Differenz +${d}`;}
-      else if(t==='geo'){const a=rnd(2,4),r=rnd(2,3);for(let i=0;i<6;i++)seq.push(a*r**i);rule=`konstanter Faktor ×${r}`;}
-      else if(t==='square'){const k=rnd(1,4);for(let i=0;i<6;i++)seq.push((k+i)**2);rule="aufeinanderfolgende Quadratzahlen";}
-      else if(t==='fib'){let x=rnd(1,4),y=rnd(2,5);seq=[x,y];for(let i=2;i<6;i++)seq.push(seq[i-1]+seq[i-2]);rule="jede Zahl = Summe der beiden davor";}
-      else{const a=rnd(1,6);let d=rnd(2,4);seq=[a];for(let i=1;i<6;i++){seq.push(seq[i-1]+d);d++;}rule="Differenz wächst um je 1";}
-      const ans=seq[5],shown=seq.slice(0,5).join(' , ');return{prompt:`${shown} , ?`,answer:ans,hints:["Untersuche die Differenzen benachbarter Zahlen.","Schreibe die Differenzen darunter – sind sie gleich (+), wachsend, oder steckt ein Faktor (×) dahinter?"],explain:`Muster: ${rule}. Die nächste Zahl ist ${fmt(ans)}.`};}},
+    gen:(L)=>seriesBuild(L)},
   letters:{name:"Buchstabenreihen", teaser:"Nächsten Buchstaben finden",
     tut:{concept:"Buchstabenreihen funktionieren wie Zahlenreihen, nur über die Position im Alphabet (A = 1, B = 2, …). Zähle, wie viele Buchstaben jeweils übersprungen werden.",ex:"A, C, E, G → I",example:"A , C , E , G , ?",steps:["Positionen: 1, 3, 5, 7 → Schrittweite 2.","Nächste Position: 7 + 2 = 9.","Buchstabe Nr. 9 = I."]},
     gen:(L)=>{const step=rnd(1,{1:2,2:3,3:4,4:5}[L]),start=rnd(0,12);const at=i=>String.fromCharCode(65+((start+i*step)%26));
@@ -1448,7 +1649,7 @@ function weightedPick(weighted){const tot=weighted.reduce((s,x)=>s+x.w,0);let r=
    aktiviert und ausgewählt ist (Subkategorie-Auswahl bleibt strikt maßgeblich). */
 function pickWeightedGmatSubtopic(g){
   const topics=[...new Set(gmatPsMeta().map(m=>m.topic))];
-  const weak=new Set((g&&g.weakTopics)||[]), mastered=new Set((g&&g.masteredTopics)||[]);
+  const weak=new Set(Array.isArray(g&&g.weakTopics)?g.weakTopics:[]), mastered=new Set(Array.isArray(g&&g.masteredTopics)?g.masteredTopics:[]);
   const weighted=topics.map(t=>({c:t, w: weak.has(t)?3 : (mastered.has(t)?0.4 : 1)}));  // schwach häufiger, gemeistert seltener (nie 0)
   return weightedPick(weighted);
 }
@@ -1525,7 +1726,13 @@ function thetaToLevel(theta){return clamp(1+Math.floor(theta/8.4),1,12);}
 function levelToGenLevel(level){return clamp(Math.ceil(level/3),1,4);}
 function catName(key){const a=String(key).split(':');return a[0]==='math'?(MATH[a[1]]?MATH[a[1]].name:a[1]):key;}
 function ensureMathProfile(){if(!Store.data.mathProfile||typeof Store.data.mathProfile!=='object')Store.data.mathProfile={};}
-function mathStatFor(catKey){const mp=Store.data.mathProfile;return (mp&&mp.categoryStats&&mp.categoryStats[catKey])?mp.categoryStats[catKey]:null;}
+function mathStatFor(catKey){const mp=Store.data.mathProfile; if(!mp||!mp.categoryStats)return null;
+  if(mp.categoryStats[catKey])return mp.categoryStats[catKey];
+  const id=String(catKey).split(':')[1];                                   // Lazy-Seed für gültige, aber (noch) nicht diagnostizierte Mathe-Subtypen
+  if(String(catKey).slice(0,5)!=='math:'||!MATH[id])return null;
+  const theta=50, lvl=thetaToLevel(theta);                                 // neutraler Start; adaptiert sich wie andere Subtypen
+  mp.categoryStats[catKey]={cluster:null,theta,rd:90,seed:theta,level:lvl,attempts:0,correct:0,errorRate:0,avgTimeMs:0,lastPracticed:null,mastery:'none',missedTypes:{},nextRec:'practice',window:[]};
+  return mp.categoryStats[catKey];}
 function mathReviewAdd(catKey,type){
   const mp=Store.data.mathProfile;if(!mp)return; mp.reviewQueue=mp.reviewQueue||[];
   const ex=mp.reviewQueue.find(r=>r.cat===catKey&&(r.type||null)===(type||null));
@@ -1643,19 +1850,25 @@ function placementScreen(){
   setHomeBtn(true);tag.textContent='einstufung';
   const n=pt.index+1,prog=Math.round(pt.index/20*100);let inner;
   if(it.render==='input'){
-    inner=(it.text?`<div class="q-text">${it.prompt}</div>`:`<div class="q-math">${it.prompt}</div>`)+`<input class="num-input" id="pans" autocomplete="off" placeholder="?"><button class="btn" id="psub" style="margin-top:12px">Weiter ›</button>`;
+    const field=it.answerType==='fraction'?fracFieldsHTML('pf'):`<input class="num-input" id="pans" autocomplete="off" placeholder="?">`;
+    inner=(it.text?`<div class="q-text">${it.prompt}</div>`:`<div class="q-math">${it.prompt}</div>`)+field+`<button class="btn" id="psub" style="margin-top:12px">Weiter ›</button>`;
   } else {
     const keys="ABCDEFG";
     inner=`<div class="q-text">${it.q}</div><div class="opts" id="popts">${it.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;
   }
   root.innerHTML=`<div class="card"><div class="session-top"><span>Einstufung ${n} / 20</span><span>Mathe</span></div><div class="progress"><i style="width:${prog}%"></i></div><div class="qwrap"><div class="qkind">Einstufung · kein Richtig/Falsch zwischendurch</div>${inner}</div></div>`;
-  if(it.render==='input'){const inp=document.getElementById('pans');inp.setAttribute('inputmode',typeof it.answer==='string'?'text':'numeric');inp.focus();
-    inp.addEventListener('keydown',e=>{if(e.key==='Enter')placementSubmitInput();});
+  if(it.render==='input'){
+    if(it.answerType==='fraction'){const nf=document.getElementById('pfn');if(nf)nf.focus();
+      ['pfw','pfn','pfd'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter')placementSubmitInput();});});}
+    else {const inp=document.getElementById('pans');inp.setAttribute('inputmode',typeof it.answer==='string'?'text':'numeric');inp.focus();
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter')placementSubmitInput();});}
     document.getElementById('psub').onclick=placementSubmitInput;}
   else document.querySelectorAll('#popts .opt').forEach(b=>b.onclick=()=>placementAnswer(+b.dataset.k===it.c));
 }
 function placementSubmitInput(){
-  const it=placement.item;const raw=(document.getElementById('pans').value||'').trim();if(raw==='')return;
+  const it=placement.item;
+  if(it.answerType==='fraction'){const user=fracFromFields('pf');if(user===null)return;placementAnswer(fracEquals(user,it));return;}
+  const raw=(document.getElementById('pans').value||'').trim();if(raw==='')return;
   const ok=typeof it.answer==='string'?norm(raw)===norm(it.answer):Math.abs(parseNum(raw)-it.answer)<1e-6;
   placementAnswer(ok);
 }
@@ -1724,6 +1937,417 @@ function confirmLeave(onYes){
   ov.querySelector('#cv-yes').onclick=()=>{ov.remove();onYes();};
 }
 
+/* ================= GEDANKENTIPPS (Stufe 1: statische Sektion) =================
+   Zentrale Tipp-Daten. appliesTo nutzt echte Subtyp-Keys (MATH-Keys, 'series', 'ps').
+   Noch KEINE automatische Einblendung in Aufgaben, KEINE Coach-Integration, KEIN
+   Eintrag in allCategories/Tagestraining, KEIN Profil. mode: fast|exact|estimate|avoid. */
+const MT_MODES={fast:"Schneller Weg",exact:"Genau rechnen",estimate:"Überschlagen",avoid:"Fehler vermeiden"};
+const MT_VALID_KEYS=new Set(['chain','mulS','mulB','sqrt','pow','frac','equations','linsys','pct','area','log','factorial','sum','prod','func','dreisatz','geometrie','trig','series','ps']);
+const MENTAL_TIPS=[
+ /* Grundrechnen */
+ {id:"gr_ergaenzen",title:"Auf Zehner ergänzen & zerlegen",category:"Grundrechnen",appliesTo:["chain"],level:1,mode:"fast",
+  summary:"Fülle erst bis zur nächsten 10 auf, addiere dann den Rest.",
+  explanation:"Zerlege den zweiten Summanden so, dass zuerst eine glatte Zehnerzahl entsteht. Mit runden Zwischenwerten rechnet der Kopf viel schneller.",
+  exampleQuestion:"7 + 8",exampleSteps:["7 + 3 = 10","10 + 5 = 15"],result:"15",mnemonic:"Erst glatt machen, dann weiter.",tags:["addition","zerlegen"]},
+ {id:"gr_ausgleich",title:"Runden und ausgleichen",category:"Grundrechnen",appliesTo:["chain"],level:2,mode:"fast",
+  summary:"Runde eine Zahl, gleiche die andere gegenläufig aus.",
+  explanation:"Machst du eine Zahl um 1 größer, mache die andere um 1 kleiner — die Summe bleibt gleich, wird aber viel leichter.",
+  exampleQuestion:"49 + 37",exampleSteps:["49 + 1 = 50, dafür 37 − 1 = 36","50 + 36 = 86"],result:"86",mnemonic:"Was du oben zugibst, nimm unten weg.",tags:["addition","runden"]},
+ {id:"gr_abstand",title:"Subtraktion als Abstand",category:"Grundrechnen",appliesTo:["chain"],level:2,mode:"fast",
+  summary:"Bei nahen Zahlen: hochzählen statt abziehen.",
+  explanation:"Liegen zwei Zahlen dicht beieinander, ist der Abstand schneller gezählt als schriftlich subtrahiert.",
+  exampleQuestion:"1003 − 998",exampleSteps:["Von 998 auf 1000 sind 2","Von 1000 auf 1003 sind 3","2 + 3 = 5"],result:"5",mnemonic:"Abstand denken, nicht abziehen.",tags:["subtraktion"]},
+ /* Multiplikation */
+ {id:"mul_distributiv",title:"Distributiv zerlegen",category:"Multiplikation",appliesTo:["mulS","mulB"],level:2,mode:"exact",
+  summary:"Teile einen Faktor in Zehner + Einer auf.",
+  explanation:"17 × 12 wirkt schwer, 17 × 10 und 17 × 2 sind leicht. Zerlegen und die Teilprodukte addieren.",
+  exampleQuestion:"17 × 12",exampleSteps:["17 × 10 = 170","17 × 2 = 34","170 + 34 = 204"],result:"204",tags:["distributiv"]},
+ {id:"mul_doppelt_halb",title:"Verdoppeln und halbieren",category:"Multiplikation",appliesTo:["mulB"],level:2,mode:"fast",
+  summary:"Halbiere einen Faktor, verdopple den anderen — so lange, bis es leicht ist.",
+  explanation:"Das Produkt bleibt gleich. Ziel ist ein Faktor wie 10 oder 100.",
+  exampleQuestion:"25 × 16",exampleSteps:["50 × 8 = 400","(oder weiter: 100 × 4 = 400)"],result:"400",mnemonic:"Halb mal doppelt bleibt gleich.",tags:["faktoren"]},
+ {id:"mul_5_25_125",title:"×5, ×25, ×125 über Zehnerpotenzen",category:"Multiplikation",appliesTo:["mulS","mulB"],level:2,mode:"fast",
+  summary:"×5 = ×10 ÷ 2 · ×25 = ×100 ÷ 4 · ×125 = ×1000 ÷ 8.",
+  explanation:"Diese Faktoren sind Bruchteile von Zehnerpotenzen — erst die glatte Potenz nehmen, dann teilen.",
+  exampleQuestion:"36 × 25",exampleSteps:["36 × 100 = 3600","3600 ÷ 4 = 900"],result:"900",tags:["zehnerpotenz"]},
+ {id:"mul_nahe_100",title:"Nahe an 10 oder 100 rechnen",category:"Multiplikation",appliesTo:["mulB","ps"],level:2,mode:"fast",
+  summary:"Runde einen Faktor auf die Basis und korrigiere danach.",
+  explanation:"99 × 23 ist fast 100 × 23. Rechne mit der runden Basis und ziehe den Überschuss einmal ab.",
+  exampleQuestion:"99 × 23",exampleSteps:["100 × 23 = 2300","2300 − 23 = 2277"],result:"2277",mnemonic:"Erst rund rechnen, dann ausgleichen.",tags:["runden","distributiv"]},
+ {id:"mul_quadrat_diff",title:"Differenz der Quadrate",category:"Multiplikation",appliesTo:["mulB","pow"],level:4,mode:"fast",
+  summary:"(a − d)(a + d) = a² − d² — ideal bei symmetrischen Faktoren.",
+  explanation:"Liegen beide Faktoren gleich weit um eine runde Mitte, nimm Mitte² minus Abstand².",
+  exampleQuestion:"48 × 52",exampleSteps:["Mitte 50, Abstand 2","50² − 2² = 2500 − 4"],result:"2496",tags:["binom"]},
+ {id:"mul_quadrat_tricks",title:"Quadrat-Tricks: …5² und (a−1)²",category:"Multiplikation",appliesTo:["pow","mulB","sqrt"],level:3,mode:"fast",
+  summary:"n5² = n·(n+1) davor, 25 dahinter · 19² über (20 − 1)².",
+  explanation:"Zahlen auf 5: Zehnerziffer mal ihren Nachfolger, 25 anhängen. Zahlen nahe einer runden Basis: binomisch (a ± b)² = a² ± 2ab + b².",
+  exampleQuestion:"35²  und  19²",exampleSteps:["35²: 3 × 4 = 12 → 1225","19²: 400 − 2·20 + 1 = 361"],result:"1225 · 361",tags:["quadrate","binom"]},
+ /* Division */
+ {id:"div_kuerzen",title:"Vor dem Teilen kürzen",category:"Division",appliesTo:["frac","dreisatz"],level:2,mode:"fast",
+  summary:"Gemeinsame Faktoren zuerst streichen, dann teilen.",
+  explanation:"Beide Zahlen durch denselben Faktor teilen macht die Division klein — oft geht es in zwei einfachen Schritten.",
+  exampleQuestion:"84 ÷ 12",exampleSteps:["Beide ÷ 4: 21 ÷ 3","21 ÷ 3 = 7"],result:"7",mnemonic:"Klein machen, dann teilen.",tags:["faktoren"]},
+ {id:"div_5_25_125",title:"÷5, ÷25, ÷125 über Zehnerpotenzen",category:"Division",appliesTo:["pct","dreisatz"],level:2,mode:"fast",
+  summary:"÷5 = ×2 ÷ 10 · ÷25 = ×4 ÷ 100 · ÷125 = ×8 ÷ 1000.",
+  explanation:"Statt durch krumme Teiler zu dividieren, multipliziere passend und verschiebe dann nur das Komma.",
+  exampleQuestion:"230 ÷ 5",exampleSteps:["230 × 2 = 460","460 ÷ 10 = 46"],result:"46",tags:["zehnerpotenz"]},
+ {id:"div_probe",title:"Probe durch Rückrechnung",category:"Division",appliesTo:["dreisatz","equations","linsys","ps"],level:1,mode:"avoid",
+  summary:"Ergebnis rückwärts prüfen: Division per Multiplikation, Gleichung per Einsetzen.",
+  explanation:"Die Umkehrrechnung ist meist leichter als die Aufgabe selbst und fängt Flüchtigkeitsfehler ab, bevor du antwortest.",
+  exampleQuestion:"96 ÷ 8 = 12?",exampleSteps:["Probe: 12 × 8 = 96 ✓","Bei Gleichungen: Lösung einsetzen"],result:"bestätigt",mnemonic:"Rückwärts ist die halbe Kontrolle.",tags:["probe"]},
+ /* Brüche */
+ {id:"frac_kuerzen_mult",title:"Kürzen vor dem Multiplizieren",category:"Brüche",appliesTo:["frac"],level:2,mode:"fast",
+  summary:"Über Kreuz kürzen, bevor du Zähler und Nenner multiplizierst.",
+  explanation:"Gemeinsame Faktoren zwischen einem Zähler und einem Nenner dürfen sofort raus — die Zahlen bleiben klein.",
+  exampleQuestion:"3/4 × 8/9",exampleSteps:["3 und 9 kürzen → 1/4 × 8/3","8 und 4 kürzen → 1/1 × 2/3"],result:"2/3",tags:["kuerzen"]},
+ {id:"frac_kreuz",title:"Brüche per Kreuzprodukt vergleichen",category:"Brüche",appliesTo:["frac","ps"],level:2,mode:"fast",
+  summary:"a/b vs. c/d: vergleiche a·d mit b·c.",
+  explanation:"Kein gemeinsamer Nenner nötig — das größere Kreuzprodukt gehört zum größeren Bruch.",
+  exampleQuestion:"3/4 vs. 5/7",exampleSteps:["3 × 7 = 21","4 × 5 = 20","21 > 20 → 3/4 ist größer"],result:"3/4",tags:["vergleich"]},
+ {id:"frac_prozent",title:"Typische Bruch-Prozent-Werte",category:"Brüche",appliesTo:["frac","pct"],level:2,mode:"exact",
+  summary:"1/2=50 % · 1/4=25 % · 1/5=20 % · 1/8=12,5 % · 1/3≈33,3 % · 1/6≈16,7 %.",
+  explanation:"Diese Paare auswendig zu können übersetzt Brüche und Prozente in beide Richtungen ohne Rechnung.",
+  exampleQuestion:"3/8 in Prozent",exampleSteps:["1/8 = 12,5 %","3 × 12,5 % = 37,5 %"],result:"37,5 %",tags:["tabelle"]},
+ {id:"frac_kgv",title:"Gemeinsamen Nenner effizient finden",category:"Brüche",appliesTo:["frac"],level:2,mode:"exact",
+  summary:"Nimm das kleinste gemeinsame Vielfache, nicht stur das Produkt.",
+  explanation:"Oft ist der größere Nenner schon ein Vielfaches des kleineren oder das kgV deutlich kleiner als das Produkt — Ganze und Bruchteile dabei getrennt verrechnen.",
+  exampleQuestion:"1/4 + 1/6",exampleSteps:["kgV(4, 6) = 12","3/12 + 2/12 = 5/12"],result:"5/12",tags:["nenner","kgv"]},
+ /* Prozent */
+ {id:"pct_bausteine",title:"Prozent-Bausteine: 10 %, 5 %, 1 %, Viertel, Achtel",category:"Prozent",appliesTo:["pct"],level:1,mode:"fast",
+  summary:"Setze Prozente aus leichten Teilen zusammen: 15 % = 10 % + 5 %, 25 % = ÷4, 12,5 % = ÷8.",
+  explanation:"10 % ist ein Komma-Schritt, 5 % die Hälfte davon, 1 % zwei Schritte. Viertel und Achtel sind reine Divisionen.",
+  exampleQuestion:"15 % von 80",exampleSteps:["10 % = 8","5 % = 4","8 + 4 = 12"],result:"12",mnemonic:"Erst 10 %, der Rest ist Bruchrechnung.",tags:["bausteine"]},
+ {id:"pct_faktor",title:"Prozentänderung als Faktor",category:"Prozent",appliesTo:["pct","ps"],level:4,mode:"avoid",
+  summary:"+20 % = ×1,2 · −20 % = ×0,8 · nacheinander = Faktoren multiplizieren.",
+  explanation:"Änderungen addieren sich nicht: +10 % dann −10 % ist ×1,1 × 0,9 = ×0,99, also −1 %. Rückwärts rechnest du mit ÷ Faktor.",
+  exampleQuestion:"100 € +10 %, dann −10 %",exampleSteps:["×1,1 → 110","×0,9 → 99"],result:"99 €",mnemonic:"Faktoren malnehmen, nie Prozente addieren.",tags:["faktor","rueckwaerts"]},
+ {id:"pct_punkte",title:"Prozentpunkte ≠ Prozent",category:"Prozent",appliesTo:["pct"],level:3,mode:"avoid",
+  summary:"Von 20 % auf 25 %: +5 Prozentpunkte, aber +25 % relativ.",
+  explanation:"Punkte messen den absoluten Abstand zwischen zwei Quoten, Prozent die relative Änderung — beides auseinanderhalten.",
+  exampleQuestion:"Zins von 20 % auf 25 %",exampleSteps:["Differenz: 5 Punkte","relativ: 5/20 = 25 %"],result:"+5 Pp · +25 %",tags:["begriffe"]},
+ /* Potenzen & Wurzeln */
+ {id:"pow_quadrate",title:"Quadratzahlen als Bausteine",category:"Potenzen/Wurzeln",appliesTo:["pow","sqrt"],level:3,mode:"exact",
+  summary:"Quadrate bis 30² und Potenzen von 2 und 10 lohnt es zu kennen.",
+  explanation:"Viele Aufgaben zerfallen in bekannte Quadrate (144, 169, 225, 576 …) und Zweierpotenzen (…, 256, 512, 1024). Wer sie erkennt, spart die ganze Rechnung.",
+  exampleQuestion:"24²",exampleSteps:["(25 − 1)² = 625 − 50 + 1","= 576"],result:"576",tags:["tabelle"]},
+ {id:"sqrt_nachbarn",title:"Wurzeln über Nachbarquadrate schätzen",category:"Potenzen/Wurzeln",appliesTo:["sqrt"],level:3,mode:"estimate",
+  summary:"Ordne die Zahl zwischen zwei bekannte Quadrate ein.",
+  explanation:"√50 liegt zwischen √49 = 7 und √64 = 8 — sehr nah an 7, weil 50 fast 49 ist.",
+  exampleQuestion:"√50",exampleSteps:["7² = 49, 8² = 64","50 ist knapp über 49"],result:"≈ 7,07",tags:["schaetzen"]},
+ {id:"pow_gesetze",title:"Potenzgesetze inkl. negativer Exponent",category:"Potenzen/Wurzeln",appliesTo:["pow","log"],level:3,mode:"exact",
+  summary:"aⁿ · aᵐ = aⁿ⁺ᵐ · (aⁿ)ᵐ = aⁿ·ᵐ · a⁻ⁿ = 1/aⁿ.",
+  explanation:"Bei gleicher Basis rechnest du nur mit den Exponenten. Ein negativer Exponent bedeutet Kehrwert, nicht negative Zahl.",
+  exampleQuestion:"2³ · 2⁴  und  2⁻³",exampleSteps:["2³ · 2⁴ = 2⁷ = 128","2⁻³ = 1/8"],result:"128 · 1/8",mnemonic:"Gleiche Basis: Exponenten verrechnen.",tags:["gesetze"]},
+ /* Gleichungen */
+ {id:"eq_umkehr",title:"Umkehroperationen in der richtigen Reihenfolge",category:"Gleichungen",appliesTo:["equations"],level:2,mode:"exact",
+  summary:"Bei ax + b = c: erst b wegnehmen, dann durch a teilen.",
+  explanation:"Du schälst x von außen nach innen frei — Punktrechnung zuletzt rückgängig machen. Plus ↔ Minus, Mal ↔ Geteilt.",
+  exampleQuestion:"2x + 5 = 17",exampleSteps:["−5: 2x = 12","÷2: x = 6"],result:"x = 6",mnemonic:"Zuletzt gebaut, zuerst abgebaut.",tags:["umformen"]},
+ {id:"eq_klammer",title:"Klammern clever behandeln",category:"Gleichungen",appliesTo:["equations"],level:3,mode:"fast",
+  summary:"a(x + b) = c: erst durch a teilen statt auszumultiplizieren.",
+  explanation:"Steht rechts ein Vielfaches von a, ist Teilen der kürzere Weg — die Klammer verschwindet in einem Schritt. Vorher beide Seiten vereinfachen lohnt immer.",
+  exampleQuestion:"3(x + 2) = 21",exampleSteps:["÷3: x + 2 = 7","−2: x = 5"],result:"x = 5",tags:["klammern"]},
+ /* Gleichungssysteme */
+ {id:"ls_einsetzen",title:"Gegebene Variable sofort einsetzen",category:"Gleichungssysteme",appliesTo:["linsys"],level:1,mode:"fast",
+  summary:"Steht x = … schon da, direkt in die andere Gleichung einsetzen.",
+  explanation:"Ein halb gelöstes System braucht kein Verfahren — einsetzen, ausrechnen, fertig.",
+  exampleQuestion:"2x + y = 13 · x = 4",exampleSteps:["2 · 4 + y = 13","y = 13 − 8 = 5"],result:"x = 4, y = 5",tags:["einsetzen"]},
+ {id:"ls_summe_diff",title:"Summe-Differenz-Systeme erkennen",category:"Gleichungssysteme",appliesTo:["linsys"],level:3,mode:"fast",
+  summary:"x + y und x − y gegeben → x = Halbsumme, y = Halbdifferenz.",
+  explanation:"Addieren liefert 2x, Subtrahieren 2y — die Lösung steht nach einem Schritt fest.",
+  exampleQuestion:"x + y = 10 · x − y = 2",exampleSteps:["Addieren: 2x = 12 → x = 6","10 − 6 = 4 → y = 4"],result:"x = 6, y = 4",mnemonic:"Halbe Summe, halbe Differenz.",tags:["symmetrie"]},
+ {id:"ls_addition",title:"Additionsverfahren: Koeffizienten angleichen",category:"Gleichungssysteme",appliesTo:["linsys"],level:4,mode:"exact",
+  summary:"Multipliziere eine Gleichung so, dass sich eine Variable beim Addieren aufhebt.",
+  explanation:"Gegengleiche Koeffizienten vor x oder y erzeugen, dann addieren — eine Variable fällt weg. Lösung am Ende durch Einsetzen prüfen.",
+  exampleQuestion:"2x + 3y = 12 · x − y = 1",exampleSteps:["2. Gleichung ×3: 3x − 3y = 3","Addieren: 5x = 15 → x = 3","3 − y = 1 → y = 2"],result:"x = 3, y = 2",tags:["elimination"]},
+ /* Dreisatz */
+ {id:"ds_einheit",title:"Auf eine Einheit zurückrechnen",category:"Dreisatz",appliesTo:["dreisatz"],level:1,mode:"exact",
+  summary:"Erst den Wert für 1 Stück bestimmen, dann hochskalieren.",
+  explanation:"Der Zwischenschritt über die Einheit macht jeden Dreisatz gleich — und einfache Faktoren (×2, ×10, ÷2) erledigen den Rest.",
+  exampleQuestion:"3 Stück kosten 12 €. Was kosten 5?",exampleSteps:["1 Stück: 12 ÷ 3 = 4 €","5 Stück: 5 × 4 = 20 €"],result:"20 €",mnemonic:"Immer über die 1 gehen.",tags:["einheit","skalieren"]},
+ {id:"ds_proportional",title:"Direkt oder indirekt proportional?",category:"Dreisatz",appliesTo:["dreisatz"],level:3,mode:"avoid",
+  summary:"Mehr → mehr: mitwachsen. Mehr → weniger: gegenläufig rechnen.",
+  explanation:"Doppelte Menge kostet doppelt (direkt). Doppelt so viele Arbeiter brauchen die halbe Zeit (indirekt) — vor dem Rechnen kurz entscheiden, welcher Fall vorliegt.",
+  exampleQuestion:"4 Arbeiter brauchen 6 h. Wie lange brauchen 8?",exampleSteps:["Doppelt so viele Arbeiter","6 ÷ 2 = 3 h"],result:"3 h",tags:["proportional"]},
+ /* Geometrie */
+ {id:"geo_345",title:"Pythagoras-Tripel merken",category:"Geometrie",appliesTo:["geometrie","trig"],level:3,mode:"fast",
+  summary:"3-4-5, 5-12-13, 8-15-17 — und ihre Vielfachen.",
+  explanation:"Erkennst du zwei Zahlen eines Tripels (auch skaliert wie 6-8-10), steht die dritte Seite ohne Wurzelrechnung fest.",
+  exampleQuestion:"Katheten 6 und 8, Hypotenuse?",exampleSteps:["6-8-? ist 2 × (3-4-5)","Hypotenuse: 2 × 5 = 10"],result:"10",tags:["tripel"]},
+ {id:"geo_skalierung",title:"Länge skaliert linear, Fläche quadratisch",category:"Geometrie",appliesTo:["geometrie","area"],level:2,mode:"avoid",
+  summary:"Länge ×k → Fläche ×k².",
+  explanation:"Verdoppelst du alle Seiten, vervierfacht sich die Fläche — ein Klassiker unter den Denkfallen.",
+  exampleQuestion:"Quadratseite ×3 — Fläche?",exampleSteps:["Fläche: ×3² = ×9"],result:"×9",mnemonic:"Fläche zählt doppelt: k mal k.",tags:["skalierung"]},
+ {id:"geo_dreieck",title:"Dreieck als halbes Rechteck",category:"Geometrie",appliesTo:["area","geometrie"],level:1,mode:"exact",
+  summary:"A = g · h ÷ 2 — erst das Rechteck denken, dann halbieren.",
+  explanation:"Jedes Dreieck passt zweimal in das Rechteck aus Grundseite und Höhe. Für schnelle Überschläge beim Kreis: π ≈ 3, Fläche grob 3 · r².",
+  exampleQuestion:"g = 8, h = 5",exampleSteps:["Rechteck: 8 × 5 = 40","Hälfte: 20"],result:"20",tags:["flaeche"]},
+ /* Folgen & Logik */
+ {id:"serie_differenzen",title:"Erste und zweite Differenzen bilden",category:"Folgen/Logik",appliesTo:["series","sum"],level:1,mode:"fast",
+  summary:"Schreibe die Abstände unter die Folge — sind sie konstant, wachsend, oder erst in zweiter Ebene konstant?",
+  explanation:"Konstante erste Differenzen = lineares Muster. Konstante zweite Differenzen = quadratisches Muster (z. B. n² + 1).",
+  exampleQuestion:"2, 5, 10, 17, 26, ?",exampleSteps:["Differenzen: +3, +5, +7, +9","nächste: +11 → 26 + 11"],result:"37",mnemonic:"Erst eine Etage tiefer schauen.",tags:["differenzen"]},
+ {id:"serie_teilfolgen",title:"Verschachtelte Reihen & Wechsel-Operationen",category:"Folgen/Logik",appliesTo:["series"],level:3,mode:"avoid",
+  summary:"Springen die Differenzen scheinbar wild, prüfe gerade/ungerade Positionen getrennt oder abwechselnde Operationen.",
+  explanation:"Viele Testfolgen sind zwei einfache Reihen im Reißverschluss — oder wechseln stur zwischen zwei Operationen wie ÷2 und +3.",
+  exampleQuestion:"2, 7, 5, 10, 8, 13, ?",exampleSteps:["Pos. 1/3/5: 2, 5, 8 (+3)","Pos. 2/4/6: 7, 10, 13 (+3)","nächste ungerade Position: 8 + 3"],result:"11",tags:["teilfolgen","alternierend"]},
+ /* Interview / GMAT */
+ {id:"gmat_rueckwaerts",title:"Antwortoptionen rückwärts testen",category:"Interview-Mental-Math",appliesTo:["ps"],level:3,mode:"fast",
+  summary:"Setze eine mittlere Option in die Aufgabe ein, statt vorwärts zu lösen.",
+  explanation:"Bei Multiple Choice ist Prüfen oft schneller als Rechnen: passt die mittlere Option nicht, weißt du sofort, ob es größer oder kleiner sein muss.",
+  exampleQuestion:"x² + 2x = 35, x = ?",exampleSteps:["Option 5 testen: 25 + 10 = 35 ✓"],result:"x = 5",mnemonic:"Die Antwort steht schon da — finde sie.",tags:["backsolving"]},
+ {id:"gmat_ueberschlag",title:"Größenordnung zuerst, dann exakt",category:"Interview-Mental-Math",appliesTo:["ps"],level:2,mode:"estimate",
+  summary:"Runde grob und schau, welche Optionen überhaupt in Frage kommen.",
+  explanation:"Ein Überschlag auf runde Zahlen eliminiert meist drei von fünf Optionen — exakt rechnen musst du dann nur noch zwischen zwei Kandidaten.",
+  exampleQuestion:"19 × 21 ≈ ?",exampleSteps:["≈ 20 × 20 = 400","exakt: 400 − 1 = 399"],result:"399",tags:["ueberschlag"]},
+ {id:"gmat_extrem_einheiten",title:"Extremwerte und Einheiten prüfen",category:"Interview-Mental-Math",appliesTo:["ps"],level:3,mode:"avoid",
+  summary:"Teste Randfälle (0, 1, sehr groß) und kontrolliere, ob die Einheit zur Frage passt.",
+  explanation:"Extremwerte entlarven falsche Formeln in Sekunden, und ein Blick auf km/h vs. km oder € vs. % verhindert die klassischen Fallen.",
+  exampleQuestion:"Formel plausibel?",exampleSteps:["x = 0 einsetzen: Ergebnis sinnvoll?","Einheit der Antwort = Einheit der Frage?"],result:"Fallen erkannt",tags:["plausibilitaet","einheiten"]}
+];
+/* ---- Helfer (defensiv; für Stufe 2+ wiederverwendbar) ---- */
+function tipsFor(subtypeKey){ if(!subtypeKey)return[]; const k=String(subtypeKey).split(':').pop();
+  return MENTAL_TIPS.filter(t=>Array.isArray(t.appliesTo)&&t.appliesTo.indexOf(k)>=0); }
+function tipsByCategory(cat){ if(!cat||cat==='Alle')return MENTAL_TIPS.slice(); return MENTAL_TIPS.filter(t=>t.category===cat); }
+function tipsByLevel(lvl){ const n=Number(lvl); if(!isFinite(n))return[]; return MENTAL_TIPS.filter(t=>t.level===n); }
+function tipsByMode(mode){ if(!mode||mode==='Alle')return MENTAL_TIPS.slice(); return MENTAL_TIPS.filter(t=>t.mode===mode); }
+function mentalTipById(id){ return MENTAL_TIPS.find(t=>t.id===id)||null; }
+function mtKeyName(k){ if(k==='series')return 'Zahlenreihen'; if(k==='ps')return 'GMAT PS';
+  return (typeof MATH==='object'&&MATH[k]&&MATH[k].name)?MATH[k].name:k; }
+/* ---- Screen ---- */
+let mtFilter={cat:'Alle',mode:'Alle'}, mtOpen=null, mtBack='math';
+function mentalTipsScreen(){
+  setHomeBtn(false); tag.textContent="gedankentipps";
+  const cats=['Alle',...new Set(MENTAL_TIPS.map(t=>t.category))];
+  const modes=['Alle',...Object.keys(MT_MODES)];
+  const list=MENTAL_TIPS.filter(t=>(mtFilter.cat==='Alle'||t.category===mtFilter.cat)&&(mtFilter.mode==='Alle'||t.mode===mtFilter.mode));
+  const cards=list.map(t=>{const open=mtOpen===t.id;
+    return `<div class="mt-card${open?' open':''}" id="mt_${t.id}">
+      <button class="mt-head" data-mt="${t.id}"><span>
+        <span class="mt-title">${t.title}</span>
+        <span class="mt-meta"><span class="mt-cat">${t.category}</span><span class="mt-mode">${MT_MODES[t.mode]||t.mode}</span><span class="mt-lvl">Level ${t.level}</span></span>
+        <span class="mt-sum" style="display:block">${t.summary}</span>
+        <span class="mt-ex" style="display:block">${t.exampleQuestion}</span>
+      </span><span class="mt-caret">›</span></button>
+      <div class="mt-body">
+        <div class="mt-expl">${t.explanation}</div>
+        <div class="mt-steps">${t.exampleSteps.join('<br>')}</div>
+        <div class="mt-result">Ergebnis: ${t.result}</div>
+        ${t.mnemonic?`<div class="mt-mnemo">„${t.mnemonic}“</div>`:''}
+        <div class="mt-applies">${t.appliesTo.map(k=>`<span>${mtKeyName(k)}</span>`).join('')}</div>
+      </div></div>`;}).join('');
+  root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Gedankentipps</h2></div>
+    <p class="lede">Strategien, Eselsbrücken und schnellere Rechenwege — antippen zum Aufklappen.</p>
+    <div class="mt-filters">${cats.map(c=>`<button class="chip" data-mtcat="${c}" aria-pressed="${mtFilter.cat===c}">${c}</button>`).join('')}</div>
+    <div class="mt-filters">${modes.map(m=>`<button class="chip" data-mtmode="${m}" aria-pressed="${mtFilter.mode===m}">${m==='Alle'?'Alle Modi':MT_MODES[m]}</button>`).join('')}</div>
+    <div style="height:8px"></div>
+    ${cards||'<div class="mt-empty">Keine Tipps für diese Filter-Kombination.</div>'}</div>`;
+  document.getElementById('bk').onclick=()=>{ (mtBack==='home')?home():mathHub(); };
+  if(mtOpen){ try{ const oc=document.getElementById('mt_'+mtOpen); if(oc&&oc.scrollIntoView)oc.scrollIntoView({block:'start'}); }catch(e){} }
+  document.querySelectorAll('[data-mtcat]').forEach(b=>b.onclick=()=>{mtFilter.cat=b.dataset.mtcat;mentalTipsScreen();});
+  document.querySelectorAll('[data-mtmode]').forEach(b=>b.onclick=()=>{mtFilter.mode=b.dataset.mtmode;mentalTipsScreen();});
+  document.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{mtOpen=(mtOpen===b.dataset.mt)?null:b.dataset.mt;mentalTipsScreen();});
+}
+
+/* ---- Stufe 2: Gedankentipp im Aufgabenfeedback --------------------------------
+   Ein einziger Hook (showFeedback). Deterministische Regeln, kein Math.random:
+   - Falsche Antwort: Tipp IMMER, wenn ein passender Kandidat existiert.
+   - Richtige Antwort: nur fast/estimate/avoid-Tipps; angezeigt beim 1. und dann
+     jedem 3. passenden Treffer der Session – ODER sofort bei praezisem Muster
+     (z. B. ×25, 99×…, Klammer-Gleichung). Max. 1 Tipp pro Aufgabe; nie dieselbe
+     ID direkt hintereinander; innerhalb der Session bevorzugt ungezeigte Tipps.
+   - Session-Zustand haengt am SESSION_TOKEN (kein Profil, kein localStorage). */
+let mtFb={token:-1,shown:[],eligibleCorrect:0};
+function mtFbSync(){ const tok=(state&&state.token)!=null?state.token:-1; if(mtFb.token!==tok)mtFb={token:tok,shown:[],eligibleCorrect:0}; }
+function mtBaseKey(q){ if(!q)return null; const c=String(q.cat||'');
+  if(c.indexOf('math:')===0)return c.slice(5);
+  if(c==='logic:series')return 'series';
+  if(c==='ps'||((!c)&&state&&state.key==='ps'&&q.topic!=null))return 'ps';   // GMAT-PS: Daily (cat) oder Bank-Session (key)
+  return null; }                                                              // CFA/DS/CR/WM/Deutsch/Elektro/übrige Logik: kein Tipp
+function _selectMentalTip(q,wasCorrect,recentIds){
+  const k=mtBaseKey(q); if(!k)return null;
+  const cands=tipsFor(k); if(!cands.length)return null;
+  recentIds=Array.isArray(recentIds)?recentIds:[];
+  const P=String(q.prompt||q.q||''),T=String(q.type||''),X=String(q.explain||'');
+  const by=id=>cands.find(t=>t.id===id)||null;
+  let precise=null;
+  if(k==='mulB'||k==='mulS'){
+    if(/(^|[^0-9])(98|99|101|102)\s*×/.test(P)||/×\s*(98|99|101|102)([^0-9]|$)/.test(P))precise=by('mul_nahe_100');
+    else if(/×\s*(125|25)([^0-9]|$)/.test(P)||/(^|[^0-9])(125|25)\s*×/.test(P))precise=by('mul_5_25_125');
+  } else if(k==='pct'){
+    if(/Prozentpunkt/i.test(P))precise=by('pct_punkte');
+    else if(/dann|danach|anschließend|zuerst/i.test(P))precise=by('pct_faktor');
+    else if(/(^|\D)(25|12,5|15|10|5)\s?%/.test(P))precise=by('pct_bausteine');
+  } else if(k==='frac'){
+    if(/[×·]/.test(P))precise=by('frac_kuerzen_mult');
+    else if(/[+−]/.test(P))precise=by('frac_kgv');
+  } else if(k==='equations'){ precise=(T==='paren')?by('eq_klammer'):by('eq_umkehr'); }
+  else if(k==='linsys'){
+    if(T==='given_x'||T==='given_y'||T==='subst')precise=by('ls_einsetzen');
+    else if(T==='add_sub')precise=by('ls_summe_diff');
+    else if(T.indexOf('elim')===0)precise=by('ls_addition');
+  } else if(k==='series'){ precise=/Teilfolgen|verschachtelt|abwechselnd|Position/i.test(X)?by('serie_teilfolgen'):by('serie_differenzen'); }
+  else if(k==='dreisatz'){ precise=/Arbeiter|Maschinen|weniger Zeit|indirekt/i.test(P)?by('ds_proportional'):by('ds_einheit'); }
+  else if(k==='sqrt'){ if(/√/.test(P))precise=by('sqrt_nachbarn'); }
+  else if(k==='pow'){ if(/⁻/.test(P))precise=by('pow_gesetze'); else if(/²/.test(P))precise=by('pow_quadrate'); }
+  else if(k==='geometrie'||k==='area'){
+    if(/Hypotenuse|Kathete/i.test(P))precise=by('geo_345');
+    else if(/Dreieck/i.test(P))precise=by('geo_dreieck');
+  } else if(k==='ps'){ if(q.topic==='fractions')precise=by('frac_kreuz'); }
+  let pool=wasCorrect?cands.filter(t=>t.mode==='fast'||t.mode==='estimate'||t.mode==='avoid'):cands.slice();
+  if(!pool.length)return null;
+  if(precise&&pool.indexOf(precise)<0)precise=null;                            // praeziser Treffer muss im erlaubten Pool liegen
+  const ordered=precise?[precise,...pool.filter(t=>t!==precise)]:pool;
+  const last=recentIds.length?recentIds[recentIds.length-1]:null;
+  const tip=ordered.find(t=>recentIds.indexOf(t.id)<0)||ordered.find(t=>t.id!==last)||null;
+  if(!tip)return null;
+  return {tip,precise:!!(precise&&tip===precise)};
+}
+function selectMentalTip(question,wasCorrect,recentTipIds){ const r=_selectMentalTip(question,wasCorrect,recentTipIds); return r?r.tip:null; }
+function maybeAppendMentalTip(ok){
+  try{
+    mtFbSync();
+    const q=state&&state.list?state.list[state.i]:null;
+    const r=_selectMentalTip(q,ok,mtFb.shown); if(!r)return;
+    if(ok){ mtFb.eligibleCorrect++; if(!r.precise&&mtFb.eligibleCorrect%3!==1)return; }
+    const fb=document.getElementById('fb'); if(!fb)return;
+    const t=r.tip; mtFb.shown.push(t.id); if(mtFb.shown.length>12)mtFb.shown.shift();
+    const el=document.createElement('div'); el.className='fbtip';
+    el.innerHTML=`<div class="fbtip-head">${ok?'Schnellerer Weg':'Gedankentipp'}</div>
+      <div class="fbtip-title">${t.title}</div>
+      <div class="fbtip-sum">${t.summary}</div>
+      ${(!ok&&t.mnemonic)?`<div class="fbtip-mnemo">„${t.mnemonic}“</div>`:''}
+      <button class="fbtip-more" type="button">Beispiel anzeigen ›</button>
+      <div class="fbtip-detail" hidden>
+        <div class="fbtip-ex">${t.exampleQuestion}</div>
+        <div class="mt-steps">${t.exampleSteps.join('<br>')}</div>
+        <div class="mt-result">Ergebnis: ${t.result}</div>
+      </div>`;
+    fb.appendChild(el);
+    const btn=el.querySelector('.fbtip-more'),det=el.querySelector('.fbtip-detail');
+    if(btn&&det)btn.onclick=()=>{const h=det.hidden;det.hidden=!h;btn.textContent=h?'Beispiel verbergen ‹':'Beispiel anzeigen ›';};
+  }catch(e){}
+}
+
+/* ================= COACH (lokal & offline; nur Analyse vorhandener Profile) ================= */
+const COACH_DAY=86400000;
+function coachGmatName(t){const m={ps:'Problem Solving',ds:'Data Sufficiency',cr:'Critical Reasoning',arith:'Arithmetik',fractions:'Brüche',algebra:'Algebra',word:'Textaufgaben',ratework:'Raten & Arbeit',mixture:'Mischung',numprop:'Zahleneigenschaften',powroot:'Potenzen & Wurzeln',stats:'Statistik',geo:'Geometrie',percent:'Prozent'};return m[t]||t;}
+function coachCfaName(t){return String(t).replace(/^cfa:/,'').replace(/[_:]/g,' ');}
+function coachWmName(k){const m={'wm:span:fwd':'Zahlenspanne vorwärts','wm:span:bwd':'Zahlenspanne rückwärts','wm:nback':'N-Back','wm:bdpq':'b/d/p/q','wm:days':'Wochentage','wm:combo':'Kombi-Memory'};return m[k]||k.replace('wm:','WM ');}
+function coachCandidates(){
+  const now=Date.now(), out=[]; const D=Store.data||{};
+  const add=o=>{ o.score=60*(o.err||0)+24*Math.min(o.due||0,3)+4*Math.min(o.idle||0,15)+(o.weak?18:0)+(o.mastered?-45:6); out.push(o); };
+  try{ const mp=D.mathProfile; if(mp&&mp.categoryStats){ const rq=Array.isArray(mp.reviewQueue)?mp.reviewQueue:[]; const weakest=new Set(Array.isArray(mp.weakest)?mp.weakest:[]);
+    for(const key of Object.keys(mp.categoryStats)){ const st=mp.categoryStats[key]||{}; const att=st.attempts||0;
+      const due=rq.filter(r=>r.cat===key&&(r.dueAt==null||r.dueAt<=now)).length;
+      if(att===0&&due===0&&!weakest.has(key))continue; const id=String(key).split(':')[1];
+      add({area:'Mathe',key,name:catName(key),err:typeof st.errorRate==='number'?st.errorRate:0,due,idle:st.lastPracticed?Math.floor((now-st.lastPracticed)/COACH_DAY):0,mastered:st.mastery==='mastered',weak:weakest.has(key),start:(typeof MATH==='object'&&MATH[id])?()=>trainGen('math',id,'D'):null}); } } }catch(e){}
+  try{ const g=D.gmatProfile; if(g&&(g.attempts||0)>0){ const rq=Array.isArray(g.reviewQueue)?g.reviewQueue:[]; const ts=g.topicStats||{}; const weak=new Set(Array.isArray(g.weakTopics)?g.weakTopics:[]),mast=new Set(Array.isArray(g.masteredTopics)?g.masteredTopics:[]);
+    for(const t of new Set([...Object.keys(ts),...weak])){ const st=ts[t]||{attempts:0,correct:0}; const att=st.attempts||0;
+      const due=rq.filter(r=>r.topic===t&&(r.dueAt==null||r.dueAt<=now)).length;
+      if(att===0&&due===0&&!weak.has(t))continue;
+      add({area:'GMAT',gtopic:t,name:'GMAT '+coachGmatName(t),err:att?(1-(st.correct||0)/att):0,due,idle:st.lastPracticed?Math.floor((now-st.lastPracticed)/COACH_DAY):0,mastered:mast.has(t),weak:weak.has(t),start:()=>trainBank(t==='ds'?'ds':t==='cr'?'cr':'ps')}); } } }catch(e){}
+  try{ const c=D.cfaProfile; if(c&&(c.attempts||0)>0){ const rq=Array.isArray(c.reviewQueue)?c.reviewQueue:[]; const weak=new Set(Array.isArray(c.weakTopics)?c.weakTopics:[]); const tp=c.topics||{};
+    for(const t of new Set([...Object.keys(tp),...weak])){ const st=tp[t]||{attempts:0,correct:0}; const att=st.attempts||0;
+      const due=rq.filter(r=>r.cat===t&&(r.dueAt==null||r.dueAt<=now)).length;
+      if(att===0&&due===0&&!weak.has(t))continue;
+      add({area:'CFA',name:'CFA '+coachCfaName(t),err:att?(1-(st.correct||0)/att):0,due,idle:0,mastered:false,weak:weak.has(t),start:(typeof cfaHub==='function'?cfaHub:null)}); } } }catch(e){}
+  try{ const cp=D.wmComboProfile; if(cp&&(cp.attempts||0)>=3){ const mAcc=cp.mathAccuracy||0,memAcc=cp.memoryAccuracy||0; const worst=Math.min(mAcc||1,memAcc||1);
+    add({area:'Kombi-Memory',name:'Kombi-Memory',err:1-worst,due:0,idle:cp.lastPracticed?Math.floor((now-cp.lastPracticed)/COACH_DAY):0,mastered:false,weak:(worst<0.65),start:(typeof wmHub==='function'?wmHub:null),mathWeaker:(mAcc>0&&mAcc<memAcc-0.08)}); } }catch(e){}
+  try{ if(typeof PROFILE==='object'&&PROFILE){ for(const k of Object.keys(PROFILE)){ if(k.indexOf('wm:')!==0)continue; const p=PROFILE[k]||{}; if((p.attempts||0)<3)continue;
+    add({area:'WM',name:coachWmName(k),err:p.errorRate||0,due:0,idle:0,mastered:false,weak:(p.errorRate||0)>=0.4,start:(typeof wmHub==='function'?wmHub:null)}); } } }catch(e){}
+  out.sort((a,b)=>b.score-a.score); return out;
+}
+function coachDueReviewable(){ const now=Date.now(); let n=0;
+  try{ const mp=Store.data.mathProfile; if(mp&&Array.isArray(mp.reviewQueue))n+=mp.reviewQueue.filter(r=>r.dueAt==null||r.dueAt<=now).length; }catch(e){}
+  try{ const g=Store.data.gmatProfile; if(g&&Array.isArray(g.reviewQueue))n+=g.reviewQueue.filter(r=>(r.dueAt==null||r.dueAt<=now)&&(!r.bank||r.bank==='ps')).length; }catch(e){}
+  return n; }
+/* Coach-Strategie: deterministische Tipp-Auswahl fuer den Top-Kandidaten.
+   Nur Mathe-Subtypen, logic:series (defensiv, falls kuenftig Kandidat) und GMAT-PS mit
+   eindeutiger Mathe-Zuordnung (Topic fractions). CFA/WM/Kombi/DS/CR/unbekannt → null.
+   Bevorzugung: fast → avoid → estimate → erster Kandidat (MENTAL_TIPS-Reihenfolge). */
+function coachMentalTip(cand){
+  try{
+    if(!cand)return null;
+    let k=null;
+    if(cand.area==='Mathe'&&cand.key)k=String(cand.key).split(':').pop();
+    else if(cand.area==='GMAT'&&cand.gtopic==='fractions')k='ps';
+    else if(cand.key==='logic:series'||cand.key==='series')k='series';
+    if(!k)return null;
+    const all=tipsFor(k); if(!all.length)return null;
+    const HOME={pct:'Prozent',frac:'Brüche',chain:'Grundrechnen',mulS:'Multiplikation',mulB:'Multiplikation',
+      sqrt:'Potenzen/Wurzeln',pow:'Potenzen/Wurzeln',log:'Potenzen/Wurzeln',equations:'Gleichungen',
+      linsys:'Gleichungssysteme',dreisatz:'Dreisatz',geometrie:'Geometrie',area:'Geometrie',
+      series:'Folgen/Logik',sum:'Folgen/Logik',ps:'Interview-Mental-Math'};
+    const prim=HOME[k]?all.filter(t=>t.category===HOME[k]):[];
+    const cands=prim.length?prim:all;                                  // Heimatkategorie bevorzugen, sonst alle passenden
+    let tip=null;
+    if(k==='ps')tip=cands.find(t=>t.id==='frac_kreuz')||all.find(t=>t.id==='frac_kreuz')||null;
+    if(!tip)for(const m of ['fast','avoid','estimate']){ tip=cands.find(t=>t.mode===m)||null; if(tip)break; }
+    return tip||cands[0]||null;
+  }catch(e){ return null; }
+}
+function coachModel(){
+  const cands=coachCandidates(); const streak=Streak.effectiveCurrent(), done=Streak.doneToday();
+  let dueTotal=0; cands.forEach(c=>dueTotal+=(c.due||0)); const dueReviewable=coachDueReviewable();
+  let dueNonRegen=0; const nowT=Date.now();
+  try{ const c=Store.data.cfaProfile; if(c&&Array.isArray(c.reviewQueue))dueNonRegen+=c.reviewQueue.filter(r=>r.dueAt==null||r.dueAt<=nowT).length; }catch(e){}
+  try{ const g=Store.data.gmatProfile; if(g&&Array.isArray(g.reviewQueue))dueNonRegen+=g.reviewQueue.filter(r=>(r.dueAt==null||r.dueAt<=nowT)&&r.bank&&r.bank!=='ps').length; }catch(e){}
+  const weakCount=cands.filter(c=>c.weak||(c.err||0)>=0.4).length;
+  let recMin=10; if(dueTotal>=6||weakCount>=3)recMin=15; else if(dueTotal<=1&&weakCount<=1)recMin=5;
+  let mode='normal'; if(!cands.length)mode=(streak>0)?'light':'new';
+  const names=[],seenN=new Set(); for(const c of cands){ if(names.length>=3)break; if(seenN.has(c.name))continue; seenN.add(c.name); names.push(c.name.length>22?c.name.slice(0,21)+'…':c.name); }
+  const top=cands[0]||null; const reasons=[];
+  if(dueTotal>0)reasons.push(`${dueTotal} fällige Wiederholung${dueTotal===1?'':'en'}`);
+  if(top&&(top.err||0)>=0.4)reasons.push(`hohe Fehlerquote bei ${top.name}`);
+  if(reasons.length<2&&top&&top.idle>=7)reasons.push(`${top.name} länger nicht geübt`);
+  if(reasons.length<2&&top&&top.weak)reasons.push(`${top.name}: Baustelle, aber verbesserbar`);
+  if(reasons.length<2&&!done&&streak>0)reasons.push('Streak halten');
+  if(reasons.length<2&&top&&top.mastered)reasons.push(`${top.name} läuft rund – kurze Auffrischung`);
+  let note=''; const combo=cands.find(c=>c.area==='Kombi-Memory'); const masteredMath=cands.find(c=>c.area==='Mathe'&&c.mastered);
+  if(combo&&combo.mathWeaker)note='Kombi-Memory: Die Mathe-Störung wirkt stärker als die Merklast.';
+  else if(masteredMath)note=`Du bist bei ${masteredMath.name} stabiler geworden.`;
+  else if(done&&streak>0)note='Heute schon erledigt – eine kurze Runde hält den Streak locker.';
+  let tip=null; if(top){ const t=coachMentalTip(top); if(t)tip={id:t.id,title:t.title,line:t.summary}; }
+  return {mode,recMin,streak,done,dueTotal,dueReviewable,dueNonRegen,names,top,reasons:reasons.slice(0,2),note,tip,topStart:(top&&top.start)||null};
+}
+function coachCardHTML(m){
+  let main,focus='',btns='';
+  if(m.mode==='new'){ main='Willkommen! Starte mit einer kurzen Einstufung oder einer 5-Minuten-Runde.'; focus='So findet die App dein Niveau.';
+    btns=`<button class="btn" id="coach-einstufung">Kurze Einstufung starten</button><button class="btn ghost" id="coach-5">5-Minuten-Runde</button>`; }
+  else if(m.mode==='light'){ main=`Heute empfohlen: ${m.recMin} Minuten Training.`; focus='Halte deinen Streak mit einer kurzen, gemischten Runde.';
+    btns=`<button class="btn" id="coach-start">Empfohlenes Training starten</button><button class="btn ghost" id="coach-5">Kurze 5-Minuten-Runde</button>`; }
+  else{ main=`Heute empfohlen: ${m.recMin} Minuten Training.`; focus=m.names.length?`Fokus: ${m.names.join(', ')}`:'Gemischte, adaptive Runde.';
+    btns=`<button class="btn" id="coach-start">Empfohlenes Training starten</button>`;
+    if(m.dueReviewable>0)btns+=`<button class="btn ghost" id="coach-review">Rechenfehler wiederholen (${m.dueReviewable})</button>`;
+    else if(m.topStart)btns+=`<button class="btn ghost" id="coach-weak">Schwächstes Thema trainieren</button>`;
+    btns+=`<button class="btn ghost" id="coach-5">Kurze 5-Minuten-Runde</button>`; }
+  const reasons=m.reasons.length?`<div class="coach-reasons">${m.reasons.map(r=>`<span class="coach-reason">${r}</span>`).join('')}</div>`:'';
+  const strat=(m.mode!=='new'&&m.tip)?`<div class="coach-strategy"><b>Strategie:</b> ${m.tip.line} <button class="coach-tipview" id="coach-tipview" type="button">Tipp ansehen ›</button></div>`:'';
+  const note=m.note?`<div class="coach-note">${m.note}</div>`:'';
+  const hint=(m.mode!=='new'&&m.dueNonRegen>0)?`<div class="coach-hint">Weitere Reviews (CFA/DS/CR) fließen ins Tagestraining ein.</div>`:'';
+  return `<div class="card coach"><div class="coach-top"><span class="coach-tag">Coach</span><span class="coach-dur">${m.recMin} Min empfohlen</span></div>
+    <div class="coach-main">${main}</div><div class="coach-focus">${focus}</div>${reasons}${strat}${note}<div class="coach-btns">${btns}</div>${hint}</div>`;
+}
+function wireCoach(m){ const on=(id,fn)=>{const el=document.getElementById(id);if(el)el.onclick=fn;};
+  on('coach-einstufung',()=>placementStart()); on('coach-5',()=>startDaily(5));
+  on('coach-start',()=>{ if(m.dueReviewable>=3)startCoachReview(); else startDaily(m.recMin||10); });
+  on('coach-review',()=>startCoachReview());
+  on('coach-weak',()=>{ if(m.topStart)m.topStart(); else startDaily(m.recMin||10); });
+  on('coach-tipview',()=>{ if(!m.tip)return; mtFilter={cat:'Alle',mode:'Alle'}; mtOpen=m.tip.id; mtBack='home'; mentalTipsScreen(); }); }
+function startCoachReview(){
+  const now=Date.now(), items=[]; const D=Store.data||{};
+  try{ const mp=D.mathProfile; if(mp&&Array.isArray(mp.reviewQueue)){ for(const r of mp.reviewQueue){ if(items.length>=14)break; if(r.dueAt!=null&&r.dueAt>now)continue;
+    const id=String(r.cat||'').split(':')[1]; const t=(typeof MATH==='object')&&MATH[id];
+    if(t&&typeof t.gen==='function'){ try{ const st=mathStatFor(r.cat); const gl=st?levelToGenLevel(st.level):2; const q={render:'input',...t.gen(gl)}; q.cat=r.cat;q.group='math';q.diff=gl;q.review=true; items.push(q);}catch(e){} } } } }catch(e){}
+  try{ const g=D.gmatProfile; if(g&&Array.isArray(g.reviewQueue)){ const level=(typeof gmatTargetLevel==='function')?gmatTargetLevel():2;
+    for(const r of g.reviewQueue){ if(items.length>=16)break; if(r.dueAt!=null&&r.dueAt>now)continue; if(r.bank&&r.bank!=='ps')continue;
+      try{ const fn=pickGmatPsGeneratorFor(r.topic,r.type,level); if(fn){ const it=normItem('choice',fn()); it.cat='ps';it.group='gmat';it.diff=level;it.review=true; items.push(it);} }catch(e){} } } }catch(e){}
+  if(!items.length){ startDaily(5); return; }
+  const list=shuffle(items).slice(0,Math.max(6,Math.min(items.length,15)));
+  startSession({kind:'list',list,total:list.length,label:'Fehler-Wiederholung',key:'coach:review',restart:startCoachReview});
+}
+
 /* ---- HOME ---- */
 function home(){
   setHomeBtn(false); tag.textContent="dein training";
@@ -1743,7 +2367,9 @@ function home(){
   html+=`<button class="cat" id="settingsRow"><span class="cat-mark">⚙</span><span class="cat-body"><span class="cat-title">Einstellungen & Daten</span><span class="cat-desc">Streak ansehen · Fortschritt sichern</span></span><span class="cat-stat">öffnen ›</span></button>`;
   const cur=Streak.effectiveCurrent(),best=Store.data.streak.best||0,done=Streak.doneToday();
   const banner=`<div class="streak-banner"><div class="sk-main"><span class="streak-flame">${cur>0?'🔥':'✨'}</span><div><div class="streak-num">${cur} Tag${cur===1?'':'e'} Streak</div><div class="streak-sub">Bester: ${best} · ${done?'heute erledigt':'heute noch offen'}</div></div></div><span class="streak-status ${done?'done':'open'}">${done?'✓':'•'}</span></div>`;
-  root.innerHTML=`<div class="card">${banner}<p class="lede">Wähle einen Bereich. Jeder Aufgabentyp hat eine kurze <b>Einführung</b>, die du abschließen kannst, um ihn kennenzulernen.</p><div class="cat-list">${html}</div></div>`;
+  let coachHTML='',coachM=null; try{coachM=coachModel();coachHTML=coachCardHTML(coachM);}catch(e){coachHTML='';}
+  root.innerHTML=coachHTML+`<div class="card">${banner}<p class="lede">Wähle einen Bereich. Jeder Aufgabentyp hat eine kurze <b>Einführung</b>, die du abschließen kannst, um ihn kennenzulernen.</p><div class="cat-list">${html}</div></div>`;
+  if(coachM){try{wireCoach(coachM);}catch(e){}}
   document.querySelectorAll('[data-top]').forEach(b=>b.onclick=()=>top[+b.dataset.top].fn());
   document.querySelectorAll('[data-bank]').forEach(b=>b.onclick=()=>bankLanding(b.dataset.bank));
   document.getElementById('settingsRow').onclick=settingsScreen;
@@ -1753,6 +2379,7 @@ function home(){
 function settingsScreen(){
   setHomeBtn(false); tag.textContent="einstellungen";
   const s=Store.data.streak,cur=Streak.effectiveCurrent(),done=Streak.doneToday();
+  const tc=themeChoice();
   const hist=(s.history||[]).slice(-7).reverse();
   const histHTML=hist.length?hist.map(d=>`<span class="day-chip">${d.slice(5)}</span>`).join(''):'<span class="streak-sub">noch keine Trainingstage</span>';
   root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>Einstellungen & Daten</h2></div>
@@ -1762,6 +2389,12 @@ function settingsScreen(){
       <div class="res-cell"><b>${s.best||0}</b><span>bester</span></div>
       <div class="res-cell"><b>${done?'Ja':'Nein'}</b><span>heute</span></div></div>
     <div class="seclabel">Letzte Trainingstage</div><div class="day-row">${histHTML}</div>
+    <div class="seclabel" style="margin-top:20px">Design</div>
+    <div class="modes" id="themeSeg" style="margin-bottom:4px">
+      <button class="chip" data-theme-opt="light" aria-pressed="${tc==='light'}">Hell</button>
+      <button class="chip" data-theme-opt="dark" aria-pressed="${tc==='dark'}">Dunkel</button>
+      <button class="chip" data-theme-opt="system" aria-pressed="${tc==='system'}">System</button>
+    </div>
     <div class="seclabel" style="margin-top:20px">Fortschritt sichern</div>
     <p class="lede" style="margin-bottom:14px">Lade ein Backup als Datei herunter oder stelle es wieder her. <b>Import überschreibt</b> die aktuellen Daten.</p>
     <div class="btn-row" style="margin-top:0"><button class="btn ghost" id="exp">⬇ Backup exportieren</button><button class="btn ghost" id="imp">⬆ Backup importieren</button></div>
@@ -1772,6 +2405,8 @@ function settingsScreen(){
   const fileInput=document.getElementById('impFile');
   document.getElementById('imp').onclick=()=>fileInput.click();
   fileInput.onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f)importData(f); };
+  document.querySelectorAll('[data-theme-opt]').forEach(b=>b.onclick=()=>{ setTheme(b.dataset.themeOpt);
+    document.querySelectorAll('[data-theme-opt]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.themeOpt===b.dataset.themeOpt))); });
 }
 
 /* ---- LEVEL-CHIPS ---- */
@@ -1794,9 +2429,12 @@ function hub(group,reg,title){
     if(cs){const stx=cs['math:'+id];if(stx){badge=` <span style="font-size:11px;color:var(--accent);font-weight:700">L${stx.level}</span> <span style="font-size:12px" title="${stx.mastery}">${stx.mastery==='mastered'?'●':stx.mastery==='learning'?'◐':'○'}</span>`; if(stx.nextRec==='lesson')hint=` · <span style="color:var(--bad);font-size:11px">Einführung empfohlen</span>`;}}
     return `<div class="topic"><div class="topic-info"><b>${t.name}${badge}</b><span>${t.teaser}${hint}</span></div>
       <div class="topic-actions"><button class="mini${done?' done':''}" data-tut="${id}">Einführung${done?' ✓':''}</button><button class="mini solid" data-train="${id}">Üben ›</button></div></div>`;}).join("");
+  const mtEntry=group==='math'?`<div class="topic mt-entry"><div class="topic-info"><b>Gedankentipps</b><span>Strategien, Eselsbrücken und schnellere Rechenwege</span></div>
+      <div class="topic-actions"><button class="mini solid" id="goMentalTips">Öffnen ›</button></div></div><div style="height:14px"></div>`:'';
   root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>${title}</h2></div>
-    ${group==='math'?mathNiveauCard():''}${levelChips(group)}<div class="seclabel">Themen</div><div class="topics">${rows}</div></div>`;
+    ${group==='math'?mathNiveauCard():''}${mtEntry}${levelChips(group)}<div class="seclabel">Themen</div><div class="topics">${rows}</div></div>`;
   document.getElementById('bk').onclick=home; wireChips();
+  const gmt=document.getElementById('goMentalTips'); if(gmt)gmt.onclick=()=>{mtFilter={cat:'Alle',mode:'Alle'};mtOpen=null;mtBack='math';mentalTipsScreen();};
   const mt=document.querySelector('[data-mathtest]'); if(mt)mt.onclick=placementStart;
   document.querySelectorAll('[data-tut]').forEach(b=>b.onclick=()=>launchTut(group,b.dataset.tut));
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>trainGen(group,b.dataset.train,lastLevel));
@@ -1971,6 +2609,7 @@ function runTutorial(cfg){
 /* ---- SESSION-START ---- */
 function trainGen(group,id,level){
   const reg=regOf(group),t=reg[id],key=group+':'+id;
+  if(level!=='D'&&level!=='A')level=clamp(Math.round(level)||2,1,4);   // Guard: Level außerhalb 1–4 (z. B. aus Altdaten) sicher kappen
   if(level==='D'){ const st=mathStatFor(key), gl=st?levelToGenLevel(st.level):2;
     startSession({kind:'agen',gen:t.gen,group,aLevel:gl,goodStreak:0,total:ROUND,label:t.name+' · Mein Niveau (L'+(st?st.level:'–')+')',key,restart:()=>trainGen(group,id,'D')}); return; }
   if(level==='A') startSession({kind:'agen',gen:t.gen,group,aLevel:2,goodStreak:0,total:ROUND,label:t.name+' · adaptiv',key,restart:()=>trainGen(group,id,'A')});
@@ -2126,10 +2765,94 @@ function comboNumMathQ(mathLevel){
   if(t==='eqMul2'){const x=rnd(3,12),a=rnd(3,8),b=rnd(2,20);return R('num',a+'x + '+b+' = '+(a*x+b)+'  \u00b7  x = ?',x);}
   const a=rnd(5,20),b=rnd(5,20);return R('num',a+' + '+b,a+b);
 }
+/* ===== Ablenkungs-Aufgabentypen (additiv; kurz, iPhone-tauglich) =====
+   Jede Aufgabe traegt Metadaten: distractionType, mathDifficulty (easy/medium/hard),
+   expectedSteps (1-3), render (input/choice). Brueche IMMER als Choice. Kurze Erklaerung.
+   comboNumMathQ/comboFracMC bleiben als Bausteine bzw. Fallback erhalten. */
+const CMD={1:'easy',2:'medium',3:'hard'};
+const CMINUS='\u2212', CTIMES='\u00d7', CDIV='\u00f7', CEUR='\u20ac', CDOT='\u00b7';
+function cNum(dt,L,steps,prompt,answer,explain){
+  return {kind:'num',render:'input',type:dt,distractionType:dt,mathDifficulty:CMD[L],
+    expectedSteps:steps,prompt:prompt,answer:answer,explain:explain||''};
+}
+function cChoice(dt,L,steps,prompt,correct,distractors,explain){
+  const opts=[correct]; for(const d of (distractors||[])){ if(opts.length>=4)break; if(d!=null&&opts.indexOf(d)<0)opts.push(d); }
+  const arr=shuffle(opts);
+  return {kind:'mc',render:'choice',type:dt,distractionType:dt,mathDifficulty:CMD[L],
+    expectedSteps:steps,prompt:prompt,opts:arr,c:arr.indexOf(correct),explain:explain||''};
+}
+function cFrac(L){ const q=comboFracMC();                                  // {kind:'mc',prompt,opts,c} – Brueche stets Choice
+  q.type='frac'; q.distractionType='frac'; q.render='choice'; q.mathDifficulty=CMD[L];
+  q.expectedSteps=(L>=3?2:1); q.explain='Bruch: gemeinsamer Nenner bzw. kuerzen.'; return q; }
+const COMBO_GEN={
+  /* leicht (L1) */
+  add:()=>{const a=rnd(4,20),b=rnd(4,20);return cNum('add',1,1,a+' + '+b,a+b,'Zehner und Einer addieren.');},
+  sub:()=>{const a=rnd(10,30),b=rnd(2,a);return cNum('sub',1,1,a+' '+CMINUS+' '+b,a-b,'Vom groesseren Wert abziehen.');},
+  mulS:()=>{const a=rnd(2,9),b=rnd(2,9);return cNum('mul',1,1,a+' '+CTIMES+' '+b,a*b,'Kleines Einmaleins.');},
+  divEasy:()=>{const b=rnd(2,9),q=rnd(2,9),a=b*q;return cNum('div',1,1,a+' '+CDIV+' '+b,q,'Wie oft passt '+b+' in '+a+'?');},
+  pctEasy:()=>{const o=pick([[50,pick([20,40,60,80,120])],[10,pick([30,50,70,90,120])],[25,pick([40,80,120,160,200])]]);
+    const p=o[0],base=o[1];return cNum('percent',1,1,p+'% von '+base,base*p/100,p+'% = '+(p===50?'die Haelfte':p===25?'ein Viertel':'ein Zehntel')+'.');},
+  eq1:()=>{const x=rnd(3,15),a=rnd(2,12);
+    if(Math.random()<0.5)return cNum('equation',1,1,'x + '+a+' = '+(x+a)+'   x = ?',x,'x = '+(x+a)+' '+CMINUS+' '+a+'.');
+    const m=rnd(2,9);return cNum('equation',1,1,m+' '+CTIMES+' x = '+(m*x)+'   x = ?',x,'x = '+(m*x)+' '+CDIV+' '+m+'.');},
+  /* mittel (L2) */
+  chain:()=>{const v=pick(['ams','mpa','dpa']);
+    if(v==='ams'){const a=rnd(8,20),b=rnd(4,15),c=rnd(2,a+b-1);return cNum('chain',2,2,a+' + '+b+' '+CMINUS+' '+c,a+b-c,'Von links nach rechts.');}
+    if(v==='mpa'){const a=rnd(2,9),b=rnd(2,9),c=rnd(3,20);return cNum('chain',2,2,a+' '+CTIMES+' '+b+' + '+c,a*b+c,'Erst '+CTIMES+', dann +.');}
+    const b=rnd(2,9),q=rnd(2,9),a=b*q,c=rnd(2,15);return cNum('chain',2,2,a+' '+CDIV+' '+b+' + '+c,q+c,'Erst '+CDIV+', dann +.');},
+  mulB:()=>{const a=rnd(11,15),b=rnd(2,9);return cNum('mul',2,1,a+' '+CTIMES+' '+b,a*b,'10'+CTIMES+b+' + '+(a-10)+CTIMES+b+'.');},
+  pctChange:()=>{const base=pick([40,60,80,100,120,160,200]),p=pick([10,20,25,50]),v=base*(1+p/100);
+    return cNum('percent',2,2,'Preis '+base+' '+CEUR+', +'+p+'%',v,base+' + '+(base*p/100)+' = '+v+' '+CEUR+'.');},
+  discount:()=>{const base=pick([40,60,80,100,120,160,200]),p=pick([10,20,25,50]),v=base*(1-p/100);
+    return cNum('percent',2,2,base+' '+CEUR+', '+CMINUS+p+'%',v,base+' '+CMINUS+' '+(base*p/100)+' = '+v+' '+CEUR+'.');},
+  fracMC:(L)=>cFrac(L||2),
+  eq2:()=>{const x=rnd(2,12),a=rnd(2,8),b=rnd(2,20);return cNum('equation',2,2,a+'x + '+b+' = '+(a*x+b)+'   x = ?',x,'erst '+b+' abziehen, dann '+CDIV+' '+a+'.');},
+  pattern:()=>{const v=pick(['arith','geo','alt']);
+    if(v==='arith'){const s=rnd(2,12),d=rnd(2,9);return cNum('pattern',2,2,[s,s+d,s+2*d,s+3*d].join(', ')+', ?',s+4*d,'immer + '+d+'.');}
+    if(v==='geo'){const s=pick([1,2,3]);return cNum('pattern',2,2,[s,s*2,s*4,s*8].join(', ')+', ?',s*16,'immer '+CTIMES+' 2.');}
+    const s=rnd(5,15),a=rnd(3,7),b=rnd(1,3);return cNum('pattern',2,2,[s,s+a,s+a-b,s+2*a-b].join(', ')+', ?',s+2*a-2*b,'abwechselnd + '+a+' / '+CMINUS+' '+b+'.');},
+  /* schwer (L3) */
+  chainHard:()=>{const v=pick(['mspd','dtm','pc']);
+    if(v==='mspd'){const a=rnd(2,9),b=rnd(2,9),c=rnd(2,20),d=rnd(2,15),ans=a*b-c+d;if(ans<1)return COMBO_GEN.chainHard();return cNum('chain',3,3,a+' '+CTIMES+' '+b+' '+CMINUS+' '+c+' + '+d,ans,'Punkt vor Strich, dann links nach rechts.');}
+    if(v==='dtm'){const b=rnd(2,6),q=rnd(2,6),a=b*q,c=rnd(2,5);return cNum('chain',3,3,a+' '+CDIV+' '+b+' '+CTIMES+' '+c,q*c,'Erst '+CDIV+', dann '+CTIMES+'.');}
+    const a=rnd(2,9),b=rnd(2,9),c=rnd(2,5);return cNum('chain',3,3,'('+a+' + '+b+') '+CTIMES+' '+c,(a+b)*c,'Klammer zuerst.');},
+  fracHard:()=>cFrac(3),
+  pctRatio:()=>{const a=rnd(1,3),b=rnd(a+1,5),unit=pick([4,5,6,8,10]),T=(a+b)*unit;
+    return cNum('ratio',3,2,'Verhaeltnis '+a+':'+b+', zusammen '+T+' '+CDOT+' groesserer Teil?',b*unit,T+' '+CDIV+' '+(a+b)+' = '+unit+', '+CTIMES+' '+b+'.');},
+  word:()=>{const v=pick(['money','speed','count']);
+    if(v==='money'){const n=pick([2,3,4,5]),unit=pick([2,3,4,5,6]),m=pick([2,3,4,5,6,8]);return cNum('word',3,2,n+' Stifte kosten '+(n*unit)+' '+CEUR+'. Was kosten '+m+'?',m*unit,'einer: '+unit+' '+CEUR+', '+CTIMES+' '+m+'.');}
+    if(v==='speed'){const h=pick([2,3,4]),sp=pick([40,50,60,70,80]),d=h*sp;return cNum('word',3,2,'Zug: '+d+' km in '+h+' h. km/h?',sp,d+' '+CDIV+' '+h+'.');}
+    const T=pick([9,12,15,18,21,24]);return cNum('word',3,2,'Doppelt so viele rote wie gruene Aepfel, zusammen '+T+'. Rote?',2*(T/3),'3 Teile: '+T+' '+CDIV+' 3 = '+(T/3)+' gruen, doppelt rot.');},
+  estimate:()=>{const a=pick([18,21,29,32,38,42,48]),b=pick([19,22,28,31,39,41]),act=a*b,base=Math.round(act/100)*100;
+    return cChoice('estimate',3,2,'Ueberschlag: '+a+' '+CTIMES+' '+b+' liegt am naechsten bei?',String(base),
+      [String(base+100),String(base-100),String(base+200)].filter(s=>Number(s)>0),
+      'grob '+(Math.round(a/10)*10)+' '+CTIMES+' '+(Math.round(b/10)*10)+' = '+base+'.');},
+  compare:()=>{const set=pick([['3/4','5/8','2/3'],['2/3','3/5','1/2'],['5/6','3/4','7/12'],['4/5','5/7','2/3']]);
+    const val=s=>{const p=s.split('/');return (+p[0])/(+p[1]);};
+    const correct=set.slice().sort((x,y)=>val(y)-val(x))[0];
+    return cChoice('compare',3,1,'Welcher Bruch ist am groessten?',correct,set.filter(s=>s!==correct),correct+' ist am groessten.');},
+  eqTrap:()=>{if(Math.random()<0.5){const a=rnd(2,6),b=rnd(3,12);return cNum('equation',3,2,'x '+CDIV+' '+a+' = '+b+'   x = ?',a*b,'x = '+a+' '+CTIMES+' '+b+' (nicht '+CDIV+').');}
+    const a=rnd(15,40),b=rnd(3,12);return cNum('equation',3,2,a+' '+CMINUS+' x = '+b+'   x = ?',a-b,'x = '+a+' '+CMINUS+' '+b+'.');},
+  logic:()=>{const bank=[
+      ['Alle A sind B. Alle B sind C. Folgt: Alle A sind C?','Wahr'],
+      ['Alle A sind B. Einige B sind C. Folgt: Einige A sind C?','Falsch'],
+      ['Kein A ist B. Alle C sind A. Folgt: Kein C ist B?','Wahr'],
+      ['Einige A sind B. Alle B sind C. Folgt: Einige A sind C?','Wahr'],
+      ['Alle A sind B. Kein B ist C. Folgt: Kein A ist C?','Wahr'],
+      ['Alle Katzen sind Tiere. Folgt: Alle Tiere sind Katzen?','Falsch']];
+    const it=pick(bank);return cChoice('logic',3,2,it[0],it[1],[it[1]==='Wahr'?'Falsch':'Wahr'],'Nur was zwingend folgt, ist wahr.');}
+};
+const COMBO_TYPES={
+  1:['add','sub','mulS','divEasy','pctEasy','eq1'],
+  2:['chain','mulB','pctChange','discount','fracMC','eq2','pattern'],
+  3:['chainHard','fracHard','pctRatio','word','estimate','compare','eqTrap','logic']
+};
 function comboMathQ(mathLevel){
-  const L=clamp(mathLevel,1,3);
-  if(L>=3&&Math.random()<0.35){const q=comboFracMC();q.type='frac';return q;}   // Brüche nur bei „schwer"
-  return comboNumMathQ(L);
+  const L=clamp(Math.round(mathLevel)||2,1,3);
+  const pool=COMBO_TYPES[L]||COMBO_TYPES[2], t=pick(pool);
+  let q=null; try{ if(COMBO_GEN[t])q=COMBO_GEN[t](L); }catch(e){ q=null; }
+  if(!q||q.answer==null&&!Array.isArray(q.opts)){ const n=comboNumMathQ(L); q=cNum(n.type||'num',L,1,n.prompt,n.answer,''); }  // Fallback: bestehende Logik
+  return q;
 }
 
 /* ---- Profil: getrennte Level für Merklast / Interferenz / Mathe (1–3) ---- */
@@ -2323,8 +3046,10 @@ function runComboBlock(host,item,opts){
       }
       function finishMath(ok,correctDisp){
         mathResults.push(!!ok);
-        const fb=host.querySelector('#mfb'); if(fb){fb.className='feedback '+(ok?'good':'bad'); fb.innerHTML=ok?'Richtig.':('Richtig: '+correctDisp);}
-        setTimeout(()=>{ if(!alive())return; mi++; if(mi<item.mathQs.length)renderMath(mi); else startRecall(); }, ok?550:1100);
+        const ex=q.explain?('<div class="combo-res-note" style="margin-top:4px">'+q.explain+'</div>'):'';
+        const fb=host.querySelector('#mfb'); if(fb){fb.className='feedback '+(ok?'good':'bad'); fb.innerHTML=(ok?'Richtig.':('Richtig: '+correctDisp))+ex;}
+        const delay=q.explain?(ok?900:1600):(ok?550:1100);           // kurze Lesezeit fuer die Erklaerung
+        setTimeout(()=>{ if(!alive())return; mi++; if(mi<item.mathQs.length)renderMath(mi); else startRecall(); }, delay);
       }
     }
   }
@@ -2530,8 +3255,9 @@ function renderQ(){
 function fillQA(q){
   const body=document.getElementById('qbody');let inner;
   if(q.render==='input'){
+    const field=q.answerType==='fraction'?fracFieldsHTML('f'):q.answerType==='xy'?xyFieldsHTML('xy_',q.signed):`<input class="num-input" id="ans" autocomplete="off" placeholder="?">`;
     inner=(q.text?`<div class="q-text">${q.prompt}</div>`:`<div class="q-math">${q.prompt}</div>`)
-      +`<input class="num-input" id="ans" autocomplete="off" placeholder="?"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
+      +field+`<button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
   } else {
     const keys="ABCDEFG",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
     inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;
@@ -2540,8 +3266,13 @@ function fillQA(q){
     <div class="tiprow">${qHints(q).length?`<button class="tip-btn" id="tip">💡 Tipp anzeigen</button><div class="tip-text" id="tiptext" hidden></div>`:""}</div>
     <div class="feedback" id="fb"></div><div id="nextrow"></div>`;
   tipController(q);
-  if(q.render==='input'){const inp=document.getElementById('ans');inp.setAttribute('inputmode',typeof q.answer==='string'?'text':'numeric');inp.focus();
-    inp.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});
+  if(q.render==='input'){
+    if(q.answerType==='fraction'){const nf=document.getElementById('fn');if(nf)nf.focus();
+      ['fw','fn','fd'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});});}
+    else if(q.answerType==='xy'){const xf=document.getElementById('xy_x');if(xf)xf.focus();
+      ['xy_x','xy_y'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});});}
+    else {const inp=document.getElementById('ans');inp.setAttribute('inputmode',q.signed?'text':(typeof q.answer==='string'?'text':'numeric'));inp.focus();
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter')state.answered?next():checkInput();});}
     document.getElementById('sub').onclick=()=>state.answered?next():checkInput();}
   else document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>checkChoice(+b.dataset.k));
 }
@@ -2573,6 +3304,75 @@ function fillSpan(q){
 }
 
 function parseNum(raw){raw=raw.replace(',','.').trim();if(raw.includes('/')){const[a,b]=raw.split('/');return parseFloat(a)/parseFloat(b);}return parseFloat(raw);}
+
+/* ===== Bruch-Eingabe: bruchfreundliche Felder + mathematischer Vergleich =====
+   Genutzt, wenn q.answerType==='fraction'. render bleibt 'input' (restliche Logik unveraendert).
+   Ungekuerzte, aber wertgleiche Brueche gelten als richtig; Vorzeichen/Sonderfaelle beruecksichtigt. */
+function fracFieldsHTML(pfx){
+  return `<div class="frac-input">
+    <input class="frac-cell frac-whole" id="${pfx}w" inputmode="numeric" autocomplete="off" placeholder="ganz">
+    <div class="frac-stack">
+      <input class="frac-cell frac-num" id="${pfx}n" inputmode="numeric" autocomplete="off" placeholder="Zähler">
+      <div class="frac-bar"></div>
+      <input class="frac-cell frac-den" id="${pfx}d" inputmode="numeric" autocomplete="off" placeholder="Nenner">
+    </div></div>`;
+}
+function fracIntField(el){ const s=(el&&el.value!=null?String(el.value):'').trim(); if(s==='')return {empty:true}; if(!/^[+-]?\d+$/.test(s))return {bad:true}; return {v:parseInt(s,10)}; }
+// Liest die drei Felder → {n,d} (Nenner>0, Vorzeichen in n) oder null (leer/ungueltig/Nenner 0).
+function fracFromFields(pfx){
+  const W=fracIntField(document.getElementById(pfx+'w')),
+        N=fracIntField(document.getElementById(pfx+'n')),
+        D=fracIntField(document.getElementById(pfx+'d'));
+  const hasFrac = !N.empty && !D.empty;
+  if(!hasFrac){                                             // reine Ganzzahl nur, wenn Bruchfelder beide leer
+    if(N.empty && D.empty && !W.empty && !W.bad) return {n:W.v,d:1};
+    return null;                                            // unvollstaendig
+  }
+  if(N.bad||D.bad||D.v===0) return null;                    // Nenner 0 / ungueltig → abgelehnt
+  const nMag=Math.abs(N.v), dMag=Math.abs(D.v), sign=(Math.sign(N.v)*Math.sign(D.v))||1;
+  if(!W.empty){ if(W.bad)return null; const wSign=W.v<0?-1:1, wMag=Math.abs(W.v); return {n:wSign*(wMag*dMag+nMag), d:dMag}; } // gemischt: Ganzzahl bestimmt Vorzeichen
+  return {n:sign*nMag, d:dMag};
+}
+function parseFracStr(s){ s=(s==null?'':String(s)).trim().replace(',','.'); if(s==='')return null;
+  if(s.indexOf('/')>=0){ const p=s.split('/'); const n=parseInt(p[0],10),d=parseInt(p[1],10); if(!isFinite(n)||!isFinite(d)||d===0)return null; const g=Math.sign(d)||1; return {n:n*g,d:Math.abs(d)}; }
+  if(/^[+-]?\d+$/.test(s))return {n:parseInt(s,10),d:1};
+  const f=parseFloat(s); return isFinite(f)?{f:f}:null; }
+// Exakter Rationalvergleich (Kreuzmultiplikation); Fallback numerisch gegen q.answer.
+function fracEquals(user,q){ if(!user)return false;
+  const t=parseFracStr(q&&q.disp!=null?q.disp:'');
+  if(t&&t.n!=null)return user.n*t.d===user.d*t.n;
+  const uv=user.n/user.d, tv=(t&&t.f!=null)?t.f:(q?q.answer:undefined);
+  return typeof tv==='number'&&isFinite(tv)&&Math.abs(uv-tv)<1e-9*Math.max(1,Math.abs(tv)); }
+function fracUserStr(pfx){
+  const w=((document.getElementById(pfx+'w')||{}).value||'').trim(),
+        n=((document.getElementById(pfx+'n')||{}).value||'').trim(),
+        d=((document.getElementById(pfx+'d')||{}).value||'').trim();
+  const fr=(n!==''&&d!=='')?(n+'/'+d):''; return [w,fr].filter(Boolean).join(' ')||(w||n||d||'—'); }
+function fracLock(pfx,ok){ ['w','n','d'].forEach(k=>{const el=document.getElementById(pfx+k); if(el){el.disabled=true; el.style.borderColor=ok?'var(--good)':'var(--bad)';}}); }
+
+/* ===== x/y-Eingabe fuer 2x2-Gleichungssysteme (answerType:'xy') ===== */
+function fmtLin(a,b,rhs){                                  // baut "ax + by = rhs" (Koeffizient 1 weggelassen, Vorzeichen sauber)
+  const term=(co,v)=>co===0?null:{neg:co<0,body:(Math.abs(co)===1?'':Math.abs(co))+v};
+  const ts=[term(a,'x'),term(b,'y')].filter(Boolean); let s='';
+  ts.forEach((t,i)=>{ s += (i===0?(t.neg?'\u2212':''):(t.neg?' \u2212 ':' + ')) + t.body; });
+  return s+' = '+(rhs<0?'\u2212'+(-rhs):rhs);
+}
+function xyFieldsHTML(pfx,signed){ const im=signed?'text':'numeric';
+  return `<div class="xy-input">
+    <div class="xy-row"><span class="xy-lab">x =</span><input class="xy-cell" id="${pfx}x" inputmode="${im}" autocomplete="off" placeholder="?"></div>
+    <div class="xy-row"><span class="xy-lab">y =</span><input class="xy-cell" id="${pfx}y" inputmode="${im}" autocomplete="off" placeholder="?"></div>
+  </div>`;
+}
+function xyFromFields(pfx){
+  const xr=((document.getElementById(pfx+'x')||{}).value||'').trim(),
+        yr=((document.getElementById(pfx+'y')||{}).value||'').trim();
+  if(xr===''||yr==='')return null;                        // beide Felder noetig
+  const px=parseNum(xr), py=parseNum(yr);
+  if(!isFinite(px)||!isFinite(py))return null;
+  return {x:px,y:py,str:`x = ${xr}, y = ${yr}`};
+}
+function xyEquals(u,q){ return !!u && Math.abs(u.x-q.ansX)<1e-6 && Math.abs(u.y-q.ansY)<1e-6; }
+function xyLock(pfx,ok){ ['x','y'].forEach(k=>{const el=document.getElementById(pfx+k); if(el){el.disabled=true; el.style.borderColor=ok?'var(--good)':'var(--bad)';}}); }
 function dispAns(q){return q.disp??(typeof q.answer==='string'?q.answer:fmt(q.answer));}
 function maybeAdaptInSession(ok){
   if(state.kind==='agen'){if(ok){state.goodStreak++;if(state.goodStreak>=2&&state.aLevel<4){state.aLevel++;state.goodStreak=0;}}else{state.aLevel=Math.max(1,state.aLevel-1);state.goodStreak=0;}}
@@ -2590,6 +3390,7 @@ function record(q,ok){
 function showFeedback(ok,explain){
   const fb=document.getElementById('fb');fb.className="feedback "+(ok?"good":"bad");
   fb.innerHTML=(ok?"Richtig.":"Nicht ganz.")+(explain?`<div class="explain">${explain}</div>`:"");
+  maybeAppendMentalTip(ok);                                        // Stufe 2: max. 1 passender Gedankentipp, erst NACH der Antwort
   const sb=document.getElementById('sub');if(sb)sb.style.display='none';
   const last=state.i>=state.total-1;
   document.getElementById('nextrow').innerHTML=`<button class="btn" id="nx" style="margin-top:16px">${last?"Auswertung":"Weiter"}</button>`;
@@ -2597,6 +3398,28 @@ function showFeedback(ok,explain){
 }
 function checkInput(){
   if(state.answered)return;const q=state.list[state.i];
+  if(q.answerType==='fraction'){
+    const user=fracFromFields('f');
+    if(user===null){ const fb=document.getElementById('fb'); if(fb){fb.className='feedback bad';fb.innerHTML='Bitte Zähler und Nenner ausfüllen (Nenner ≠ 0).';} return; }
+    state.answered=true;
+    const ok=fracEquals(user,q); fracLock('f',ok);
+    const userStr=fracUserStr('f');
+    ok?(state.correct++,state.streak++):(state.streak=0);record(q,ok);
+    pushReview(q,ok,userStr,dispAns(q));
+    const note=(ok&&userStr.replace(/\s+/g,'')!==String(dispAns(q)))?`${userStr} = ${dispAns(q)}. `:'';
+    showFeedback(ok, ok?(note+(q.explain||'')).trim():`Deine Eingabe: <b>${userStr}</b>. Korrekt wäre <b>${dispAns(q)}</b>. ${q.explain||""}`);
+    return;
+  }
+  if(q.answerType==='xy'){
+    const u=xyFromFields('xy_');
+    if(u===null){ const fb=document.getElementById('fb'); if(fb){fb.className='feedback bad';fb.innerHTML='Bitte x und y ausfüllen.';} return; }
+    state.answered=true;
+    const ok=xyEquals(u,q); xyLock('xy_',ok);
+    ok?(state.correct++,state.streak++):(state.streak=0);record(q,ok);
+    pushReview(q,ok,u.str,dispAns(q));
+    showFeedback(ok, ok?q.explain:`Deine Eingabe: <b>${u.str}</b>. Korrekt wäre <b>${dispAns(q)}</b>. ${q.explain||""}`);
+    return;
+  }
   const raw=document.getElementById('ans').value.trim();if(raw==="")return;state.answered=true;
   const ok=typeof q.answer==='string'?norm(raw)===norm(q.answer):Math.abs(parseNum(raw)-q.answer)<1e-6;
   const inp=document.getElementById('ans');inp.disabled=true;inp.style.borderColor=ok?"var(--good)":"var(--bad)";
@@ -2715,6 +3538,9 @@ if('serviceWorker' in navigator){
 // Erst Store laden (async, Capacitor-ready), dann App rendern.
 (async ()=>{
   await Store.init();
+  applyTheme();                                        // gespeichertes Theme anwenden (Default hell)
+  if(window.matchMedia){ const mq=matchMedia('(prefers-color-scheme: dark)'); const onSys=()=>{ if(themeChoice()==='system')applyTheme(); };
+    if(mq.addEventListener)mq.addEventListener('change',onSys); else if(mq.addListener)mq.addListener(onSys); }
   loadProfile();
   const foot=document.querySelector('.foot'); if(foot) foot.textContent='Cortex v'+APP_VERSION+' · Daten lokal auf diesem Gerät';
   document.getElementById('homeBtn').onclick=goHome;   // einmalig, kein doppelter Listener

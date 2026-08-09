@@ -330,6 +330,19 @@
   .combo-seg{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;flex-wrap:wrap}
   .combo-seg-label{font-size:14px;color:var(--muted);flex:0 0 auto}
   .combo-note{font-size:13px;color:var(--muted);background:var(--bg);border-radius:12px;padding:12px 14px;margin-top:6px;line-height:1.5}
+  .combo-el.pos{background:var(--warn-soft);color:var(--warn)}
+  .combo-axis{margin:14px 0}
+  .combo-axis-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:7px}
+  .combo-axis-head span{font-size:14px;color:var(--ink)}
+  .combo-axis-head b{font-size:12.5px;color:var(--accent);font-weight:600;text-align:right}
+  .combo-lvl{display:flex;gap:6px}
+  .combo-lvl>button{flex:1 1 0;min-width:0;padding:11px 0;font-family:var(--mono);font-size:15px;font-weight:600;
+    border:1.5px solid var(--line);border-radius:11px;background:var(--surface);color:var(--muted);cursor:pointer}
+  .combo-lvl>button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .combo-summary{font-size:13px;color:var(--muted);background:var(--bg);border-radius:12px;padding:12px 14px;margin-top:14px;line-height:1.6}
+  .combo-next{font-size:13.5px;color:var(--muted);line-height:1.7;margin-top:4px}
+  .combo-next b{font-family:var(--mono);color:var(--ink)}
+  .combo-next b.up{color:var(--good)} .combo-next b.down{color:var(--bad)}
 
 </style>
 </head>
@@ -1939,6 +1952,8 @@ function confirmLeave(onYes){
 
 /* ================= GEDANKENTIPPS (Stufe 1: statische Sektion) =================
    Zentrale Tipp-Daten. appliesTo nutzt echte Subtyp-Keys (MATH-Keys, 'series', 'ps').
+   scope: "task" = nur aufgabenspezifisch (nie als Coach-Kategorietipp); fehlt scope,
+   gilt "both" (aufgabenspezifisch UND als allgemeiner Kategorietipp im Coach zulaessig).
    Noch KEINE automatische Einblendung in Aufgaben, KEINE Coach-Integration, KEIN
    Eintrag in allCategories/Tagestraining, KEIN Profil. mode: fast|exact|estimate|avoid. */
 const MT_MODES={fast:"Schneller Weg",exact:"Genau rechnen",estimate:"Überschlagen",avoid:"Fehler vermeiden"};
@@ -1953,7 +1968,7 @@ const MENTAL_TIPS=[
   summary:"Runde eine Zahl, gleiche die andere gegenläufig aus.",
   explanation:"Machst du eine Zahl um 1 größer, mache die andere um 1 kleiner — die Summe bleibt gleich, wird aber viel leichter.",
   exampleQuestion:"49 + 37",exampleSteps:["49 + 1 = 50, dafür 37 − 1 = 36","50 + 36 = 86"],result:"86",mnemonic:"Was du oben zugibst, nimm unten weg.",tags:["addition","runden"]},
- {id:"gr_abstand",title:"Subtraktion als Abstand",category:"Grundrechnen",appliesTo:["chain"],level:2,mode:"fast",
+ {id:"gr_abstand",title:"Subtraktion als Abstand",category:"Grundrechnen",appliesTo:["chain"],scope:"task",level:2,mode:"fast",
   summary:"Bei nahen Zahlen: hochzählen statt abziehen.",
   explanation:"Liegen zwei Zahlen dicht beieinander, ist der Abstand schneller gezählt als schriftlich subtrahiert.",
   exampleQuestion:"1003 − 998",exampleSteps:["Von 998 auf 1000 sind 2","Von 1000 auf 1003 sind 3","2 + 3 = 5"],result:"5",mnemonic:"Abstand denken, nicht abziehen.",tags:["subtraktion"]},
@@ -1962,32 +1977,32 @@ const MENTAL_TIPS=[
   summary:"Teile einen Faktor in Zehner + Einer auf.",
   explanation:"17 × 12 wirkt schwer, 17 × 10 und 17 × 2 sind leicht. Zerlegen und die Teilprodukte addieren.",
   exampleQuestion:"17 × 12",exampleSteps:["17 × 10 = 170","17 × 2 = 34","170 + 34 = 204"],result:"204",tags:["distributiv"]},
- {id:"mul_doppelt_halb",title:"Verdoppeln und halbieren",category:"Multiplikation",appliesTo:["mulB"],level:2,mode:"fast",
+ {id:"mul_doppelt_halb",title:"Verdoppeln und halbieren",category:"Multiplikation",appliesTo:["mulB"],scope:"task",level:2,mode:"fast",
   summary:"Halbiere einen Faktor, verdopple den anderen — so lange, bis es leicht ist.",
   explanation:"Das Produkt bleibt gleich. Ziel ist ein Faktor wie 10 oder 100.",
   exampleQuestion:"25 × 16",exampleSteps:["50 × 8 = 400","(oder weiter: 100 × 4 = 400)"],result:"400",mnemonic:"Halb mal doppelt bleibt gleich.",tags:["faktoren"]},
- {id:"mul_5_25_125",title:"×5, ×25, ×125 über Zehnerpotenzen",category:"Multiplikation",appliesTo:["mulS","mulB"],level:2,mode:"fast",
+ {id:"mul_5_25_125",title:"×5, ×25, ×125 über Zehnerpotenzen",category:"Multiplikation",appliesTo:["mulB"],scope:"task",level:2,mode:"fast",
   summary:"×5 = ×10 ÷ 2 · ×25 = ×100 ÷ 4 · ×125 = ×1000 ÷ 8.",
   explanation:"Diese Faktoren sind Bruchteile von Zehnerpotenzen — erst die glatte Potenz nehmen, dann teilen.",
   exampleQuestion:"36 × 25",exampleSteps:["36 × 100 = 3600","3600 ÷ 4 = 900"],result:"900",tags:["zehnerpotenz"]},
- {id:"mul_nahe_100",title:"Nahe an 10 oder 100 rechnen",category:"Multiplikation",appliesTo:["mulB","ps"],level:2,mode:"fast",
+ {id:"mul_nahe_100",title:"Nahe an 10 oder 100 rechnen",category:"Multiplikation",appliesTo:["mulB","ps"],scope:"task",level:2,mode:"fast",
   summary:"Runde einen Faktor auf die Basis und korrigiere danach.",
   explanation:"99 × 23 ist fast 100 × 23. Rechne mit der runden Basis und ziehe den Überschuss einmal ab.",
   exampleQuestion:"99 × 23",exampleSteps:["100 × 23 = 2300","2300 − 23 = 2277"],result:"2277",mnemonic:"Erst rund rechnen, dann ausgleichen.",tags:["runden","distributiv"]},
- {id:"mul_quadrat_diff",title:"Differenz der Quadrate",category:"Multiplikation",appliesTo:["mulB","pow"],level:4,mode:"fast",
+ {id:"mul_quadrat_diff",title:"Differenz der Quadrate",category:"Multiplikation",appliesTo:["mulB"],scope:"task",level:4,mode:"fast",
   summary:"(a − d)(a + d) = a² − d² — ideal bei symmetrischen Faktoren.",
   explanation:"Liegen beide Faktoren gleich weit um eine runde Mitte, nimm Mitte² minus Abstand².",
   exampleQuestion:"48 × 52",exampleSteps:["Mitte 50, Abstand 2","50² − 2² = 2500 − 4"],result:"2496",tags:["binom"]},
- {id:"mul_quadrat_tricks",title:"Quadrat-Tricks: …5² und (a−1)²",category:"Multiplikation",appliesTo:["pow","mulB","sqrt"],level:3,mode:"fast",
+ {id:"mul_quadrat_tricks",title:"Quadrat-Tricks: …5² und (a−1)²",category:"Multiplikation",appliesTo:["pow","mulB"],scope:"task",level:3,mode:"fast",
   summary:"n5² = n·(n+1) davor, 25 dahinter · 19² über (20 − 1)².",
   explanation:"Zahlen auf 5: Zehnerziffer mal ihren Nachfolger, 25 anhängen. Zahlen nahe einer runden Basis: binomisch (a ± b)² = a² ± 2ab + b².",
   exampleQuestion:"35²  und  19²",exampleSteps:["35²: 3 × 4 = 12 → 1225","19²: 400 − 2·20 + 1 = 361"],result:"1225 · 361",tags:["quadrate","binom"]},
  /* Division */
- {id:"div_kuerzen",title:"Vor dem Teilen kürzen",category:"Division",appliesTo:["frac","dreisatz"],level:2,mode:"fast",
+ {id:"div_kuerzen",title:"Vor dem Teilen kürzen",category:"Division",appliesTo:["dreisatz"],scope:"task",level:2,mode:"fast",
   summary:"Gemeinsame Faktoren zuerst streichen, dann teilen.",
   explanation:"Beide Zahlen durch denselben Faktor teilen macht die Division klein — oft geht es in zwei einfachen Schritten.",
   exampleQuestion:"84 ÷ 12",exampleSteps:["Beide ÷ 4: 21 ÷ 3","21 ÷ 3 = 7"],result:"7",mnemonic:"Klein machen, dann teilen.",tags:["faktoren"]},
- {id:"div_5_25_125",title:"÷5, ÷25, ÷125 über Zehnerpotenzen",category:"Division",appliesTo:["pct","dreisatz"],level:2,mode:"fast",
+ {id:"div_5_25_125",title:"÷5, ÷25, ÷125 über Zehnerpotenzen",category:"Division",appliesTo:["pct","dreisatz"],scope:"task",level:2,mode:"fast",
   summary:"÷5 = ×2 ÷ 10 · ÷25 = ×4 ÷ 100 · ÷125 = ×8 ÷ 1000.",
   explanation:"Statt durch krumme Teiler zu dividieren, multipliziere passend und verschiebe dann nur das Komma.",
   exampleQuestion:"230 ÷ 5",exampleSteps:["230 × 2 = 460","460 ÷ 10 = 46"],result:"46",tags:["zehnerpotenz"]},
@@ -1996,32 +2011,32 @@ const MENTAL_TIPS=[
   explanation:"Die Umkehrrechnung ist meist leichter als die Aufgabe selbst und fängt Flüchtigkeitsfehler ab, bevor du antwortest.",
   exampleQuestion:"96 ÷ 8 = 12?",exampleSteps:["Probe: 12 × 8 = 96 ✓","Bei Gleichungen: Lösung einsetzen"],result:"bestätigt",mnemonic:"Rückwärts ist die halbe Kontrolle.",tags:["probe"]},
  /* Brüche */
- {id:"frac_kuerzen_mult",title:"Kürzen vor dem Multiplizieren",category:"Brüche",appliesTo:["frac"],level:2,mode:"fast",
+ {id:"frac_kuerzen_mult",title:"Kürzen vor dem Multiplizieren",category:"Brüche",appliesTo:["frac","ps"],scope:"task",level:2,mode:"fast",
   summary:"Über Kreuz kürzen, bevor du Zähler und Nenner multiplizierst.",
   explanation:"Gemeinsame Faktoren zwischen einem Zähler und einem Nenner dürfen sofort raus — die Zahlen bleiben klein.",
   exampleQuestion:"3/4 × 8/9",exampleSteps:["3 und 9 kürzen → 1/4 × 8/3","8 und 4 kürzen → 1/1 × 2/3"],result:"2/3",tags:["kuerzen"]},
- {id:"frac_kreuz",title:"Brüche per Kreuzprodukt vergleichen",category:"Brüche",appliesTo:["frac","ps"],level:2,mode:"fast",
+ {id:"frac_kreuz",title:"Brüche per Kreuzprodukt vergleichen",category:"Brüche",appliesTo:["ps"],scope:"task",level:2,mode:"fast",
   summary:"a/b vs. c/d: vergleiche a·d mit b·c.",
   explanation:"Kein gemeinsamer Nenner nötig — das größere Kreuzprodukt gehört zum größeren Bruch.",
   exampleQuestion:"3/4 vs. 5/7",exampleSteps:["3 × 7 = 21","4 × 5 = 20","21 > 20 → 3/4 ist größer"],result:"3/4",tags:["vergleich"]},
- {id:"frac_prozent",title:"Typische Bruch-Prozent-Werte",category:"Brüche",appliesTo:["frac","pct"],level:2,mode:"exact",
+ {id:"frac_prozent",title:"Typische Bruch-Prozent-Werte",category:"Brüche",appliesTo:["pct"],scope:"task",level:2,mode:"exact",
   summary:"1/2=50 % · 1/4=25 % · 1/5=20 % · 1/8=12,5 % · 1/3≈33,3 % · 1/6≈16,7 %.",
   explanation:"Diese Paare auswendig zu können übersetzt Brüche und Prozente in beide Richtungen ohne Rechnung.",
   exampleQuestion:"3/8 in Prozent",exampleSteps:["1/8 = 12,5 %","3 × 12,5 % = 37,5 %"],result:"37,5 %",tags:["tabelle"]},
- {id:"frac_kgv",title:"Gemeinsamen Nenner effizient finden",category:"Brüche",appliesTo:["frac"],level:2,mode:"exact",
+ {id:"frac_kgv",title:"Gemeinsamen Nenner effizient finden",category:"Brüche",appliesTo:["frac","ps"],level:2,mode:"exact",
   summary:"Nimm das kleinste gemeinsame Vielfache, nicht stur das Produkt.",
   explanation:"Oft ist der größere Nenner schon ein Vielfaches des kleineren oder das kgV deutlich kleiner als das Produkt — Ganze und Bruchteile dabei getrennt verrechnen.",
   exampleQuestion:"1/4 + 1/6",exampleSteps:["kgV(4, 6) = 12","3/12 + 2/12 = 5/12"],result:"5/12",tags:["nenner","kgv"]},
  /* Prozent */
  {id:"pct_bausteine",title:"Prozent-Bausteine: 10 %, 5 %, 1 %, Viertel, Achtel",category:"Prozent",appliesTo:["pct"],level:1,mode:"fast",
-  summary:"Setze Prozente aus leichten Teilen zusammen: 15 % = 10 % + 5 %, 25 % = ÷4, 12,5 % = ÷8.",
-  explanation:"10 % ist ein Komma-Schritt, 5 % die Hälfte davon, 1 % zwei Schritte. Viertel und Achtel sind reine Divisionen.",
+  summary:"Setze Prozente aus 10 %-, 5 %- und 1 %-Schritten zusammen: 15 % = 10 % + 5 %, 30 % = 3 × 10 %.",
+  explanation:"10 % ist ein Komma-Schritt, 5 % die Hälfte davon, 1 % zwei Komma-Schritte. Krumme Prozentsätze baust du daraus zusammen — 7 % = 5 % + 2 × 1 %.",
   exampleQuestion:"15 % von 80",exampleSteps:["10 % = 8","5 % = 4","8 + 4 = 12"],result:"12",mnemonic:"Erst 10 %, der Rest ist Bruchrechnung.",tags:["bausteine"]},
  {id:"pct_faktor",title:"Prozentänderung als Faktor",category:"Prozent",appliesTo:["pct","ps"],level:4,mode:"avoid",
   summary:"+20 % = ×1,2 · −20 % = ×0,8 · nacheinander = Faktoren multiplizieren.",
   explanation:"Änderungen addieren sich nicht: +10 % dann −10 % ist ×1,1 × 0,9 = ×0,99, also −1 %. Rückwärts rechnest du mit ÷ Faktor.",
   exampleQuestion:"100 € +10 %, dann −10 %",exampleSteps:["×1,1 → 110","×0,9 → 99"],result:"99 €",mnemonic:"Faktoren malnehmen, nie Prozente addieren.",tags:["faktor","rueckwaerts"]},
- {id:"pct_punkte",title:"Prozentpunkte ≠ Prozent",category:"Prozent",appliesTo:["pct"],level:3,mode:"avoid",
+ {id:"pct_punkte",title:"Prozentpunkte ≠ Prozent",category:"Prozent",appliesTo:["pct","ps"],level:3,mode:"avoid",
   summary:"Von 20 % auf 25 %: +5 Prozentpunkte, aber +25 % relativ.",
   explanation:"Punkte messen den absoluten Abstand zwischen zwei Quoten, Prozent die relative Änderung — beides auseinanderhalten.",
   exampleQuestion:"Zins von 20 % auf 25 %",exampleSteps:["Differenz: 5 Punkte","relativ: 5/20 = 25 %"],result:"+5 Pp · +25 %",tags:["begriffe"]},
@@ -2043,16 +2058,16 @@ const MENTAL_TIPS=[
   summary:"Bei ax + b = c: erst b wegnehmen, dann durch a teilen.",
   explanation:"Du schälst x von außen nach innen frei — Punktrechnung zuletzt rückgängig machen. Plus ↔ Minus, Mal ↔ Geteilt.",
   exampleQuestion:"2x + 5 = 17",exampleSteps:["−5: 2x = 12","÷2: x = 6"],result:"x = 6",mnemonic:"Zuletzt gebaut, zuerst abgebaut.",tags:["umformen"]},
- {id:"eq_klammer",title:"Klammern clever behandeln",category:"Gleichungen",appliesTo:["equations"],level:3,mode:"fast",
+ {id:"eq_klammer",title:"Klammern clever behandeln",category:"Gleichungen",appliesTo:["equations"],scope:"task",level:3,mode:"fast",
   summary:"a(x + b) = c: erst durch a teilen statt auszumultiplizieren.",
   explanation:"Steht rechts ein Vielfaches von a, ist Teilen der kürzere Weg — die Klammer verschwindet in einem Schritt. Vorher beide Seiten vereinfachen lohnt immer.",
   exampleQuestion:"3(x + 2) = 21",exampleSteps:["÷3: x + 2 = 7","−2: x = 5"],result:"x = 5",tags:["klammern"]},
  /* Gleichungssysteme */
- {id:"ls_einsetzen",title:"Gegebene Variable sofort einsetzen",category:"Gleichungssysteme",appliesTo:["linsys"],level:1,mode:"fast",
+ {id:"ls_einsetzen",title:"Gegebene Variable sofort einsetzen",category:"Gleichungssysteme",appliesTo:["linsys"],scope:"task",level:1,mode:"fast",
   summary:"Steht x = … schon da, direkt in die andere Gleichung einsetzen.",
   explanation:"Ein halb gelöstes System braucht kein Verfahren — einsetzen, ausrechnen, fertig.",
   exampleQuestion:"2x + y = 13 · x = 4",exampleSteps:["2 · 4 + y = 13","y = 13 − 8 = 5"],result:"x = 4, y = 5",tags:["einsetzen"]},
- {id:"ls_summe_diff",title:"Summe-Differenz-Systeme erkennen",category:"Gleichungssysteme",appliesTo:["linsys"],level:3,mode:"fast",
+ {id:"ls_summe_diff",title:"Summe-Differenz-Systeme erkennen",category:"Gleichungssysteme",appliesTo:["linsys"],scope:"task",level:3,mode:"fast",
   summary:"x + y und x − y gegeben → x = Halbsumme, y = Halbdifferenz.",
   explanation:"Addieren liefert 2x, Subtrahieren 2y — die Lösung steht nach einem Schritt fest.",
   exampleQuestion:"x + y = 10 · x − y = 2",exampleSteps:["Addieren: 2x = 12 → x = 6","10 − 6 = 4 → y = 4"],result:"x = 6, y = 4",mnemonic:"Halbe Summe, halbe Differenz.",tags:["symmetrie"]},
@@ -2070,7 +2085,7 @@ const MENTAL_TIPS=[
   explanation:"Doppelte Menge kostet doppelt (direkt). Doppelt so viele Arbeiter brauchen die halbe Zeit (indirekt) — vor dem Rechnen kurz entscheiden, welcher Fall vorliegt.",
   exampleQuestion:"4 Arbeiter brauchen 6 h. Wie lange brauchen 8?",exampleSteps:["Doppelt so viele Arbeiter","6 ÷ 2 = 3 h"],result:"3 h",tags:["proportional"]},
  /* Geometrie */
- {id:"geo_345",title:"Pythagoras-Tripel merken",category:"Geometrie",appliesTo:["geometrie","trig"],level:3,mode:"fast",
+ {id:"geo_345",title:"Pythagoras-Tripel merken",category:"Geometrie",appliesTo:["geometrie"],scope:"task",level:3,mode:"fast",
   summary:"3-4-5, 5-12-13, 8-15-17 — und ihre Vielfachen.",
   explanation:"Erkennst du zwei Zahlen eines Tripels (auch skaliert wie 6-8-10), steht die dritte Seite ohne Wurzelrechnung fest.",
   exampleQuestion:"Katheten 6 und 8, Hypotenuse?",exampleSteps:["6-8-? ist 2 × (3-4-5)","Hypotenuse: 2 × 5 = 10"],result:"10",tags:["tripel"]},
@@ -2078,12 +2093,12 @@ const MENTAL_TIPS=[
   summary:"Länge ×k → Fläche ×k².",
   explanation:"Verdoppelst du alle Seiten, vervierfacht sich die Fläche — ein Klassiker unter den Denkfallen.",
   exampleQuestion:"Quadratseite ×3 — Fläche?",exampleSteps:["Fläche: ×3² = ×9"],result:"×9",mnemonic:"Fläche zählt doppelt: k mal k.",tags:["skalierung"]},
- {id:"geo_dreieck",title:"Dreieck als halbes Rechteck",category:"Geometrie",appliesTo:["area","geometrie"],level:1,mode:"exact",
+ {id:"geo_dreieck",title:"Dreieck als halbes Rechteck",category:"Geometrie",appliesTo:["area","geometrie"],scope:"task",level:1,mode:"exact",
   summary:"A = g · h ÷ 2 — erst das Rechteck denken, dann halbieren.",
   explanation:"Jedes Dreieck passt zweimal in das Rechteck aus Grundseite und Höhe. Für schnelle Überschläge beim Kreis: π ≈ 3, Fläche grob 3 · r².",
   exampleQuestion:"g = 8, h = 5",exampleSteps:["Rechteck: 8 × 5 = 40","Hälfte: 20"],result:"20",tags:["flaeche"]},
  /* Folgen & Logik */
- {id:"serie_differenzen",title:"Erste und zweite Differenzen bilden",category:"Folgen/Logik",appliesTo:["series","sum"],level:1,mode:"fast",
+ {id:"serie_differenzen",title:"Erste und zweite Differenzen bilden",category:"Folgen/Logik",appliesTo:["series"],level:1,mode:"fast",
   summary:"Schreibe die Abstände unter die Folge — sind sie konstant, wachsend, oder erst in zweiter Ebene konstant?",
   explanation:"Konstante erste Differenzen = lineares Muster. Konstante zweite Differenzen = quadratisches Muster (z. B. n² + 1).",
   exampleQuestion:"2, 5, 10, 17, 26, ?",exampleSteps:["Differenzen: +3, +5, +7, +9","nächste: +11 → 26 + 11"],result:"37",mnemonic:"Erst eine Etage tiefer schauen.",tags:["differenzen"]},
@@ -2150,58 +2165,122 @@ function mentalTipsScreen(){
 }
 
 /* ---- Stufe 2: Gedankentipp im Aufgabenfeedback --------------------------------
-   Ein einziger Hook (showFeedback). Deterministische Regeln, kein Math.random:
-   - Falsche Antwort: Tipp IMMER, wenn ein passender Kandidat existiert.
-   - Richtige Antwort: nur fast/estimate/avoid-Tipps; angezeigt beim 1. und dann
-     jedem 3. passenden Treffer der Session – ODER sofort bei praezisem Muster
-     (z. B. ×25, 99×…, Klammer-Gleichung). Max. 1 Tipp pro Aufgabe; nie dieselbe
-     ID direkt hintereinander; innerhalb der Session bevorzugt ungezeigte Tipps.
-   - Session-Zustand haengt am SESSION_TOKEN (kein Profil, kein localStorage). */
-let mtFb={token:-1,shown:[],eligibleCorrect:0};
-function mtFbSync(){ const tok=(state&&state.token)!=null?state.token:-1; if(mtFb.token!==tok)mtFb={token:tok,shown:[],eligibleCorrect:0}; }
+   GRUNDREGEL: Praezision vor Abdeckung. Ein Tipp erscheint nur, wenn er sicher zur
+   konkreten Aufgabe passt. Matching-Hierarchie (erste sicher greifende Stufe zaehlt):
+     1) konkreter q.type            (Gleichungen, Gleichungssysteme)
+     2) strukturierte Metadaten     (GMAT-Topic, Explain-Muster der Zahlenreihen)
+     3) eindeutiges Prompt-Muster   (Faktoren, Prozentsatz, Bruchstruktur)
+     4) universeller Subtyp-Tipp    (MT_UNIVERSAL; nur wenn er fuer praktisch jede
+                                     Aufgabe des Subtyps gilt; nur bei falscher Antwort)
+   Greift keine Stufe: null → KEIN Tipp. Kein "erster Tipp der Kategorie" mehr.
+   Richtige Antwort: nur praezise fast/estimate-Tipps ("Schnellerer Weg"), und nur
+   wenn die Tipp-ID in dieser Session noch nicht gezeigt wurde. Falsche Antwort:
+   praeziser Tipp (darf sich wiederholen) oder ungezeigter universeller Subtyp-Tipp.
+   Session-Zustand haengt am SESSION_TOKEN (kein Profil, kein localStorage). */
+let mtFb={token:-1,shown:[]};
+function mtFbSync(){ const tok=(state&&state.token)!=null?state.token:-1; if(mtFb.token!==tok)mtFb={token:tok,shown:[]}; }
 function mtBaseKey(q){ if(!q)return null; const c=String(q.cat||'');
   if(c.indexOf('math:')===0)return c.slice(5);
   if(c==='logic:series')return 'series';
   if(c==='ps'||((!c)&&state&&state.key==='ps'&&q.topic!=null))return 'ps';   // GMAT-PS: Daily (cat) oder Bank-Session (key)
   return null; }                                                              // CFA/DS/CR/WM/Deutsch/Elektro/übrige Logik: kein Tipp
+/* Universelle Subtyp-Tipps: nur dort eingetragen, wo der Tipp fuer praktisch jede
+   Aufgabe des Subtyps traegt (Stufe 4). Bewusst KEIN Eintrag fuer pct, frac, pow,
+   sqrt, series, equations, linsys, geometrie, area, ps – dort gilt: ohne praezisen
+   Treffer lieber kein Tipp. */
+const MT_UNIVERSAL={chain:'gr_ergaenzen',mulB:'mul_distributiv',dreisatz:'ds_einheit'};
+function mtStrip(s){return String(s==null?'':s).replace(/<[^>]*>/g,' ');}
+function mtGcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t;}return a||1;}
+function mtFactors(P){const m=P.match(/(\d+)\s*[×·]\s*(\d+)/);return m?[+m[1],+m[2]]:null;}
+function mtNearBase(n){const r=n%10;return n>=18&&(r===1||r===2||r===8||r===9);}   // 19, 21, 28, 99, 101 … – nicht 37, 14
+/* Stufen 1–3: liefert praezise Tipp-ID oder null. Bewusst Whitelists statt Fallbacks. */
+function mtPreciseTip(k,q){
+  const P=mtStrip(q.prompt||q.q||''),T=String(q.type||''),X=String(q.explain||'');
+  if(k==='chain'){
+    return /[+\u2212]\s*\d[89]\b/.test(P)?'gr_ausgleich':null;                   // zweistelliger Operand nahe am Zehner
+  }
+  if(k==='mulS'){ const F=mtFactors(P); return (F&&Math.max(F[0],F[1])>=11)?'mul_distributiv':null; }
+  if(k==='mulB'){
+    const F=mtFactors(P); if(!F)return null; const a=F[0],b=F[1];
+    if(a===25||b===25||a===125||b===125)return 'mul_5_25_125';                    // 36 × 25 → ×100 ÷ 4
+    if(a===b&&(a%5===0||a%10===9||a%10===1))return 'mul_quadrat_tricks';          // 15², 19², 21²
+    if(a!==b&&(a+b)%10===0&&Math.abs(a-b)<=6)return 'mul_quadrat_diff';           // 18 × 22 = 20² − 2²
+    if(mtNearBase(a)||mtNearBase(b))return 'mul_nahe_100';                        // 19 × 23, 99 × 23 – nicht 37 × 14
+    if(a===16||b===16||((a===15||b===15)&&(a%2===0||b%2===0)))return 'mul_doppelt_halb';
+    return null;
+  }
+  if(k==='pct'){
+    if(/Prozentpunkt/i.test(P))return 'pct_punkte';
+    if(/dann|danach|anschließend|nacheinander/i.test(P))return 'pct_faktor';      // verkettete Aenderungen
+    const m=P.match(/(\d+(?:,\d+)?)\s*%/); if(!m)return null;
+    const p=parseFloat(m[1].replace(',','.')), rev=/von\s*\?/.test(P);
+    if(!rev&&(p===12.5||p===20||p===25||p===50||p===75))return 'frac_prozent';    // Bruch-Sicht: ÷8, ÷5, ÷4, ÷2, ×3/4
+    if(!rev&&(p===5||p===10||p===15||p===30||p===35||p===40||p===45||p===60||p===90))return 'pct_bausteine';
+    if(rev&&(p===20||p===25||p===50))return 'frac_prozent';                       // Rueckwaerts: „25 % → ×4“
+    return null;                                                                  // z. B. Rueckwaertsaufgabe mit 10 %: kein Tipp
+  }
+  if(k==='frac'){
+    const fm=P.match(/(\d+)\s*\/\s*(\d+)\s*([×·+\u2212])\s*(\d+)\s*\/\s*(\d+)/);
+    if(!fm)return null; const n1=+fm[1],d1=+fm[2],op=fm[3],n2=+fm[4],d2=+fm[5];
+    if(op==='×'||op==='·')                                                        // Kuerzen-Tipp nur bei echtem Kuerzungspotenzial
+      return (mtGcd(n1,d2)>1||mtGcd(n2,d1)>1||mtGcd(n1,d1)>1||mtGcd(n2,d2)>1)?'frac_kuerzen_mult':null;
+    return d1!==d2?'frac_kgv':null;                                               // +/−: nur bei ungleichen Nennern
+  }
+  if(k==='equations'){
+    if(T==='paren')return 'eq_klammer';
+    if(T==='two_add'||T==='two_sub'||T==='two_divadd'||T==='lin_add'||T==='lin_sub'||T==='lin_mul'||T==='lin_div'||T==='lin_coef')return 'eq_umkehr';
+    return null;                                                                  // lin_divx (24/x=6) & both_sides: kein passender Tipp
+  }
+  if(k==='linsys'){
+    if(T==='given_x'||T==='given_y'||T==='subst')return 'ls_einsetzen';
+    if(T==='add_sub')return 'ls_summe_diff';
+    if(T.indexOf('elim')===0)return 'ls_addition';
+    return null;
+  }
+  if(k==='series'){
+    if(/verschachtelt|abwechselnd|Teilfolgen|Position/i.test(X))return 'serie_teilfolgen';
+    if(/Differenz|Abzug|Quadratzahlen|Dreieckszahlen|Pronische|Primzahlen addiert/.test(X))return 'serie_differenzen';
+    return null;                                                                  // ×2/×3/÷2, Fibonacci, reine Primzahlen, Kubik: kein Differenzen-Tipp
+  }
+  if(k==='dreisatz'){ return /wie lange brauchen/i.test(P)?'ds_proportional':null; }
+  if(k==='sqrt'){ return /√/.test(P)?'sqrt_nachbarn':null; }                      // ∛: kein Quadrat-Tipp
+  if(k==='pow'){
+    const m=P.match(/^\s*(\d+)\s+(\d+)\s*$/); if(!m)return null;               // "a<sup>b</sup>" → nach Strip "a b"
+    return (+m[2]===2||+m[1]===2)?'pow_quadrate':null;                            // Quadrate & Zweierpotenzen; sonst kein Tipp
+  }
+  if(k==='geometrie'){ return /Hypotenuse|Kathete/i.test(P)?'geo_345':null; }     // Umfang/Kreis/Volumen: kein Tipp
+  if(k==='area'){ return /Dreieck/i.test(P)?'geo_dreieck':null; }                 // Rechteck/Quadrat/Parallelogramm: Formel steht im Hinweis
+  if(k==='ps'){
+    if(/Prozentpunkt/i.test(P))return 'pct_punkte';
+    const F=mtFactors(P); if(F&&(F[0]===98||F[0]===99||F[0]===101||F[0]===102||F[1]===98||F[1]===99||F[1]===101||F[1]===102))return 'mul_nahe_100';
+    if(q.topic==='fractions'){
+      const nf=(P.match(/\d+\s*\/\s*\d+/g)||[]).length;
+      if(/größt|kleinst|größer|kleiner/i.test(P)&&(nf>=2||/Bruch/i.test(P)))return 'frac_kreuz';
+      const fm=P.match(/(\d+)\s*\/\s*(\d+)\s*[×·]\s*(\d+)\s*\/\s*(\d+)/);
+      if(fm)return (mtGcd(+fm[1],+fm[4])>1||mtGcd(+fm[3],+fm[2])>1||mtGcd(+fm[1],+fm[2])>1||mtGcd(+fm[3],+fm[4])>1)?'frac_kuerzen_mult':null;
+      const am=P.match(/(\d+)\s*\/\s*(\d+)\s*[+\u2212]\s*(\d+)\s*\/\s*(\d+)/);
+      if(am)return (+am[2]!==+am[4])?'frac_kgv':null;
+      return null;
+    }
+    if(q.topic==='percent'&&/dann|danach|anschließend|erhöht.*?(gesenkt|reduziert|verringert)/i.test(P))return 'pct_faktor';
+    return null;                                                                  // Konzept-/Trap-Fragen: kein erzwungener Tipp
+  }
+  return null;                                                                    // sum, log, trig, factorial, prod, func, … : kein Tipp
+}
 function _selectMentalTip(q,wasCorrect,recentIds){
   const k=mtBaseKey(q); if(!k)return null;
-  const cands=tipsFor(k); if(!cands.length)return null;
   recentIds=Array.isArray(recentIds)?recentIds:[];
-  const P=String(q.prompt||q.q||''),T=String(q.type||''),X=String(q.explain||'');
-  const by=id=>cands.find(t=>t.id===id)||null;
-  let precise=null;
-  if(k==='mulB'||k==='mulS'){
-    if(/(^|[^0-9])(98|99|101|102)\s*×/.test(P)||/×\s*(98|99|101|102)([^0-9]|$)/.test(P))precise=by('mul_nahe_100');
-    else if(/×\s*(125|25)([^0-9]|$)/.test(P)||/(^|[^0-9])(125|25)\s*×/.test(P))precise=by('mul_5_25_125');
-  } else if(k==='pct'){
-    if(/Prozentpunkt/i.test(P))precise=by('pct_punkte');
-    else if(/dann|danach|anschließend|zuerst/i.test(P))precise=by('pct_faktor');
-    else if(/(^|\D)(25|12,5|15|10|5)\s?%/.test(P))precise=by('pct_bausteine');
-  } else if(k==='frac'){
-    if(/[×·]/.test(P))precise=by('frac_kuerzen_mult');
-    else if(/[+−]/.test(P))precise=by('frac_kgv');
-  } else if(k==='equations'){ precise=(T==='paren')?by('eq_klammer'):by('eq_umkehr'); }
-  else if(k==='linsys'){
-    if(T==='given_x'||T==='given_y'||T==='subst')precise=by('ls_einsetzen');
-    else if(T==='add_sub')precise=by('ls_summe_diff');
-    else if(T.indexOf('elim')===0)precise=by('ls_addition');
-  } else if(k==='series'){ precise=/Teilfolgen|verschachtelt|abwechselnd|Position/i.test(X)?by('serie_teilfolgen'):by('serie_differenzen'); }
-  else if(k==='dreisatz'){ precise=/Arbeiter|Maschinen|weniger Zeit|indirekt/i.test(P)?by('ds_proportional'):by('ds_einheit'); }
-  else if(k==='sqrt'){ if(/√/.test(P))precise=by('sqrt_nachbarn'); }
-  else if(k==='pow'){ if(/⁻/.test(P))precise=by('pow_gesetze'); else if(/²/.test(P))precise=by('pow_quadrate'); }
-  else if(k==='geometrie'||k==='area'){
-    if(/Hypotenuse|Kathete/i.test(P))precise=by('geo_345');
-    else if(/Dreieck/i.test(P))precise=by('geo_dreieck');
-  } else if(k==='ps'){ if(q.topic==='fractions')precise=by('frac_kreuz'); }
-  let pool=wasCorrect?cands.filter(t=>t.mode==='fast'||t.mode==='estimate'||t.mode==='avoid'):cands.slice();
-  if(!pool.length)return null;
-  if(precise&&pool.indexOf(precise)<0)precise=null;                            // praeziser Treffer muss im erlaubten Pool liegen
-  const ordered=precise?[precise,...pool.filter(t=>t!==precise)]:pool;
-  const last=recentIds.length?recentIds[recentIds.length-1]:null;
-  const tip=ordered.find(t=>recentIds.indexOf(t.id)<0)||ordered.find(t=>t.id!==last)||null;
-  if(!tip)return null;
-  return {tip,precise:!!(precise&&tip===precise)};
+  let id=null; try{ id=mtPreciseTip(k,q); }catch(e){ id=null; }
+  let precise=!!id;
+  if(!id&&!wasCorrect&&MT_UNIVERSAL[k])id=MT_UNIVERSAL[k];                        // Stufe 4 nur bei falscher Antwort
+  if(!id)return null;
+  const tip=mentalTipById(id); if(!tip)return null;
+  if(wasCorrect){
+    if(!precise)return null;                                                      // richtig + kein praeziser Treffer → kein Tipp
+    if(tip.mode!=='fast'&&tip.mode!=='estimate')return null;                      // „Schnellerer Weg“ nur, wenn wirklich schneller
+    if(recentIds.indexOf(tip.id)>=0)return null;                                  // nach richtigen Antworten nicht wiederholen
+  } else if(!precise&&recentIds.indexOf(tip.id)>=0)return null;                   // universeller Tipp max. 1× pro Session
+  return {tip,precise};
 }
 function selectMentalTip(question,wasCorrect,recentTipIds){ const r=_selectMentalTip(question,wasCorrect,recentTipIds); return r?r.tip:null; }
 function maybeAppendMentalTip(ok){
@@ -2209,7 +2288,6 @@ function maybeAppendMentalTip(ok){
     mtFbSync();
     const q=state&&state.list?state.list[state.i]:null;
     const r=_selectMentalTip(q,ok,mtFb.shown); if(!r)return;
-    if(ok){ mtFb.eligibleCorrect++; if(!r.precise&&mtFb.eligibleCorrect%3!==1)return; }
     const fb=document.getElementById('fb'); if(!fb)return;
     const t=r.tip; mtFb.shown.push(t.id); if(mtFb.shown.length>12)mtFb.shown.shift();
     const el=document.createElement('div'); el.className='fbtip';
@@ -2263,8 +2341,9 @@ function coachDueReviewable(){ const now=Date.now(); let n=0;
   try{ const g=Store.data.gmatProfile; if(g&&Array.isArray(g.reviewQueue))n+=g.reviewQueue.filter(r=>(r.dueAt==null||r.dueAt<=now)&&(!r.bank||r.bank==='ps')).length; }catch(e){}
   return n; }
 /* Coach-Strategie: deterministische Tipp-Auswahl fuer den Top-Kandidaten.
-   Nur Mathe-Subtypen, logic:series (defensiv, falls kuenftig Kandidat) und GMAT-PS mit
-   eindeutiger Mathe-Zuordnung (Topic fractions). CFA/WM/Kombi/DS/CR/unbekannt → null.
+   Der Coach kennt KEINE konkrete Aufgabe → nur category-general Tipps (scope!=='task').
+   Hochspezifische Technik-Tipps (×25-Trick, Kreuzprodukt, Nahe-100 …) sind ausgeschlossen.
+   Nur Mathe-Subtypen, logic:series (defensiv) und GMAT-PS (allgemeine PS-Strategie).
    Bevorzugung: fast → avoid → estimate → erster Kandidat (MENTAL_TIPS-Reihenfolge). */
 function coachMentalTip(cand){
   try{
@@ -2274,7 +2353,7 @@ function coachMentalTip(cand){
     else if(cand.area==='GMAT'&&cand.gtopic==='fractions')k='ps';
     else if(cand.key==='logic:series'||cand.key==='series')k='series';
     if(!k)return null;
-    const all=tipsFor(k); if(!all.length)return null;
+    const all=tipsFor(k).filter(t=>t.scope!=='task'); if(!all.length)return null;   // nur category-general Tipps
     const HOME={pct:'Prozent',frac:'Brüche',chain:'Grundrechnen',mulS:'Multiplikation',mulB:'Multiplikation',
       sqrt:'Potenzen/Wurzeln',pow:'Potenzen/Wurzeln',log:'Potenzen/Wurzeln',equations:'Gleichungen',
       linsys:'Gleichungssysteme',dreisatz:'Dreisatz',geometrie:'Geometrie',area:'Geometrie',
@@ -2282,8 +2361,7 @@ function coachMentalTip(cand){
     const prim=HOME[k]?all.filter(t=>t.category===HOME[k]):[];
     const cands=prim.length?prim:all;                                  // Heimatkategorie bevorzugen, sonst alle passenden
     let tip=null;
-    if(k==='ps')tip=cands.find(t=>t.id==='frac_kreuz')||all.find(t=>t.id==='frac_kreuz')||null;
-    if(!tip)for(const m of ['fast','avoid','estimate']){ tip=cands.find(t=>t.mode===m)||null; if(tip)break; }
+    for(const m of ['fast','avoid','estimate']){ tip=cands.find(t=>t.mode===m)||null; if(tip)break; }
     return tip||cands[0]||null;
   }catch(e){ return null; }
 }
@@ -2674,50 +2752,98 @@ function tipController(q){
 
 /* ---- RENDER ---- */
 /* ---- Kombi-Memory Zustand ---- */
-let comboCfg={adaptive:true, mem:2, intf:2, math:2}, comboSession=null;  // Session-Konfiguration (nur diese Session, nie persistiert)
+let comboCfg={adaptive:true, mem:2, intf:2, math:2, touched:false}, comboSession=null;  // Session-Konfiguration (nur diese Session, nie persistiert)
 
 /* =========================================================
    KOMBI-MEMORY  (Working Memory · Merken -> Ablenkung -> Abruf)
-   Neue WM-Unterkategorie ab v1.12.0. Selbst-adaptiv auf zwei Achsen:
-   Memory Load (Anzahl gemerkter Elemente) und Interferenz Load
-   (Anzahl der Mathe-Ablenkungsaufgaben dazwischen).
+   Drei vollstaendig unabhaengige Schwierigkeitsachsen mit je 5 Stufen:
+     Merklast    (COMBO_MEM)    Anzahl + Art der Elemente, Gewicht der Reihenfolge
+     Interferenz (COMBO_INTF)   nur die ANZAHL der Ablenkungsaufgaben
+     Mathe       (COMBO_TYPES)  nur die SCHWIERIGKEIT der Ablenkungsaufgaben
+   Alle 5x5x5 = 125 Kombinationen sind gueltig; keine Achse zieht eine andere mit.
    Nutzt bestehende Bausteine (Session-Shell, record/pushReview/next,
    updateAdaptiveProfile). Bricht keine bestehende WM-Logik.
 ========================================================= */
 
 /* ---- Inhalts-Baenke ---- */
 const COMBO_WORDS=["Apfel","Berg","Blume","Brot","Bruecke","Dach","Feder","Fluss","Garten","Hafen","Hand","Haus","Hund","Insel","Kaffee","Katze","Kerze","Koenig","Lampe","Loeffel","Maus","Meer","Mond","Nadel","Ofen","Pferd","Regen","Ring","Schuh","Segel","Sonne","Stern","Stuhl","Tisch","Turm","Uhr","Vogel","Wald","Wasser","Wolke"];
+const COMBO_COLORS=["Rot","Blau","Gruen","Gelb","Weiss","Schwarz","Braun","Grau","Lila","Orange"];
 const COMBO_CODE_LETTERS="ABCDEFGHKLMNPRSTVWXYZ".split(''); // ohne leicht verwechselbare I,J,O,Q,U
-/* ---- Drei unabhängige Achsen (je Stufe 1–3) ----
-   Merklast   -> Anzahl + Komplexität der Elemente + ob Reihenfolge zählt
-   Interferenz-> nur ANZAHL der Ablenkungs-Matheaufgaben
-   Mathe      -> nur SCHWIERIGKEIT der Ablenkungsaufgaben (entkoppelt von Interferenz) */
+function comboWordPool(){return COMBO_WORDS.concat(COMBO_COLORS);}   // Farben zaehlen als Woerter (auch als Distraktoren)
+
+/* ---- Achse 1: Merklast (1-5) ----
+   count    Anzahl der Elemente        num  Zahlenbereich der Zahl-Elemente
+   contents moegliche Inhaltsmodi      similar Wahrscheinlichkeit fuer ein verwechselbares Zwillingselement */
 const COMBO_MEM={
-  1:{count:[2,3], contents:['words','numbers'],          order:()=>false},
-  2:{count:[4,4], contents:['numbers','codes','words'],  order:()=>Math.random()<0.4},
-  3:{count:[5,6], contents:['codes','mixed'],            order:()=>true}
+  1:{count:[2,2], contents:['words','numbers'],         num:[2,9],   similar:0},    // 2 Elemente, einfache Woerter/Ziffern
+  2:{count:[3,3], contents:['words','numbers','mixed'], num:[2,9],   similar:0},    // 3 Elemente, Woerter + Ziffern
+  3:{count:[4,4], contents:['mixed','codes','words'],   num:[10,99], similar:0.3},  // 4 Elemente, kurze Codes moeglich
+  4:{count:[5,5], contents:['mixed','codes'],           num:[10,99], similar:0.6},  // 5 Elemente, gemischt, aehnliche moeglich
+  5:{count:[6,7], contents:['mixed','codes'],           num:[10,99], similar:1}     // 6-7 Elemente, verwechselbare Zwillinge
 };
-const COMBO_INTF={1:[1,1], 2:[2,3], 3:[4,5]};              // Anzahl Ablenkungsaufgaben je Stufe
-const COMBO_MEM_LABEL={1:'niedrig',2:'mittel',3:'hoch'};
-const COMBO_INTF_LABEL={1:'niedrig',2:'mittel',3:'hoch'};
-const COMBO_MATH_LABEL={1:'leicht',2:'mittel',3:'schwer'};
+const COMBO_ORDER_W={1:0,2:0,3:0.25,4:0.5,5:0.65};   // Gewicht der Position im Memory-Score (Stufe 1-2: nur Inhalt)
+const COMBO_PASS   ={1:1,2:1,3:0.85,4:0.78,5:0.72};  // ab diesem Score gilt ein Block als "gemerkt"
+/* ---- Achse 2: Interferenz (1-5) = Anzahl der Ablenkungsaufgaben ---- */
+const COMBO_INTF   ={1:[1,1],2:[2,2],3:[3,3],4:[4,5],5:[6,7]};
+const COMBO_MEM_LABEL  ={1:'sehr leicht',2:'leicht',3:'mittel',4:'hoch',5:'sehr hoch'};
+const COMBO_INTF_LABEL ={1:'sehr kurz',2:'kurz',3:'mittel',4:'lang',5:'sehr lang'};
+const COMBO_MATH_LABEL ={1:'sehr leicht',2:'leicht',3:'mittel',4:'anspruchsvoll',5:'schwer'};
+const COMBO_MATH_PHRASE={1:'sehr leichte Mathematik',2:'leichte Mathematik',3:'mittlere Mathematik',4:'anspruchsvolle Mathematik',5:'schwere Mathematik'};
+function comboMemCountText(L){const c=COMBO_MEM[clamp(L,1,5)].count;return (c[0]===c[1]?c[0]:c[0]+'\u2013'+c[1])+' Elemente';}
+function comboIntfCountText(L){const c=COMBO_INTF[clamp(L,1,5)];return (c[0]===c[1]?c[0]:c[0]+'\u2013'+c[1])+' Matheaufgabe'+(c[1]>1?'n':'');}
+function comboAxisSummary(mem,intf,math){return comboMemCountText(mem)+' \u00b7 '+comboIntfCountText(intf)+' \u00b7 '+COMBO_MATH_PHRASE[clamp(math,1,5)];}
+function comboOrderNote(L){L=clamp(L,1,5);return COMBO_ORDER_W[L]===0?'Reihenfolge z\u00e4hlt auf dieser Stufe noch nicht mit'
+  :(L===3?'Reihenfolge z\u00e4hlt leicht mit':(L===4?'Reihenfolge z\u00e4hlt deutlich mit':'Reihenfolge ist ein wichtiger Teil der Wertung'));}
+/* Memory-Score: Inhalt und Position getrennt gewichtet (Gewicht steigt mit der Merkstufe). */
+function comboMemScore(memLevel,contentCorrect,posCorrect,n){
+  if(!n)return 0;
+  const w=COMBO_ORDER_W[clamp(memLevel||1,1,5)]||0;
+  return +(((1-w)*(contentCorrect/n)+w*(posCorrect/n)).toFixed(4));
+}
 function comboModeLabel(m){return ({adaptive:'Adaptiv',words:'Woerter',numbers:'Zahlen',codes:'Codes',mixed:'Gemischt'})[m]||m;}
 function comboContentNoun(mode){return mode==='words'?'Woerter':mode==='numbers'?'Zahlen':mode==='codes'?'Codes':'Elemente';}
 function comboElNoun(t){return t==='word'?'Wort':t==='number'?'Zahl':'Code';}
 
-function comboMakeElements(mode,count){
+/* Erzeugt zu einem Element ein leicht verwechselbares Gegenstueck (B7/B3, 27/72, Berg/Brot). */
+function comboSimilarTwin(el,used){
+  const t=el.type,v=el.val;
+  for(let g=0;g<60;g++){
+    let cand=null;
+    if(t==='code'){ cand = Math.random()<0.6 ? v.charAt(0)+rnd(1,9) : pick(COMBO_CODE_LETTERS)+v.slice(1); }
+    else if(t==='number'){
+      if(v.length>=2){ const sw=v.charAt(1)+v.charAt(0); cand=(Math.random()<0.6&&sw.charAt(0)!=='0')?sw:String(clamp(+v+pick([-10,-1,1,10]),10,99)); }
+      else cand=String(clamp(+v+(Math.random()<0.5?1:-1),2,9));
+    }
+    else { const pool=comboWordPool().filter(w=>w.charAt(0)===v.charAt(0)&&w!==v); if(!pool.length)return null; cand=pick(pool); }
+    if(cand&&cand!==v&&!used.has(t+':'+cand.toUpperCase()))return {type:t,val:cand};
+  }
+  return null;
+}
+function comboMakeElements(mode,count,opts){
+  opts=opts||{};
+  const numRange=opts.num||[10,99], similar=opts.similar||0, words=comboWordPool();
   count=clamp(count,1,8);
   const used=new Set(); const els=[];
   for(let i=0;i<count;i++){
     let t = mode==='mixed'?pick(['word','number','code']):({words:'word',numbers:'number',codes:'code'})[mode]||'word';
     let val,g=0;
     do{
-      if(t==='word')val=pick(COMBO_WORDS);
-      else if(t==='number')val=String(rnd(10,99));
+      if(t==='word')val=pick(words);
+      else if(t==='number')val=String(rnd(numRange[0],numRange[1]));
       else val=pick(COMBO_CODE_LETTERS)+rnd(1,9);
     }while(used.has(t+':'+val.toUpperCase())&&++g<80);
     used.add(t+':'+val.toUpperCase());
     els.push({type:t,val:val});
+  }
+  // ab Merkstufe 3: ein verwechselbares Zwillingselement einstreuen (Anzahl bleibt gleich)
+  if(similar>0&&els.length>=3&&Math.random()<similar){
+    const si=rnd(0,els.length-1), tw=comboSimilarTwin(els[si],used);
+    if(tw){
+      const others=[]; for(let i=0;i<els.length;i++)if(i!==si)others.push(i);
+      const j=pick(others);
+      used.delete(els[j].type+':'+els[j].val.toUpperCase());
+      els[j]=tw; used.add(tw.type+':'+tw.val.toUpperCase());
+    }
   }
   return els;
 }
@@ -2769,7 +2895,7 @@ function comboNumMathQ(mathLevel){
    Jede Aufgabe traegt Metadaten: distractionType, mathDifficulty (easy/medium/hard),
    expectedSteps (1-3), render (input/choice). Brueche IMMER als Choice. Kurze Erklaerung.
    comboNumMathQ/comboFracMC bleiben als Bausteine bzw. Fallback erhalten. */
-const CMD={1:'easy',2:'medium',3:'hard'};
+const CMD={1:'very_easy',2:'easy',3:'medium',4:'hard',5:'very_hard'};
 const CMINUS='\u2212', CTIMES='\u00d7', CDIV='\u00f7', CEUR='\u20ac', CDOT='\u00b7';
 function cNum(dt,L,steps,prompt,answer,explain){
   return {kind:'num',render:'input',type:dt,distractionType:dt,mathDifficulty:CMD[L],
@@ -2794,7 +2920,7 @@ const COMBO_GEN={
     const p=o[0],base=o[1];return cNum('percent',1,1,p+'% von '+base,base*p/100,p+'% = '+(p===50?'die Haelfte':p===25?'ein Viertel':'ein Zehntel')+'.');},
   eq1:()=>{const x=rnd(3,15),a=rnd(2,12);
     if(Math.random()<0.5)return cNum('equation',1,1,'x + '+a+' = '+(x+a)+'   x = ?',x,'x = '+(x+a)+' '+CMINUS+' '+a+'.');
-    const m=rnd(2,9);return cNum('equation',1,1,m+' '+CTIMES+' x = '+(m*x)+'   x = ?',x,'x = '+(m*x)+' '+CDIV+' '+m+'.');},
+    const m=rnd(2,9);return cNum('equation',1,1,m+'x = '+(m*x)+'   x = ?',x,'x = '+(m*x)+' '+CDIV+' '+m+'.');},
   /* mittel (L2) */
   chain:()=>{const v=pick(['ams','mpa','dpa']);
     if(v==='ams'){const a=rnd(8,20),b=rnd(4,15),c=rnd(2,a+b-1);return cNum('chain',2,2,a+' + '+b+' '+CMINUS+' '+c,a+b-c,'Von links nach rechts.');}
@@ -2840,39 +2966,126 @@ const COMBO_GEN={
       ['Einige A sind B. Alle B sind C. Folgt: Einige A sind C?','Wahr'],
       ['Alle A sind B. Kein B ist C. Folgt: Kein A ist C?','Wahr'],
       ['Alle Katzen sind Tiere. Folgt: Alle Tiere sind Katzen?','Falsch']];
-    const it=pick(bank);return cChoice('logic',3,2,it[0],it[1],[it[1]==='Wahr'?'Falsch':'Wahr'],'Nur was zwingend folgt, ist wahr.');}
+    const it=pick(bank);return cChoice('logic',5,2,it[0],it[1],[it[1]==='Wahr'?'Falsch':'Wahr'],'Nur was zwingend folgt, ist wahr.');},
+  /* ---- zusaetzliche Typen fuer die 5-Stufen-Systematik (kurz, iPhone-tauglich) ---- */
+  add2:()=>{const a=rnd(24,89),b=rnd(15,79);                                        // L2: groessere Addition/Subtraktion mit Uebertrag
+    return Math.random()<0.5?cNum('add',2,1,a+' + '+b,a+b,'Zehner und Einer getrennt addieren.')
+                            :cNum('sub',2,1,(a+b)+' '+CMINUS+' '+b,a,'Erst Zehner, dann Einer abziehen.');},
+  divB:()=>{const b=rnd(3,9),q=rnd(6,14),a=b*q;                                     // L2: glatte Division, groessere Zahlen
+    return cNum('div',2,1,a+' '+CDIV+' '+b,q,'Wie oft passt '+b+' in '+a+'?');},
+  chain2:()=>{const a=rnd(20,60),b=rnd(10,40),c=rnd(5,Math.min(40,a+b-1));          // L2: einfache Kettenrechnung
+    return cNum('chain',2,2,a+' + '+b+' '+CMINUS+' '+c,a+b-c,'Von links nach rechts.');},
+  mulChain:()=>{const a=pick([12,14,15,16,18,20,24,25]),b=rnd(3,6),c=rnd(8,30);     // L3: 24 x 4 - 15
+    return cNum('chain',3,2,a+' '+CTIMES+' '+b+' '+CMINUS+' '+c,a*b-c,'Erst '+CTIMES+', dann '+CMINUS+'.');},
+  fracOf:(L)=>{const easy=[['1/2',1,2],['1/4',1,4],['3/4',3,4],['1/3',1,3],['2/3',2,3]],   // L3 leicht / L4 anspruchsvoller
+      hard=[['3/5',3,5],['2/5',2,5],['4/5',4,5],['5/6',5,6],['3/8',3,8],['5/8',5,8],['2/7',2,7]];
+    const big=(L||3)>=4, fr=pick(big?hard:easy), mult=rnd(2,big?9:6), base=fr[2]*mult;
+    return cNum('frac',big?4:3,2,fr[0]+' von '+base,base*fr[1]/fr[2],base+' '+CDIV+' '+fr[2]+' = '+mult+', '+CTIMES+' '+fr[1]+'.');},
+  pctThen:()=>{const base=pick([80,120,160,200,240]),p=pick([10,15,25,50]),add=pick([5,10,15,20]);  // L4: Prozent + Nachschlag
+    const red=base*p/100;
+    return cNum('percent',4,3,base+' '+CEUR+' minus '+p+'%, danach +'+add+' '+CEUR,base-red+add,
+      base+' '+CMINUS+' '+red+' = '+(base-red)+', + '+add+'.');},
+  eqParen:()=>{const a=rnd(2,6),b=rnd(2,9),x=rnd(2,12);                             // L4: 3(x+2) = 21
+    return cNum('equation',4,2,a+'(x + '+b+') = '+(a*(x+b))+'   x = ?',x,(a*(x+b))+' '+CDIV+' '+a+' = '+(x+b)+', dann '+CMINUS+' '+b+'.');},
+  dreisatz:()=>{const half=Math.random()<0.5;                                       // L4: 4 Stueck kosten 18 EUR, was kosten 10?
+    const unit=half?pick([1.5,2.5,3.5,4.5]):pick([2,3,4,5,6]);
+    const n=half?pick([2,4,6,8]):pick([3,4,5,6]), m=half?pick([10,12,14,20]):pick([7,9,10,12,15]);
+    const what=pick(['Stifte','Hefte','Becher','Riegel','Karten']);
+    return cNum('ratio',4,2,n+' '+what+' kosten '+fmt(n*unit)+' '+CEUR+'. Was kosten '+m+'?',m*unit,
+      'einer: '+fmt(unit)+' '+CEUR+', '+CTIMES+' '+m+'.');},
+  chainMix:()=>{for(let g=0;g<40;g++){const a=rnd(6,18),b=rnd(3,12),c=rnd(2,6),d=rnd(5,30),ans=(a+b)*c-d;   // L5: gemischte Operationen
+      if(ans<2)continue;
+      return cNum('chain',5,3,'('+a+' + '+b+') '+CTIMES+' '+c+' '+CMINUS+' '+d,ans,'Klammer, dann '+CTIMES+', dann '+CMINUS+'.');}
+    return cNum('chain',5,2,'(8 + 4) '+CTIMES+' 3 '+CMINUS+' 6',30,'Klammer zuerst.');},
+  pctOfRatio:()=>{for(let g=0;g<40;g++){                                            // L5: Verhaeltnis + Prozent kombiniert
+      const parts=pick([4,5,6,8]),num=rnd(1,parts-1),T=parts*pick([10,15,20,25]),sub=pick([10,20,25,50]);
+      const part=T*num/parts, v=part*sub/100;
+      if(!Number.isInteger(v)||v<2)continue;
+      return cNum('percent',5,3,num+'/'+parts+' von '+T+', davon '+sub+'%',v,
+        T+' '+CDIV+' '+parts+' '+CTIMES+' '+num+' = '+part+', davon '+sub+'% = '+v+'.');}
+    return cNum('percent',5,2,'25% von 240',60,'240 '+CDIV+' 4.');},
+  eqHard:()=>{if(Math.random()<0.5){const x=rnd(3,12),a=rnd(2,6),b=rnd(1,x-1),c=rnd(2,15);   // L5: Klammer + Konstante
+      return cNum('equation',5,3,a+'(x '+CMINUS+' '+b+') + '+c+' = '+(a*(x-b)+c)+'   x = ?',x,
+        'erst '+CMINUS+' '+c+', dann '+CDIV+' '+a+', dann + '+b+'.');}
+    const x=rnd(2,12),a=rnd(4,8),b=rnd(1,a-2),c=rnd(2,20),R=(a-b)*x-c;                        // L5: x auf beiden Seiten
+    const rhs=b+'x '+(R>=0?('+ '+R):(CMINUS+' '+(-R)));
+    return cNum('equation',5,3,a+'x '+CMINUS+' '+c+' = '+rhs+'   x = ?',x,
+      'x-Terme zusammen: '+(a-b)+'x = '+((a-b)*x)+'.');},
+  wordHard:()=>{const v=pick(['machine','mix','tank']);                             // L5: kurze Mini-Word-Problems
+    if(v==='machine'){const m=pick([3,4,5]),p=pick([6,8,9,12]),m2=pick([6,8,10]),h=pick([2,3]);
+      return cNum('word',5,3,m+' Maschinen: '+(m*p)+' Teile/h. '+m2+' Maschinen in '+h+' h?',m2*p*h,
+        'eine Maschine '+p+' Teile/h.');}
+    if(v==='mix'){for(let g=0;g<30;g++){const total=pick([60,80,90,120,160]),p=pick([25,40,50,75]),q=pick([2,3,4]);
+        const rest=total*(100-p)/100; if(!Number.isInteger(rest)||!Number.isInteger(rest/q))continue;
+        return cNum('word',5,3,p+'% von '+total+' sind rot, Rest '+CDIV+' '+q+' = ?',rest/q,
+          total+' '+CMINUS+' '+(total*p/100)+' = '+rest+', '+CDIV+' '+q+'.');}}
+    const cap=pick([40,60,80]),f=pick([25,50,75]),add=pick([10,20]);
+    return cNum('word',5,2,'Tank '+cap+' l, '+f+'% voll, dann +'+add+' l = ?',cap*f/100+add,
+      cap+' '+CTIMES+' '+f+'% = '+(cap*f/100)+', + '+add+'.');},
+  estimateHard:()=>{const p=pick([19,21,29,31,49,51]),base=pick([180,240,320,410,520]);        // L5: mentale Schaetzung
+    const near=Math.round(base*p/100/10)*10, step=near>=100?50:20;
+    return cChoice('estimate',5,2,'Ueberschlag: '+p+'% von '+base+' liegt am naechsten bei?',String(near),
+      [String(near+step),String(Math.max(2,near-step)),String(near+2*step)],
+      'grob '+(p<25?'20%':p<35?'30%':'50%')+' von '+base+'.');}
 };
+/* Verteilung der Aufgabentypen auf die fuenf Mathe-Stufen (Achse 3).
+   Die Stufe steuert AUSSCHLIESSLICH die Schwierigkeit, nie die Anzahl der Aufgaben. */
 const COMBO_TYPES={
-  1:['add','sub','mulS','divEasy','pctEasy','eq1'],
-  2:['chain','mulB','pctChange','discount','fracMC','eq2','pattern'],
-  3:['chainHard','fracHard','pctRatio','word','estimate','compare','eqTrap','logic']
+  1:['add','sub','mulS','divEasy'],                                                          // Addition/Subtraktion, kleines 1x1, glatte Division
+  2:['add2','mulB','divB','chain2','eq1'],                                                   // groessere Grundrechenarten, einfache Kette, sehr einfache Gleichung
+  3:['chain','mulChain','pctEasy','fracOf','fracMC','eq2','pattern'],                        // Kettenrechnen, Prozent-Basics, Bruch-Choice, 2-Schritt-Gleichung, Muster
+  4:['chainHard','pctChange','discount','pctThen','fracOf','pctRatio','dreisatz','eqParen','eqTrap','estimate','word'],
+  5:['chainMix','pctOfRatio','eqHard','wordHard','fracHard','compare','estimateHard','logic'] // kurz, aber anspruchsvoll
 };
 function comboMathQ(mathLevel){
-  const L=clamp(Math.round(mathLevel)||2,1,3);
-  const pool=COMBO_TYPES[L]||COMBO_TYPES[2], t=pick(pool);
+  const L=clamp(Math.round(mathLevel)||3,1,5);
+  const pool=COMBO_TYPES[L]||COMBO_TYPES[3], t=pick(pool);
   let q=null; try{ if(COMBO_GEN[t])q=COMBO_GEN[t](L); }catch(e){ q=null; }
-  if(!q||q.answer==null&&!Array.isArray(q.opts)){ const n=comboNumMathQ(L); q=cNum(n.type||'num',L,1,n.prompt,n.answer,''); }  // Fallback: bestehende Logik
+  if(!q||(q.answer==null&&!Array.isArray(q.opts))){ const n=comboNumMathQ(L); q=cNum(n.type||'num',L,1,n.prompt,n.answer,''); }  // Fallback: bestehende Logik
+  q.mathLevel=L; q.mathDifficulty=CMD[L]; q.gen=t;   // Metadaten immer nach der SERVIERTEN Stufe
   return q;
 }
 
-/* ---- Profil: getrennte Level für Merklast / Interferenz / Mathe (1–3) ---- */
+/* ---- Profil: drei unabhängige Level (je 1–5) + getrennte Session-Statistik ---- */
+function comboAsLevel(v){                                     // tolerant: Zahl, Zahl-String oder low/medium/high
+  if(typeof v==='string'){const m={low:2,niedrig:2,leicht:2,medium:3,mittel:3,high:4,hoch:4,schwer:4};v=m[v.toLowerCase()];}
+  v=Number(v); return (isFinite(v)&&v>=1)?clamp(Math.round(v),1,5):null;
+}
 function ensureWmComboProfile(){
   const d=Store.data;
   let p=d.wmComboProfile;
   if(!p||typeof p!=='object'){ p=d.wmComboProfile={}; }
-  const map5to3=v=> (v==null?null : (v<=2?1 : (v<=3?2 : 3)));   // Migration altes 1–5-Modell
-  if(p.memoryLoadLevel==null)     p.memoryLoadLevel     = map5to3(p.currentMemoryLoad)      || 2;
-  if(p.interferenceLevel==null)   p.interferenceLevel   = map5to3(p.currentInterferenceLoad)|| 2;
-  if(p.mathDifficultyLevel==null) p.mathDifficultyLevel = map5to3(p.currentInterferenceLoad)|| 2;
+  if(p.levelScale!==5){                                       // Migration 1–3-Modell (bzw. low/medium/high) -> 1–5: 1->2, 2->3, 3->4
+    const up=v=>{ if(typeof v==='string')return comboAsLevel(v);            // low/medium/high sind bereits 2/3/4
+      const n=comboAsLevel(v); return n==null?null:clamp(n+1,1,5); };
+    const mem = p.memoryLoadLevel    !=null?up(p.memoryLoadLevel)    :comboAsLevel(p.currentMemoryLoad);
+    const itf = p.interferenceLevel  !=null?up(p.interferenceLevel)  :comboAsLevel(p.currentInterferenceLoad);
+    const mth = p.mathDifficultyLevel!=null?up(p.mathDifficultyLevel):comboAsLevel(p.currentMathLevel);
+    p.memoryLoadLevel=mem||2; p.interferenceLevel=itf||2; p.mathDifficultyLevel=mth||2;
+    p.levelScale=5;
+  }
+  p.memoryLoadLevel    =comboAsLevel(p.memoryLoadLevel)    ||2;   // defensiv: kaputte Altdaten -> Startstufe
+  p.interferenceLevel  =comboAsLevel(p.interferenceLevel)  ||2;
+  p.mathDifficultyLevel=comboAsLevel(p.mathDifficultyLevel)||2;
+  if(!p.axisIdle||typeof p.axisIdle!=='object')p.axisIdle={mem:0,intf:0,math:0};
+  ['mem','intf','math'].forEach(a=>{ if(typeof p.axisIdle[a]!=='number')p.axisIdle[a]=0; });
   if(p.attempts==null)p.attempts=0;
   if(p.correctMemory==null)p.correctMemory=0;
   if(p.mathAttempts==null)p.mathAttempts=0;
   if(p.correctMath==null)p.correctMath=0;
+  if(p.elementsSeen==null)p.elementsSeen=0;
+  if(p.contentCorrectTotal==null)p.contentCorrectTotal=0;
+  if(p.posCorrectTotal==null)p.posCorrectTotal=0;
+  if(p.orderErrorsTotal==null)p.orderErrorsTotal=0;
   if(p.memoryAccuracy==null)p.memoryAccuracy=0;
+  if(p.contentAccuracy==null)p.contentAccuracy=0;
+  if(p.orderAccuracy==null)p.orderAccuracy=0;
   if(p.mathAccuracy==null)p.mathAccuracy=0;
   if(p.avgRecallTimeMs==null)p.avgRecallTimeMs=0;
+  if(p.avgMathMs==null)p.avgMathMs=0;
   if(p.lastPracticed===undefined)p.lastPracticed=null;
   if(p.weakMode===undefined)p.weakMode=null;
+  if(p.lastChange===undefined)p.lastChange=null;
   if(!Array.isArray(p.recentSessions))p.recentSessions=[];
   if(!p.modeStats)p.modeStats={};
   ['words','numbers','codes','mixed'].forEach(m=>{if(!p.modeStats[m])p.modeStats[m]={att:0,mem:0};});
@@ -2880,75 +3093,156 @@ function ensureWmComboProfile(){
 }
 function updateWmComboProfile(result,item){
   const p=ensureWmComboProfile();
+  const n=result.elements||(item.els?item.els.length:0);
   p.attempts=(p.attempts||0)+1;
   if(result.memoryOk)p.correctMemory=(p.correctMemory||0)+1;
+  p.elementsSeen=(p.elementsSeen||0)+n;
+  p.contentCorrectTotal=(p.contentCorrectTotal||0)+(result.contentCorrect||0);
+  p.posCorrectTotal=(p.posCorrectTotal||0)+(result.posCorrect||0);
+  p.orderErrorsTotal=(p.orderErrorsTotal||0)+(result.orderErrors||0);
   p.mathAttempts=(p.mathAttempts||0)+(result.mathTotal||0);
   p.correctMath=(p.correctMath||0)+(result.mathCorrect||0);
-  p.memoryAccuracy=+(p.correctMemory/p.attempts).toFixed(3);
-  p.mathAccuracy=p.mathAttempts?+(p.correctMath/p.mathAttempts).toFixed(3):0;
+  p.memoryAccuracy =+(p.correctMemory/p.attempts).toFixed(3);
+  p.contentAccuracy=p.elementsSeen?+(p.contentCorrectTotal/p.elementsSeen).toFixed(3):0;
+  p.orderAccuracy  =p.elementsSeen?+(p.posCorrectTotal/p.elementsSeen).toFixed(3):0;
+  p.mathAccuracy   =p.mathAttempts?+(p.correctMath/p.mathAttempts).toFixed(3):0;
   const rt=result.recallMs||0;
   p.avgRecallTimeMs=p.avgRecallTimeMs?Math.round(p.avgRecallTimeMs*0.7+rt*0.3):Math.round(rt);
+  const mms=result.mathTotal?Math.round((result.mathMs||0)/result.mathTotal):0;
+  if(mms)p.avgMathMs=p.avgMathMs?Math.round(p.avgMathMs*0.7+mms*0.3):mms;
   p.lastPracticed=Date.now();
   const cm=item.contentMode; if(cm&&p.modeStats[cm]){p.modeStats[cm].att++; if(result.memoryOk)p.modeStats[cm].mem++;}
   let worst=null,worstAcc=2;
-  for(const m of ['words','numbers','codes','mixed']){const s=p.modeStats[m]; if(s&&s.att>=3){const a=s.mem/s.att; if(a<worstAcc){worstAcc=a;worst=m;}}}
+  for(const m of ['words','numbers','codes','mixed']){const st=p.modeStats[m]; if(st&&st.att>=3){const a=st.mem/st.att; if(a<worstAcc){worstAcc=a;worst=m;}}}
   p.weakMode=worst;
-  p.recentSessions.push({ts:Date.now(),mode:cm,memLevel:item.memLevel,intfLevel:item.intfLevel,mathLevel:item.mathLevel,memoryOk:!!result.memoryOk,mathCorrect:result.mathCorrect||0,mathTotal:result.mathTotal||0,recallMs:rt,daily:!!item.daily});
-  if(p.recentSessions.length>20)p.recentSessions=p.recentSessions.slice(-20);
+  p.recentSessions.push({ts:Date.now(),mode:cm,
+    memLevel:item.memLevel,interferenceLevel:item.intfLevel,intfLevel:item.intfLevel,mathLevel:item.mathLevel,
+    memoryOk:!!result.memoryOk,memScore:result.memScore||0,elements:n,
+    contentCorrect:result.contentCorrect||0,posCorrect:result.posCorrect||0,orderErrors:result.orderErrors||0,
+    mathCorrect:result.mathCorrect||0,mathTotal:result.mathTotal||0,
+    mathMs:result.mathMs||0,recallMs:rt,daily:!!item.daily});
+  if(p.recentSessions.length>30)p.recentSessions=p.recentSessions.slice(-30);
   Store.persist();
 }
-// Adaptive Regeln je Achse, max ±1 pro Session:
-//  Memory gut / Mathe schlecht -> Mathe senken, Merklast halten, Interferenz nicht erhöhen
-//  Memory schlecht / Mathe gut -> Merklast senken, Mathe halten, Interferenz separat (bei hoher Interferenz senken)
-//  beide gut -> genau EINE Achse (die niedrigste) leicht erhöhen
-//  beide schlecht -> Achsen senken, aber max −1 je Achse
-function adaptComboLevels(memAcc,mathAcc,hadHighInterference){
-  const p=ensureWmComboProfile();
-  const memGood=memAcc>=0.75, mathGood=mathAcc>=0.7;
-  let dMem=0,dIntf=0,dMath=0;
-  if(memGood&&mathGood){
-    const axes=[['mem',p.memoryLoadLevel],['intf',p.interferenceLevel],['math',p.mathDifficultyLevel]].sort((a,b)=>a[1]-b[1]);
-    const up=axes[0][0]; if(up==='mem')dMem=1; else if(up==='intf')dIntf=1; else dMath=1;   // nur eine Achse
-  } else if(memGood&&!mathGood){
-    dMath=-1;                                             // Mathe senken; Merklast halten; Interferenz nicht erhöhen
-  } else if(!memGood&&mathGood){
-    dMem=-1; if(hadHighInterference)dIntf=-1;             // Merklast senken; Interferenz separat bewerten
-  } else {
-    dMem=-1; dMath=-1; if(hadHighInterference)dIntf=-1;   // beide schlecht: senken, max −1 je Achse
+/* Fall F: bricht das Merken vor allem bei hoher Interferenz ein? (Verlauf, nicht Momentaufnahme) */
+function comboInterferenceWeakSpot(p,curIntf){
+  const rs=(p.recentSessions||[]).slice(-16);
+  if(rs.length<4)return false;
+  const sc=x=>x.memScore!=null?x.memScore:(x.memoryOk?1:0);
+  const hi=rs.filter(x=>(x.intfLevel||1)>=Math.max(3,curIntf)), lo=rs.filter(x=>(x.intfLevel||1)<=Math.max(1,curIntf-2));
+  if(hi.length<2||lo.length<2)return false;
+  const avg=a=>a.reduce((t,x)=>t+sc(x),0)/a.length;
+  return avg(hi)<avg(lo)-0.2;
+}
+/* ---- Level-Up-/Level-Down-Entscheidung -------------------------------------------------
+   Harte Invariante: pro Session aendert sich HOECHSTENS EINE Achse und hoechstens um 1.
+   Faelle laut Spezifikation:
+     A  beides gut          -> genau eine Achse hoch (niedrigste Stufe, dann laengste Standzeit)
+     B  Merken gut/Mathe schwach -> Mathe runter; Mathe nie hoch; Merklast erst wenn Mathe auf 1
+     C  Merken schwach/Mathe gut -> Merklast nie hoch; Interferenz runter, wenn sie die Ursache ist
+     D  beides schwach      -> keine Erhoehung, genau eine Achse um 1 zurueck
+     E  Merken sehr gut trotz hoher Interferenz -> Merklast/Interferenz bevorzugen, nicht Mathe
+     F  Merken bricht bei hoher Interferenz ein -> Interferenz als Schwachstelle behandeln     */
+function comboDecideLevels(st){
+  const L=st.levels, idle=st.idle||{mem:0,intf:0,math:0};
+  const memGood=st.memAcc>=0.8, memVeryGood=st.memAcc>=0.92, memBad=st.memAcc<0.6;
+  const mathGood=st.mathAcc>=0.8, mathBad=st.mathAcc<0.6;
+  const orderWeak=(L.mem>=3)&&(st.orderAcc<st.contentAcc-0.25);
+  const R=(axis,delta,rule,reason)=>({axis:axis,delta:delta,rule:rule,reason:reason});
+
+  if(memBad&&mathBad){                                                   // Fall D
+    if(st.weakIntf&&L.intf>1)return R('intf',-1,'D','Merken und Mathe wackeln \u2013 die lange Ablenkung wirkt als Hauptursache.');
+    if(L.mem>=L.math&&L.mem>1)return R('mem',-1,'D','Merken und Mathe wackeln \u2013 wir nehmen zuerst die Merklast zur\u00fcck.');
+    if(L.math>1)return R('math',-1,'D','Merken und Mathe wackeln \u2013 wir nehmen zuerst die Mathe-Schwierigkeit zur\u00fcck.');
+    if(L.intf>1)return R('intf',-1,'D','Merken und Mathe wackeln \u2013 wir k\u00fcrzen die Ablenkung.');
+    return R(null,0,'D','Alles steht schon auf Stufe 1 \u2013 wir halten und \u00fcben weiter.');
   }
-  p.memoryLoadLevel    =clamp((p.memoryLoadLevel||1)+dMem,1,3);
-  p.interferenceLevel  =clamp((p.interferenceLevel||1)+dIntf,1,3);
-  p.mathDifficultyLevel=clamp((p.mathDifficultyLevel||1)+dMath,1,3);
+  if(memBad){                                                            // Fall C / F
+    if((st.weakIntf||L.intf>=3)&&L.intf>1)return R('intf',-1,'C/F','Das Merken bricht vor allem bei langer Ablenkung ein \u2013 Interferenz zur\u00fcck.');
+    if(L.mem>1)return R('mem',-1,'C','Die Merklast ist aktuell zu hoch \u2013 Mathe bleibt, wie sie ist.');
+    return R(null,0,'C','Merklast ist bereits minimal \u2013 wir halten die Stufen.');
+  }
+  if(mathBad){                                                           // Fall B
+    if(L.math>1)return R('math',-1,'B','Die Ablenkungsmathe war zu schwer \u2013 Merklast und Interferenz bleiben.');
+    if(memVeryGood&&L.mem<5)return R('mem',1,'B','Mathe steht schon auf Stufe 1 \u2013 daf\u00fcr steigt die Merklast.');
+    return R(null,0,'B','Mathe steht schon auf Stufe 1 \u2013 wir halten alle Achsen.');
+  }
+  if(!(memGood&&mathGood))                                               // solide, aber nicht sicher genug
+    return R(null,0,'\u2013','Solide, aber noch nicht sicher genug \u2013 alle drei Achsen bleiben.');
+
+  const base=[];                                                         // Fall A / E: genau eine Achse hoch
+  if(!orderWeak&&L.mem<5)base.push('mem');
+  if(L.intf<5)base.push('intf');
+  const mathReady=(st.mathAcc>=0.85&&L.math<5), preferNonMath=(memVeryGood&&L.intf>=4);   // Fall E: hohe Interferenz = Stufe 4/5
+  let cand=base.slice();
+  if(mathReady&&!(preferNonMath&&base.length))cand.push('math');
+  if(!cand.length&&mathReady)cand=['math'];
+  if(!cand.length)
+    return R(null,0,orderWeak?'A*':'A',orderWeak?'Stark gemerkt \u2013 aber erst die Reihenfolge festigen, dann geht es weiter.'
+                                                :'Alle drei Achsen stehen bereits auf Stufe 5.');
+  const ord=['mem','intf','math'];
+  cand.sort((a,b)=>(L[a]-L[b])||((idle[b]||0)-(idle[a]||0))||(ord.indexOf(a)-ord.indexOf(b)));
+  const up=cand[0];
+  const why=preferNonMath?' (Merken h\u00e4lt trotz langer Ablenkung \u2013 Mathe bleibt daf\u00fcr stehen)':'';
+  return R(up,1,preferNonMath?'E':'A',
+    (up==='mem'?'Merken und Mathe sitzen \u2013 die Merklast steigt.'
+     :up==='intf'?'Merken und Mathe sitzen \u2013 die Ablenkung wird l\u00e4nger.'
+     :'Merken und Mathe sitzen \u2013 die Mathe-Schwierigkeit steigt.')+why);
+}
+/* Wendet genau eine Aenderung an und protokolliert sie fuer den Ergebnisbildschirm. */
+function adaptComboLevels(st){
+  const p=ensureWmComboProfile();
+  const before={mem:p.memoryLoadLevel,intf:p.interferenceLevel,math:p.mathDifficultyLevel};
+  const key={mem:'memoryLoadLevel',intf:'interferenceLevel',math:'mathDifficultyLevel'};
+  let dec;
+  if(st&&st.adaptive===false){                                           // manuelle Session: Stufen bleiben unberuehrt
+    dec={axis:null,delta:0,rule:'manuell',reason:'Manuelle Session \u2013 dein adaptives Profil bleibt unver\u00e4ndert.'};
+  }else{
+    dec=comboDecideLevels({memAcc:st.memAcc||0,mathAcc:st.mathAcc==null?1:st.mathAcc,
+      contentAcc:st.contentAcc||0,orderAcc:st.orderAcc||0,levels:before,idle:p.axisIdle,
+      weakIntf:comboInterferenceWeakSpot(p,before.intf)});
+    ['mem','intf','math'].forEach(a=>p.axisIdle[a]=(p.axisIdle[a]||0)+1);
+    if(dec.axis&&dec.delta){
+      const nv=clamp(before[dec.axis]+dec.delta,1,5);
+      if(nv!==before[dec.axis]){ p[key[dec.axis]]=nv; p.axisIdle[dec.axis]=0; }
+      else { dec={axis:null,delta:0,rule:dec.rule,reason:dec.reason}; }
+    }
+  }
+  const after={mem:p.memoryLoadLevel,intf:p.interferenceLevel,math:p.mathDifficultyLevel};
+  p.lastChange={ts:Date.now(),axis:dec.axis,delta:dec.delta,rule:dec.rule,reason:dec.reason,before:before,after:after};
   Store.persist();
-  return {dMem,dIntf,dMath,mem:p.memoryLoadLevel,intf:p.interferenceLevel,math:p.mathDifficultyLevel};
+  return {axis:dec.axis,delta:dec.delta,rule:dec.rule,reason:dec.reason,before:before,after:after,
+    dMem:after.mem-before.mem,dIntf:after.intf-before.intf,dMath:after.math-before.math,
+    mem:after.mem,intf:after.intf,math:after.math};
 }
 
-/* ---- Item-Bau: drei unabhängige Achsen ---- */
+/* ---- Item-Bau: drei unabhängige Achsen (je 1–5) ---- */
 function makeComboItem(opts){
   opts=opts||{};
   const p=ensureWmComboProfile();
-  let memLevel =opts.memLevel !=null?opts.memLevel : p.memoryLoadLevel;     // fehlt -> adaptiv aus Profil
-  let intfLevel=opts.intfLevel!=null?opts.intfLevel: p.interferenceLevel;
-  let mathLevel=opts.mathLevel!=null?opts.mathLevel: p.mathDifficultyLevel;
-  memLevel=clamp(memLevel,1,3); intfLevel=clamp(intfLevel,1,3); mathLevel=clamp(mathLevel,1,3);
-  let dur=0;
-  if(opts.daily){                                                          // Tagestraining: kompakt + Interferenz nach Dauer deckeln
+  let memLevel =clamp(opts.memLevel !=null?opts.memLevel :p.memoryLoadLevel,1,5);      // fehlt -> adaptiv aus dem Profil
+  let intfLevel=clamp(opts.intfLevel!=null?opts.intfLevel:p.interferenceLevel,1,5);
+  let mathLevel=clamp(opts.mathLevel!=null?opts.mathLevel:p.mathDifficultyLevel,1,5);
+  let dur=0,capMath=99;
+  if(opts.daily){                                                                     // Tagestraining: nur die DAUER deckelt, sonst nichts
     dur=opts.dailyDuration||10;
-    memLevel=clamp(memLevel,1,2);
-    intfLevel=clamp(intfLevel,1,dur<=5?2:3);                              // 5 min: max mittel; 10/15 min: bis hoch
+    intfLevel=clamp(intfLevel,1,dur<=5?3:(dur<=10?4:5));                              // 5 min: max Stufe 3 · 10 min: bis 4 · 15 min: bis 5
+    memLevel =clamp(memLevel,1,dur<=5?4:5);                                           // Merk- und Mathestufe bleiben ansonsten frei
+    capMath  = dur<=5?3:(dur<=10?5:7);
   }
   const memCfg=COMBO_MEM[memLevel];
   const count=rnd(memCfg.count[0],memCfg.count[1]);
   const contentMode=pick(memCfg.contents);
-  const order=memCfg.order();
-  const els=comboMakeElements(contentMode,count);
+  const els=comboMakeElements(contentMode,count,{num:memCfg.num,similar:memCfg.similar});
+  const orderWeight=COMBO_ORDER_W[memLevel];
   let nMath=rnd(COMBO_INTF[intfLevel][0],COMBO_INTF[intfLevel][1]);
-  if(opts.daily)nMath=clamp(nMath,1,dur<=5?3:4);                          // Block sprengt das Tagestraining nicht
+  nMath=clamp(nMath,1,capMath);
   const mathQs=Array.from({length:nMath},()=>comboMathQ(mathLevel));
-  const showMs=clamp(1000+els.length*(contentMode==='words'?1100:contentMode==='mixed'?1000:900),2000,8000);
+  const perEl=contentMode==='words'?1100:contentMode==='mixed'?1050:contentMode==='codes'?1000:850;
+  const showMs=clamp(1000+els.length*perEl+(memCfg.similar?300:0),2000,9000);
   return {render:'combo',cat:'wm:combo',group:'wm',diff:memLevel,
-    memLevel:memLevel,intfLevel:intfLevel,mathLevel:mathLevel,contentMode:contentMode,order:order,
-    els:els,mathQs:mathQs,showMs:showMs,daily:!!opts.daily,
+    memLevel:memLevel,intfLevel:intfLevel,mathLevel:mathLevel,orderWeight:orderWeight,order:orderWeight>0,
+    contentMode:contentMode,els:els,mathQs:mathQs,showMs:showMs,daily:!!opts.daily,
     prompt:'Kombi-Memory \u00b7 '+els.length+' '+comboContentNoun(contentMode)+' merken',
     q:'Kombi-Memory ('+els.length+' Elemente \u00b7 '+nMath+' Ablenkung'+(nMath>1?'en':'')+')'};
 }
@@ -2960,31 +3254,36 @@ function comboNormToken(type,raw){
   if(type==='code'){return 'c:'+norm(raw);}
   return 'w:'+raw.toLowerCase().replace(/\s+/g,'');
 }
-// given: [{type?, raw}]. Bei Reihenfolge zaehlt -> positionsweise mit Typ.
-// Sonst -> Multiset ueber alle Typ-Normalisierungen (typ-tolerant, gut fuer Gemischt).
+// given: [{type?, raw}] in Abrufreihenfolge.
+// Es werden IMMER beide Groessen bestimmt: Inhalt (Element erinnert, typ-tolerant per Multiset)
+// und Position (Element an der richtigen Stelle). Wie stark die Position zaehlt, regelt COMBO_ORDER_W.
 function comboEvaluate(item,given){
-  const els=item.els;
-  let perOk,memoryOk;
-  if(item.order){
-    perOk=els.map((e,i)=> i<given.length && comboNormToken(e.type,given[i].raw)===comboNormToken(e.type,e.val));
-    memoryOk = given.length===els.length && perOk.every(Boolean);
-  } else {
-    const remaining=els.map(e=>comboNormToken(e.type,e.val));
-    perOk=els.map(()=>false);
-    given.forEach(g=>{
-      const cands=[comboNormToken('word',g.raw),comboNormToken('number',g.raw),comboNormToken('code',g.raw)];
-      for(let ti=0;ti<remaining.length;ti++){ if(remaining[ti]!==null&&cands.indexOf(remaining[ti])>=0){remaining[ti]=null; perOk[ti]=true; break;} }
-    });
-    memoryOk = perOk.every(Boolean) && given.filter(g=>String(g.raw).trim()!=='').length===els.length;
-  }
-  return {perOk:perOk,memoryOk:memoryOk,expected:els.map(e=>e.val),given:given.map(g=>g.raw)};
+  const els=item.els, n=els.length;
+  const filled=g=>String(g&&g.raw!=null?g.raw:'').trim()!=='';
+  const posOk=els.map((e,i)=> i<given.length && filled(given[i]) && comboNormToken(e.type,given[i].raw)===comboNormToken(e.type,e.val));
+  const remaining=els.map(e=>comboNormToken(e.type,e.val));
+  const contentOk=els.map(()=>false);
+  given.forEach(g=>{
+    if(!filled(g))return;
+    const cands=[comboNormToken('word',g.raw),comboNormToken('number',g.raw),comboNormToken('code',g.raw)];
+    for(let ti=0;ti<remaining.length;ti++){ if(remaining[ti]!==null&&cands.indexOf(remaining[ti])>=0){remaining[ti]=null; contentOk[ti]=true; break;} }
+  });
+  const contentCorrect=contentOk.filter(Boolean).length, posCorrect=posOk.filter(Boolean).length;
+  const memScore=comboMemScore(item.memLevel,contentCorrect,posCorrect,n);
+  const pass=COMBO_PASS[clamp(item.memLevel||1,1,5)]||1;
+  return {contentOk:contentOk,posOk:posOk,perOk:contentOk,
+    contentCorrect:contentCorrect,posCorrect:posCorrect,orderErrors:Math.max(0,contentCorrect-posCorrect),
+    memScore:memScore,memoryOk:(n>0&&memScore>=pass-1e-9),elements:n,
+    expected:els.map(e=>e.val),given:given.map(g=>g.raw)};
 }
 function comboFeedbackText(result,item){
-  if(result.memoryOk && result.mathTotal && result.mathCorrect===result.mathTotal) return 'Stark \u2013 Merken und Ablenkung beide sauber. Die Schwierigkeit zieht langsam an.';
-  if(!result.memoryOk && result.mathCorrect<result.mathTotal) return 'Merken und Ablenkungsmathe waren beide wacklig \u2013 wir halten die Stufe, bleib dran.';
-  if(!result.memoryOk) return 'Die Ablenkung hat das Gemerkte verdraengt \u2013 genau das trainiert Kombi-Memory. Der Merk-Umfang bleibt oder sinkt leicht.';
-  if(result.mathTotal && result.mathCorrect<result.mathTotal) return 'Gut gemerkt! Bei der Ablenkungsmathe war eine Aufgabe daneben.';
-  return 'Gut gemacht.';
+  const mathAllOk=result.mathTotal?result.mathCorrect===result.mathTotal:true;
+  if(result.memoryOk&&mathAllOk) return 'Stark \u2013 Merken und Ablenkung beide sauber.';
+  if(result.memoryOk) return 'Gut gemerkt! Bei der Ablenkungsmathe war etwas daneben.';
+  if(result.orderErrors>0&&result.contentCorrect>=Math.ceil(result.elements*0.8))
+    return 'Inhaltlich fast alles da \u2013 es hakt an der Reihenfolge.';
+  if(!mathAllOk) return 'Merken und Ablenkungsmathe waren beide wacklig \u2013 wir halten die Stufe, bleib dran.';
+  return 'Die Ablenkung hat das Gemerkte verdr\u00e4ngt \u2013 genau das trainiert Kombi-Memory.';
 }
 
 /* ---- Block-Runner (drei Phasen), fuer Standalone UND Tagestraining ---- */
@@ -2994,7 +3293,7 @@ function runComboBlock(host,item,opts){
   const alive=()=>myToken===SESSION_TOKEN && document.body.contains(host);
   let phase='memorize';
   const mathResults=[];
-  let recallStart=0;
+  let recallStart=0, mathMs=0;
 
   showMemorize();
 
@@ -3003,6 +3302,7 @@ function runComboBlock(host,item,opts){
     host.innerHTML=
       '<div class="qkind">Kombi-Memory \u00b7 Merken</div>'+
       '<div class="q-text" style="text-align:center;color:var(--muted);margin-bottom:10px">Praege dir diese '+item.els.length+' '+comboContentNoun(item.contentMode)+' ein'+(item.order?' \u2013 in dieser Reihenfolge':'')+'.</div>'+
+      '<div class="q-text" style="text-align:center;color:var(--faint);font-size:12.5px;margin:-6px 0 10px">'+comboOrderNote(item.memLevel)+'.</div>'+
       '<div class="combo-list">'+chips+'</div>'+
       '<div class="combo-bar"><i id="cbar"></i></div>'+
       '<button class="btn" id="cgo" style="margin-top:18px">Bereit \u203a</button>';
@@ -3021,7 +3321,7 @@ function runComboBlock(host,item,opts){
     let mi=0;
     renderMath(mi);
     function renderMath(k){
-      const q=item.mathQs[k], isMC=q.kind==='mc';
+      const q=item.mathQs[k], isMC=q.kind==='mc', qStart=Date.now();
       host.innerHTML=
         '<div class="qkind">Ablenkung \u00b7 Aufgabe '+(k+1)+' / '+item.mathQs.length+'</div>'+
         (isMC?'<div class="q-text" style="text-align:center;font-size:22px;margin:6px 0 16px">'+q.prompt+'</div>':'<div class="q-math">'+q.prompt+'</div>')+
@@ -3045,7 +3345,7 @@ function runComboBlock(host,item,opts){
         const sb=zone.querySelector('#msub'); if(sb)sb.onclick=chk;
       }
       function finishMath(ok,correctDisp){
-        mathResults.push(!!ok);
+        mathResults.push(!!ok); mathMs+=Math.max(0,Date.now()-qStart);
         const ex=q.explain?('<div class="combo-res-note" style="margin-top:4px">'+q.explain+'</div>'):'';
         const fb=host.querySelector('#mfb'); if(fb){fb.className='feedback '+(ok?'good':'bad'); fb.innerHTML=(ok?'Richtig.':('Richtig: '+correctDisp))+ex;}
         const delay=q.explain?(ok?900:1600):(ok?550:1100);           // kurze Lesezeit fuer die Erklaerung
@@ -3111,16 +3411,27 @@ function runComboBlock(host,item,opts){
   function finishBlock(memRes,givenDisplay){
     const mathTotal=item.mathQs.length, mathCorrect=mathResults.filter(Boolean).length;
     const recallMs=recallStart?Date.now()-recallStart:0;
-    const result={memoryOk:memRes.memoryOk,perOk:memRes.perOk,mathCorrect:mathCorrect,mathTotal:mathTotal,recallMs:recallMs,expected:memRes.expected,given:givenDisplay};
-    const rightList=item.els.map((e,i)=>'<span class="combo-el '+(result.perOk[i]?'ok':'no')+'">'+e.val+'</span>').join('');
+    const result={memoryOk:memRes.memoryOk,perOk:memRes.perOk,contentOk:memRes.contentOk,posOk:memRes.posOk,
+      contentCorrect:memRes.contentCorrect,posCorrect:memRes.posCorrect,orderErrors:memRes.orderErrors,
+      memScore:memRes.memScore,elements:memRes.elements,
+      mathCorrect:mathCorrect,mathTotal:mathTotal,recallMs:recallMs,mathMs:mathMs,
+      expected:memRes.expected,given:givenDisplay};
+    const n=item.els.length;
+    // gruen = Inhalt UND Position richtig, gelb = erinnert, aber an falscher Stelle, rot = nicht erinnert
+    const cls=i=>memRes.posOk[i]?'ok':(memRes.contentOk[i]?'pos':'no');
+    const rightList=item.els.map((e,i)=>'<span class="combo-el '+cls(i)+'">'+e.val+'</span>').join('');
     const mathCls=(mathTotal&&mathCorrect===mathTotal)?'good':(mathCorrect>0?'':'bad');
+    const orderCounts=(item.orderWeight||0)>0;
     host.innerHTML=
       '<div class="qkind">Ergebnis</div>'+
       '<div class="combo-res">'+
-        '<div class="combo-res-line"><span>Gemerkt</span><b class="'+(result.memoryOk?'good':'bad')+'">'+(result.memoryOk?'richtig':'nicht vollst\u00e4ndig')+'</b></div>'+
+        '<div class="combo-res-line"><span>\uD83E\uDDE0 Memory</span><b class="'+(memRes.contentCorrect===n?'good':(memRes.contentCorrect?'':'bad'))+'">'+memRes.contentCorrect+' / '+n+' erinnert</b></div>'+
         '<div class="combo-res-sub">'+rightList+'</div>'+
-        '<div class="combo-res-line"><span>Ablenkung (Mathe)</span><b class="'+mathCls+'">'+mathCorrect+' / '+mathTotal+'</b></div>'+
+        '<div class="combo-res-line"><span>\uD83D\uDD22 Reihenfolge</span><b class="'+(memRes.posCorrect===n?'good':'')+'">'+memRes.posCorrect+' / '+n+' an richtiger Position</b></div>'+
+        (orderCounts?'':'<div class="combo-res-note" style="margin-top:0">'+comboOrderNote(item.memLevel)+'.</div>')+
+        '<div class="combo-res-line"><span>\uD83E\uDDEE Mathe</span><b class="'+mathCls+'">'+mathCorrect+' / '+mathTotal+' richtig</b></div>'+
         '<div class="combo-res-note">'+comboFeedbackText(result,item)+'</div>'+
+        '<div class="combo-res-note">Schwierigkeit: Memory '+item.memLevel+' \u00b7 Interferenz '+item.intfLevel+' \u00b7 Mathe '+item.mathLevel+'</div>'+
       '</div>'+
       '<div class="feedback" id="fb"></div><div id="nextrow"></div>';
     if(opts.onComplete)opts.onComplete(result);
@@ -3132,45 +3443,64 @@ function runComboBlock(host,item,opts){
 }
 
 /* ---- Standalone-Session (aus dem WM-Hub) ---- */
-/* ---- Start-Screen: Adaptiv + drei unabhängige Segment-Auswahlen ---- */
+/* ---- Start-Screen: Adaptiv + drei unabhängige Achsen mit je fünf Stufen ---- */
 function resolveComboLevels(){
   const p=ensureWmComboProfile();
   if(comboCfg.adaptive)return {mem:p.memoryLoadLevel,intf:p.interferenceLevel,math:p.mathDifficultyLevel,adaptive:true};
-  return {mem:comboCfg.mem,intf:comboCfg.intf,math:comboCfg.math,adaptive:false};   // manuell: nur diese Session
+  return {mem:clamp(comboCfg.mem,1,5),intf:clamp(comboCfg.intf,1,5),math:clamp(comboCfg.math,1,5),adaptive:false};   // manuell: nur diese Session
 }
 function comboSetup(){
-  ensureWmComboProfile();
+  const prof=ensureWmComboProfile();
+  if(!comboCfg.touched){ comboCfg.mem=prof.memoryLoadLevel; comboCfg.intf=prof.interferenceLevel; comboCfg.math=prof.mathDifficultyLevel; }  // manueller Start beginnt beim eigenen Stand
+  ['mem','intf','math'].forEach(a=>{comboCfg[a]=clamp(comboAsLevel(comboCfg[a])||2,1,5);});
   setHomeBtn(false); tag.textContent='kombi-memory';
-  const seg=(label,name,opts,cur)=>'<div class="combo-seg"><span class="combo-seg-label">'+label+'</span>'+
-    '<div class="modes" style="margin:0" data-seg="'+name+'">'+opts.map(o=>'<button class="chip" data-val="'+o.v+'" aria-pressed="'+(cur===o.v)+'">'+o.t+'</button>').join('')+'</div></div>';
+  const axis=(label,name,cur)=>'<div class="combo-axis"><div class="combo-axis-head"><span>'+label+'</span><b data-lab="'+name+'"></b></div>'+
+    '<div class="combo-lvl" data-seg="'+name+'">'+[1,2,3,4,5].map(v=>'<button type="button" data-val="'+v+'" aria-pressed="'+(cur===v)+'">'+v+'</button>').join('')+'</div></div>';
   root.innerHTML='<div class="card">'+
     '<div class="head"><button class="back" id="bk">\u2039</button><h2>Kombi-Memory</h2></div>'+
-    '<p class="lead" style="margin:0 0 14px;color:var(--muted)">Merken \u2192 Kopfrechnen als Ablenkung \u2192 Abruf. W\u00e4hle die Schwierigkeit \u2013 oder lass die App adaptiv steuern.</p>'+
+    '<p class="lead" style="margin:0 0 14px;color:var(--muted)">Merken \u2192 Kopfrechnen als Ablenkung \u2192 Abruf. Drei Achsen, jede einzeln einstellbar \u2013 oder adaptiv gesteuert.</p>'+
     '<div class="combo-seg"><span class="combo-seg-label">Adaptiv</span><div class="modes" style="margin:0" data-seg="adaptive"><button class="chip" data-val="1" aria-pressed="'+comboCfg.adaptive+'">An</button><button class="chip" data-val="0" aria-pressed="'+(!comboCfg.adaptive)+'">Aus</button></div></div>'+
     '<div id="manualSegs"'+(comboCfg.adaptive?' hidden':'')+'>'+
-      seg('Merklast','mem',[{v:1,t:'niedrig'},{v:2,t:'mittel'},{v:3,t:'hoch'}],comboCfg.mem)+
-      seg('Interferenz','intf',[{v:1,t:'niedrig'},{v:2,t:'mittel'},{v:3,t:'hoch'}],comboCfg.intf)+
-      seg('Mathe','math',[{v:1,t:'leicht'},{v:2,t:'mittel'},{v:3,t:'schwer'}],comboCfg.math)+
+      axis('Merklast','mem',comboCfg.mem)+
+      axis('Interferenz','intf',comboCfg.intf)+
+      axis('Mathe','math',comboCfg.math)+
     '</div>'+
-    '<div id="adaptiveNote" class="combo-note"'+(comboCfg.adaptive?'':' hidden')+'>Adaptiv aktiv \u2013 Merklast, Interferenz und Mathe kommen aus deinem Profil (aktuell '+COMBO_MEM_LABEL[ensureWmComboProfile().memoryLoadLevel]+' / '+COMBO_INTF_LABEL[ensureWmComboProfile().interferenceLevel]+' / '+COMBO_MATH_LABEL[ensureWmComboProfile().mathDifficultyLevel]+').</div>'+
+    '<div class="combo-summary" id="cSum"></div>'+
     '<button class="btn" id="goStart" style="margin-top:16px">Start \u203a</button></div>';
+  const LAB={mem:COMBO_MEM_LABEL,intf:COMBO_INTF_LABEL,math:COMBO_MATH_LABEL};
+  function sync(){
+    const lv=resolveComboLevels();
+    ['mem','intf','math'].forEach(a=>{
+      const el=root.querySelector('[data-lab="'+a+'"]'); if(el)el.textContent='Stufe '+comboCfg[a]+' \u00b7 '+LAB[a][comboCfg[a]];
+      const box=root.querySelector('.combo-lvl[data-seg="'+a+'"]');
+      if(box)box.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', (+x.dataset.val===comboCfg[a])?'true':'false'));
+    });
+    const sum=document.getElementById('cSum');
+    if(sum)sum.innerHTML=(lv.adaptive?'<b>Adaptiv</b> \u2013 aus deinem Profil (Memory '+lv.mem+' \u00b7 Interferenz '+lv.intf+' \u00b7 Mathe '+lv.math+'):<br>':'')+
+      comboAxisSummary(lv.mem,lv.intf,lv.math)+'<br>'+comboOrderNote(lv.mem)+'.';
+  }
   document.getElementById('bk').onclick=wmHub;
   root.querySelectorAll('[data-seg]').forEach(box=>{
     const seg=box.dataset.seg;
-    box.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    box.querySelectorAll('button').forEach(b=>b.onclick=()=>{
       const val=+b.dataset.val;
-      if(seg==='adaptive')comboCfg.adaptive=(val===1); else comboCfg[seg]=val;
-      box.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed', seg==='adaptive'?((comboCfg.adaptive?'1':'0')===x.dataset.val):(+x.dataset.val===comboCfg[seg])));
-      if(seg==='adaptive'){document.getElementById('manualSegs').hidden=comboCfg.adaptive; document.getElementById('adaptiveNote').hidden=!comboCfg.adaptive;}
+      if(seg==='adaptive'){
+        comboCfg.adaptive=(val===1);
+        box.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',(comboCfg.adaptive?'1':'0')===x.dataset.val?'true':'false'));
+        document.getElementById('manualSegs').hidden=comboCfg.adaptive;
+      } else { comboCfg[seg]=clamp(val,1,5); comboCfg.touched=true; }
+      sync();
     });
   });
+  sync();
   document.getElementById('goStart').onclick=()=>startCombo();
 }
 function startCombo(){
   ensureWmComboProfile();
   const lv=resolveComboLevels();
   const total=5;
-  comboSession={levels:lv,total:total,idx:0,memOks:0,mathC:0,mathT:0,recallSum:0,token:++SESSION_TOKEN};
+  comboSession={levels:lv,total:total,idx:0,memOks:0,mathC:0,mathT:0,recallSum:0,
+    memScoreSum:0,contentSum:0,posSum:0,elTotal:0,orderErrSum:0,mathMsSum:0,token:++SESSION_TOKEN};
   state={kind:'combo',token:comboSession.token,answered:false,correct:0,i:0,total:total,label:'Kombi-Memory',restart:()=>startCombo()};
   setHomeBtn(true); tag.textContent='kombi-memory';
   comboRunNext();
@@ -3192,6 +3522,8 @@ function comboRunNext(){
       state.answered=true;
       if(r.memoryOk){cs.memOks++; state.correct++;}
       cs.mathC+=r.mathCorrect; cs.mathT+=r.mathTotal; cs.recallSum+=r.recallMs;
+      cs.memScoreSum+=r.memScore||0; cs.contentSum+=r.contentCorrect||0; cs.posSum+=r.posCorrect||0;
+      cs.elTotal+=r.elements||0; cs.orderErrSum+=r.orderErrors||0; cs.mathMsSum+=r.mathMs||0;
       updateAdaptiveProfile({key:'wm:combo',group:'wm',ok:r.memoryOk,difficulty:item.memLevel,timeMs:r.recallMs});
       updateWmComboProfile(r,item);
     },
@@ -3202,22 +3534,33 @@ function comboResults(){
   const cs=comboSession; if(!cs)return;
   setHomeBtn(false); tag.textContent='auswertung';
   Streak.registerToday();
-  const memAcc=cs.total?cs.memOks/cs.total:0, mathAcc=cs.mathT?cs.mathC/cs.mathT:1;
-  const chg=adaptComboLevels(memAcc,mathAcc, cs.levels.intf>=2);   // Interferenz besonders nach mehreren Aufgaben bewerten
-  const p=ensureWmComboProfile();
-  const acc=Math.round(memAcc*100);
+  const nEl=cs.elTotal||0;
+  const memAcc    =cs.total?cs.memScoreSum/cs.total:0;          // gemittelter Memory-Score (Inhalt + gewichtete Position)
+  const contentAcc=nEl?cs.contentSum/nEl:0;
+  const orderAcc  =nEl?cs.posSum/nEl:0;
+  const mathAcc   =cs.mathT?cs.mathC/cs.mathT:1;
+  const chg=adaptComboLevels({memAcc:memAcc,mathAcc:mathAcc,contentAcc:contentAcc,orderAcc:orderAcc,adaptive:cs.levels.adaptive});
+  const acc=Math.round(contentAcc*100);
   const v=acc>=90?'Stark.':acc>=70?'Solide.':acc>=50?'Geht voran.':'Dranbleiben.';
-  const raised=chg.dMem>0||chg.dIntf>0||chg.dMath>0, lowered=chg.dMem<0||chg.dIntf<0||chg.dMath<0;
-  const loadNote=raised?'Schwierigkeit leicht erh\u00f6ht \u2191':(lowered?'Schwierigkeit etwas gesenkt \u2193':'Schwierigkeit gehalten');
+  const AX={mem:'Memory',intf:'Interferenz',math:'Mathe'};
+  const nextLine=['mem','intf','math'].map(a=>{
+    const b=chg.before[a],af=chg.after[a];
+    return AX[a]+(af>b?' steigt auf <b class="up">'+af+'</b>':af<b?' sinkt auf <b class="down">'+af+'</b>':' bleibt <b>'+af+'</b>');
+  }).join('<br>');
   root.innerHTML='<div class="card">'+
     '<div class="res-score">'+cs.memOks+'<small>/'+cs.total+'</small></div>'+
     '<div class="res-label">'+v+' Kombi-Memory</div>'+
-    '<div class="res-grid">'+
-      '<div class="res-cell"><b>'+acc+'%</b><span>gemerkt</span></div>'+
-      '<div class="res-cell"><b>'+(cs.mathT?Math.round(mathAcc*100)+'%':'\u2013')+'</b><span>Ablenkung</span></div>'+
-      '<div class="res-cell"><b>'+(cs.total?(Math.round(cs.recallSum/cs.total/100)/10):0)+'s</b><span>\u00d8 Abruf</span></div></div>'+
-    '<div class="res-note">Profil: Merklast '+COMBO_MEM_LABEL[p.memoryLoadLevel]+' \u00b7 Interferenz '+COMBO_INTF_LABEL[p.interferenceLevel]+' \u00b7 Mathe '+COMBO_MATH_LABEL[p.mathDifficultyLevel]+' \u00b7 '+loadNote+'</div>'+
-    (cs.levels.adaptive?'':'<div class="res-note">Diese Session war manuell ('+COMBO_MEM_LABEL[cs.levels.mem]+' / '+COMBO_INTF_LABEL[cs.levels.intf]+' / '+COMBO_MATH_LABEL[cs.levels.math]+') \u2013 dein Profil wurde nur anhand der Leistung angepasst.</div>')+
+    '<div class="combo-res">'+
+      '<div class="combo-res-line"><span>\uD83E\uDDE0 Memory</span><b class="'+(contentAcc>=0.999?'good':(contentAcc<0.5?'bad':''))+'">'+cs.contentSum+' / '+nEl+' erinnert</b></div>'+
+      '<div class="combo-res-line"><span>\uD83D\uDD22 Reihenfolge</span><b class="'+(orderAcc>=0.999?'good':'')+'">'+cs.posSum+' / '+nEl+' Positionen richtig</b></div>'+
+      '<div class="combo-res-line"><span>\uD83E\uDDEE Mathe</span><b class="'+(cs.mathT&&cs.mathC===cs.mathT?'good':(cs.mathC?'':'bad'))+'">'+cs.mathC+' / '+cs.mathT+' richtig</b></div>'+
+      '<div class="combo-res-note">\u00d8 Abruf '+(cs.total?(Math.round(cs.recallSum/cs.total/100)/10):0)+' s \u00b7 \u00d8 Ablenkungsaufgabe '+(cs.mathT?(Math.round(cs.mathMsSum/cs.mathT/100)/10):0)+' s</div>'+
+    '</div>'+
+    '<div class="res-note">Aktuelle Schwierigkeit: Memory '+chg.before.mem+' \u00b7 Interferenz '+chg.before.intf+' \u00b7 Mathe '+chg.before.math+
+      ' \u2013 '+comboAxisSummary(chg.before.mem,chg.before.intf,chg.before.math)+'</div>'+
+    '<div class="combo-note"><b>N\u00e4chste Runde</b><div class="combo-next">'+nextLine+'</div>'+
+      '<div style="margin-top:8px">'+chg.reason+'</div></div>'+
+    (cs.levels.adaptive?'':'<div class="res-note">Diese Session war manuell eingestellt (Memory '+cs.levels.mem+' \u00b7 Interferenz '+cs.levels.intf+' \u00b7 Mathe '+cs.levels.math+').</div>')+
     '<div class="btn-row"><button class="btn ghost" id="hm">Startseite</button><button class="btn" id="rt">Nochmal</button></div></div>';
   document.getElementById('hm').onclick=resetToHome;
   document.getElementById('rt').onclick=()=>comboSetup();

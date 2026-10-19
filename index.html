@@ -249,6 +249,33 @@
   .opt.correct{border-color:var(--good);background:var(--good-soft)} .opt.correct .key{color:var(--good)}
   .opt.wrong{border-color:var(--bad);background:var(--bad-soft)} .opt.wrong .key{color:var(--bad)}
   .opt:disabled{cursor:default}
+  /* ===== Logik 3.0: Reihen & Matrizen (nur Theme-Tokens, keine festen Farben) ===== */
+  .ser{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:baseline;row-gap:4px;max-width:100%}
+  .ser b{font-weight:500;white-space:nowrap}
+  .ser b:not(:last-child)::after{content:"·";color:var(--faint);font-weight:400;margin:0 .3em}
+  .ser .qm{color:var(--accent);font-weight:700}
+  .q-math .ser{font-size:clamp(20px,6.4vw,34px)}
+  .q-text .ser-wrap{margin:6px 0 14px}
+  .mx{display:grid;gap:7px;margin:8px auto 14px;width:100%;max-width:276px}
+  .mx3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .mx2{grid-template-columns:repeat(2,minmax(0,1fr));max-width:190px}
+  .mx-cell{aspect-ratio:1/1;min-height:44px;min-width:0;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--line);
+    border-radius:12px;background:var(--surface);color:var(--ink);font-family:var(--mono);font-weight:600;font-size:clamp(16px,5.2vw,24px);line-height:1;overflow:hidden;padding:2px}
+  .mx-cell.q{border-style:dashed;border-color:var(--accent);color:var(--accent);font-weight:700}
+  .mx.vis .mx-cell svg{width:76%;height:76%;display:block}
+  .mx-q{font-size:16px;line-height:1.5;text-align:center;margin:0 0 10px;font-family:var(--body);font-weight:500}
+  .q-math .mx{font-family:var(--mono)}
+  .tut-ex .mx{margin:4px auto 10px}
+  .mxs,.mxo{color:var(--ink);overflow:visible}
+  .opts.visual{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .opts.visual .opt{flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px;padding:10px 8px}
+  .opts.visual .opt>span:last-child{display:flex;align-items:center;justify-content:center}
+  .opts.visual .opt svg{width:58px;height:58px;display:block}
+  @media(min-width:430px){.opts.visual{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .rev-item .mx{max-width:200px;margin:6px 0 8px;gap:4px}
+  .rev-item .mx-cell{font-size:14px;min-height:32px;border-radius:8px}
+  .rev-item .ser{font-size:15px}
+  .rev-ans svg{width:28px;height:28px;vertical-align:middle}
 
   .tiprow{margin-top:14px}
   .tip-btn{border:1px solid var(--warn);background:var(--warn-soft);color:var(--warn);border-radius:10px;
@@ -860,47 +887,245 @@ const MATH = {
 function deck(items){let q=[];return ()=>{if(!q.length)q=shuffle(items.slice());return q.pop();};}
 function asChoice(it){return {render:'choice',q:it.q,opts:it.o,c:it.c,
   hints:[it.h||'Überlege die zugrunde liegende Beziehung und übertrage sie.', it.h2||'Schließe zuerst klar unpassende Optionen aus.'],
-  explain:it.e};}
+  explain:it.e, difficulty:it.difficulty};}
 
-/* --- Kategorien für Oberbegriffe / passende Begriffe --- */
-const CATS={
-  Verkehrsmittel:['Auto','Zug','Bus','Flugzeug','Schiff','Fahrrad','Straßenbahn','U-Bahn'],
-  Tiere:['Hund','Katze','Pferd','Adler','Forelle','Löwe','Maus','Hai'],
-  Obst:['Apfel','Birne','Banane','Kirsche','Traube','Pfirsich','Pflaume','Mango'],
-  Gemüse:['Möhre','Tomate','Gurke','Zwiebel','Kohl','Paprika','Bohne','Erbse'],
-  Möbel:['Tisch','Stuhl','Schrank','Bett','Sofa','Regal','Kommode','Hocker'],
-  Musikinstrumente:['Geige','Klavier','Flöte','Trompete','Gitarre','Harfe','Cello','Posaune'],
-  Berufe:['Arzt','Lehrer','Bäcker','Maurer','Pilot','Koch','Schneider','Gärtner'],
-  Werkzeuge:['Hammer','Säge','Zange','Bohrer','Schraubenzieher','Feile','Meißel','Schraubenschlüssel'],
-  Metalle:['Eisen','Gold','Silber','Kupfer','Zinn','Blei','Aluminium','Nickel'],
-  Sportarten:['Fußball','Tennis','Handball','Schwimmen','Boxen','Judo','Rudern','Turnen'],
-  Kleidung:['Hemd','Hose','Jacke','Mantel','Rock','Pullover','Schal','Mütze'],
-  Bäume:['Eiche','Buche','Birke','Tanne','Ahorn','Linde','Kiefer','Ulme'],
-  Blumen:['Rose','Tulpe','Nelke','Lilie','Veilchen','Narzisse','Margerite','Aster'],
-  Körperteile:['Arm','Bein','Hand','Fuß','Schulter','Knie','Ellbogen','Ferse']
+/* __BANKS3_START__  Logik 3.0: Analogien (80, mit Beziehungstyp & Schwierigkeit), Kategorien (28, mit Nah-Distraktoren),
+   Tatsache/Meinung (mit Schwierigkeit 1–5), Level-Ziehung aus Bänken. */
+/* ---- Wort-Analogien: rel = Beziehungstyp, d = Schwierigkeit 1–5. Optionen werden beim Ziehen gemischt (kein Positions-Bias). ---- */
+const ANALOGIEN3=[
+ /* d1 */
+ {q:"Arzt : Krankenhaus = Lehrer : ?",o:["Schule","Tafel","Schüler","Kreide","Pause"],c:0,rel:"Beruf → Arbeitsort",d:1,e:"Ein Arzt arbeitet im Krankenhaus – ein Lehrer in der Schule."},
+ {q:"Hand : Finger = Fuß : ?",o:["Zehe","Arm","Schuh","Socke","Knie"],c:0,rel:"Ganzes → Teil",d:1,e:"Der Finger ist Teil der Hand – die Zehe Teil des Fußes."},
+ {q:"heiß : kalt = hoch : ?",o:["tief","warm","oben","weit","schwer"],c:0,rel:"Gegensatz",d:1,e:"Gegensatzpaar: heiß/kalt wie hoch/tief."},
+ {q:"Kuh : Kalb = Pferd : ?",o:["Fohlen","Ferkel","Lamm","Welpe","Küken"],c:0,rel:"Tier → Jungtier",d:1,e:"Das Junge der Kuh ist das Kalb – das des Pferdes das Fohlen."},
+ {q:"Auge : sehen = Ohr : ?",o:["hören","riechen","fühlen","schmecken","sprechen"],c:0,rel:"Organ → Funktion",d:1,e:"Mit dem Auge sieht man – mit dem Ohr hört man."},
+ {q:"Messer : schneiden = Stift : ?",o:["schreiben","kochen","bohren","kleben","messen"],c:0,rel:"Gegenstand → Funktion",d:1,e:"Mit dem Messer schneidet man – mit dem Stift schreibt man."},
+ {q:"Bäcker : Brot = Imker : ?",o:["Honig","Mehl","Kuchen","Milch","Käse"],c:0,rel:"Erzeuger → Produkt",d:1,e:"Der Bäcker stellt Brot her – der Imker gewinnt Honig."},
+ {q:"Vogel : fliegen = Fisch : ?",o:["schwimmen","laufen","springen","kriechen","klettern"],c:0,rel:"Tier → Fortbewegung",d:1,e:"Der Vogel fliegt – der Fisch schwimmt."},
+ {q:"Apfel : Obst = Möhre : ?",o:["Gemüse","Salat","Garten","Suppe","Feld"],c:0,rel:"Beispiel → Kategorie",d:1,e:"Der Apfel ist ein Obst – die Möhre ein Gemüse."},
+ {q:"Tag : Nacht = Sommer : ?",o:["Winter","Sonne","Urlaub","Hitze","Monat"],c:0,rel:"Gegensatz",d:1,e:"Tag und Nacht sind Gegensätze – ebenso Sommer und Winter."},
+ {q:"Hund : bellen = Katze : ?",o:["miauen","springen","schlafen","kratzen","jagen"],c:0,rel:"Tier → Laut",d:1,e:"Der Hund bellt – die Katze miaut."},
+ {q:"Koch : Küche = Richter : ?",o:["Gericht","Gesetz","Urteil","Polizei","Gefängnis"],c:0,rel:"Beruf → Arbeitsort",d:1,e:"Der Koch arbeitet in der Küche – der Richter im Gericht (Gebäude)."},
+ {q:"Schuh : Fuß = Handschuh : ?",o:["Hand","Finger","Arm","Mütze","Socke"],c:0,rel:"Gegenstand → Körperteil",d:1,e:"Der Schuh wird am Fuß getragen – der Handschuh an der Hand."},
+ {q:"Schnee : weiß = Rabe : ?",o:["schwarz","grau","braun","bunt","hell"],c:0,rel:"Gegenstand → Eigenschaft",d:1,e:"Schnee ist weiß – ein Rabe schwarz."},
+ {q:"Buch : lesen = Film : ?",o:["ansehen","hören","drucken","schreiben","malen"],c:0,rel:"Gegenstand → Funktion",d:1,e:"Ein Buch wird gelesen – ein Film angesehen."},
+ {q:"Hunger : essen = Durst : ?",o:["trinken","Wasser","Glas","schlafen","kochen"],c:0,rel:"Problem → Lösung",d:1,e:"Gegen Hunger hilft essen – gegen Durst trinken."},
+ /* d2 */
+ {q:"Auto : Straße = Zug : ?",o:["Schiene","Bahnhof","Lokomotive","Tunnel","Wagen"],c:0,rel:"Gegenstand → Fahrweg",d:2,e:"Ein Auto fährt auf der Straße – ein Zug auf der Schiene."},
+ {q:"Maler : Pinsel = Schreiner : ?",o:["Säge","Holz","Werkstatt","Nagel","Farbe"],c:0,rel:"Beruf → Werkzeug",d:2,e:"Der Pinsel ist das Werkzeug des Malers – die Säge das des Schreiners."},
+ {q:"König : Krone = Soldat : ?",o:["Helm","Schwert","Pferd","Burg","Thron"],c:0,rel:"Person → Kopfbedeckung",d:2,e:"Die Krone trägt der König auf dem Kopf – der Soldat den Helm."},
+ {q:"Feder : leicht = Blei : ?",o:["schwer","hart","grau","kalt","dünn"],c:0,rel:"Gegenstand → Eigenschaft",d:2,e:"Eine Feder ist leicht – Blei ist schwer."},
+ {q:"Frage : Antwort = Problem : ?",o:["Lösung","Aufgabe","Fehler","Rätsel","Frage"],c:0,rel:"Problem → Lösung",d:2,e:"Auf eine Frage folgt die Antwort – auf ein Problem die Lösung."},
+ {q:"Tag : Sonne = Nacht : ?",o:["Mond","Stern","Dunkelheit","Schlaf","Lampe"],c:0,rel:"Zeit → Himmelskörper",d:2,e:"Am Tag leuchtet die Sonne – in der Nacht der Mond."},
+ {q:"Lehrer : Schüler = Arzt : ?",o:["Patient","Krankenschwester","Medikament","Praxis","Kollege"],c:0,rel:"Beruf → betreute Person",d:2,e:"Der Lehrer kümmert sich um Schüler – der Arzt um Patienten."},
+ {q:"Anfang : Ende = Geburt : ?",o:["Tod","Leben","Alter","Kindheit","Beginn"],c:0,rel:"Gegensatz",d:2,e:"Anfang und Ende sind Gegensätze – ebenso Geburt und Tod."},
+ {q:"Rad : Fahrrad = Flügel : ?",o:["Flugzeug","Luft","Pilot","Himmel","Motor"],c:0,rel:"Teil → Ganzes",d:2,e:"Das Rad ist Teil des Fahrrads – der Flügel Teil des Flugzeugs."},
+ {q:"Blatt : Baum = Seite : ?",o:["Buch","Papier","Text","Zeile","Bibliothek"],c:0,rel:"Teil → Ganzes",d:2,e:"Das Blatt gehört zum Baum – die Seite zum Buch."},
+ {q:"Friseur : Schere = Zahnarzt : ?",o:["Bohrer","Zahn","Praxis","Spritze","Zahnbürste"],c:0,rel:"Beruf → Werkzeug",d:2,e:"Der Friseur arbeitet mit der Schere – der Zahnarzt mit dem Bohrer."},
+ {q:"Regen : nass = Sonne : ?",o:["warm","hell","gelb","Sommer","Strand"],c:0,rel:"Ursache → Wirkung",d:2,e:"Regen macht nass – Sonne macht warm (Wirkung auf den Körper)."},
+ {q:"Schaf : Lamm = Hund : ?",o:["Welpe","Kätzchen","Fohlen","Kalb","Ferkel"],c:0,rel:"Tier → Jungtier",d:2,e:"Das Junge des Schafs ist das Lamm – das des Hundes der Welpe."},
+ {q:"Holz : Tisch = Wolle : ?",o:["Pullover","Schaf","Nadel","Faden","Wärme"],c:0,rel:"Material → Gegenstand",d:2,e:"Aus Holz wird ein Tisch – aus Wolle ein Pullover."},
+ {q:"Säugetier : Hund = Insekt : ?",o:["Biene","Spinne","Wurm","Schnecke","Frosch"],c:0,rel:"Kategorie → Beispiel",d:2,e:"Der Hund ist ein Säugetier – die Biene ein Insekt (die Spinne gehört nicht zu den Insekten)."},
+ {q:"Herz : pumpen = Lunge : ?",o:["atmen","schlagen","verdauen","denken","sehen"],c:0,rel:"Organ → Funktion",d:2,e:"Das Herz pumpt – die Lunge atmet."},
+ /* d3 */
+ {q:"Winzer : Wein = Töpfer : ?",o:["Vase","Ton","Ofen","Rad","Glas"],c:0,rel:"Erzeuger → Produkt",d:3,e:"Der Winzer stellt Wein her – der Töpfer Vasen (Ton ist das Material, nicht das Produkt)."},
+ {q:"warm : heiß = kühl : ?",o:["eisig","frisch","lau","nass","mild"],c:0,rel:"Steigerung",d:3,e:"Heiß ist die Steigerung von warm – eisig die Steigerung von kühl."},
+ {q:"Feuer : Asche = Eis : ?",o:["Wasser","Kälte","Winter","Schnee","Dampf"],c:0,rel:"Ursache → Ergebnis",d:3,e:"Was vom Feuer bleibt, ist Asche – was vom geschmolzenen Eis bleibt, ist Wasser."},
+ {q:"Dirigent : Orchester = Kapitän : ?",o:["Mannschaft","Schiff","Meer","Hafen","Steuer"],c:0,rel:"Leiter → Gruppe",d:3,e:"Der Dirigent leitet das Orchester – der Kapitän die Mannschaft (das Schiff ist der Ort, nicht die geleitete Gruppe)."},
+ {q:"Glas : zerbrechlich = Gummi : ?",o:["elastisch","schwarz","rund","weich","billig"],c:0,rel:"Material → typische Eigenschaft",d:3,e:"Glas ist zerbrechlich – Gummi ist elastisch (seine kennzeichnende Eigenschaft)."},
+ {q:"Bienen : Schwarm = Wölfe : ?",o:["Rudel","Herde","Zoo","Wald","Jagd"],c:0,rel:"Tiere → Gruppe",d:3,e:"Bienen bilden einen Schwarm – Wölfe ein Rudel."},
+ {q:"Zündung : Explosion = Virus : ?",o:["Krankheit","Arzt","Impfung","Fieber","Labor"],c:0,rel:"Ursache → Wirkung",d:3,e:"Die Zündung löst die Explosion aus – das Virus die Krankheit (Fieber ist nur ein Symptom)."},
+ {q:"Kompass : Richtung = Waage : ?",o:["Gewicht","Küche","Kilogramm","Balance","Obst"],c:0,rel:"Gerät → Messgröße",d:3,e:"Der Kompass zeigt die Richtung – die Waage das Gewicht (Kilogramm ist nur die Einheit)."},
+ {q:"Schlüssel : Schloss = Passwort : ?",o:["Konto","Computer","Buchstabe","Tastatur","Geheimnis"],c:0,rel:"Mittel → Zugang",d:3,e:"Der Schlüssel öffnet das Schloss – das Passwort das Konto."},
+ {q:"Fluss : Mündung = Straße : ?",o:["Kreuzung","Asphalt","Auto","Ampel","Gehweg"],c:0,rel:"Ganzes → Treffpunkt",d:3,e:"An der Mündung trifft der Fluss auf ein anderes Gewässer – an der Kreuzung trifft die Straße auf eine andere Straße."},
+ {q:"Bibliothek : Bücher = Archiv : ?",o:["Akten","Regale","Staub","Geschichte","Beamte"],c:0,rel:"Ort → Aufbewahrtes",d:3,e:"Die Bibliothek bewahrt Bücher auf – das Archiv Akten."},
+ {q:"Ohr : Lärm = Nase : ?",o:["Gestank","Luft","Atmung","Duft","Schnupfen"],c:0,rel:"Organ → unangenehmer Reiz",d:3,e:"Lärm ist der unangenehme Reiz für das Ohr – Gestank für die Nase (Duft wäre angenehm)."},
+ {q:"Müdigkeit : Schlaf = Durst : ?",o:["Trinken","Wasser","Sommer","Flasche","Hitze"],c:0,rel:"Problem → Lösung",d:3,e:"Gegen Müdigkeit hilft Schlaf – gegen Durst Trinken (die Handlung, nicht das Getränk)."},
+ {q:"Zahn : Gebiss = Soldat : ?",o:["Armee","Gewehr","Krieg","Uniform","Kaserne"],c:0,rel:"Teil → Ganzes",d:3,e:"Der Zahn ist Teil des Gebisses – der Soldat Teil der Armee."},
+ {q:"Pilot : Cockpit = Chirurg : ?",o:["Operationssaal","Krankenhaus","Skalpell","Patient","Wartezimmer"],c:0,rel:"Beruf → Arbeitsplatz (eng)",d:3,e:"Das Cockpit ist der unmittelbare Arbeitsplatz des Piloten – der Operationssaal der des Chirurgen (das Krankenhaus ist zu allgemein)."},
+ {q:"Samen : Pflanze = Ei : ?",o:["Küken","Nest","Henne","Schale","Frühstück"],c:0,rel:"Anfang → Entwicklung",d:3,e:"Aus dem Samen wird die Pflanze – aus dem Ei das Küken."},
+ {q:"Tropfen : Regen = Flocke : ?",o:["Schnee","Winter","Eis","Wolke","Kälte"],c:0,rel:"Teil → Ganzes",d:3,e:"Regen besteht aus Tropfen – Schnee aus Flocken."},
+ /* d4 */
+ {q:"Dürre : Hungersnot = Inflation : ?",o:["Kaufkraftverlust","Geld","Bank","Zinsen","Preis"],c:0,rel:"Ursache → Wirkung",d:4,e:"Dürre führt zur Hungersnot – Inflation zum Kaufkraftverlust (die anderen Begriffe sind Umfeld, keine Folge)."},
+ {q:"Thermometer : Temperatur = Barometer : ?",o:["Luftdruck","Wetter","Höhe","Regen","Wind"],c:0,rel:"Gerät → Messgröße",d:4,e:"Das Thermometer misst die Temperatur – das Barometer den Luftdruck (das Wetter wird daraus nur abgeleitet)."},
+ {q:"Skizze : Gemälde = Entwurf : ?",o:["Bauwerk","Architekt","Papier","Plan","Lineal"],c:0,rel:"Vorstufe → fertiges Werk",d:4,e:"Die Skizze ist die Vorstufe des Gemäldes – der Entwurf die Vorstufe des Bauwerks (Plan wäre selbst nur eine Vorstufe)."},
+ {q:"Leihen : Schulden = Säen : ?",o:["Ernte","Feld","Bauer","Traktor","Regen"],c:0,rel:"Handlung → späteres Ergebnis",d:4,e:"Wer leiht, hat später Schulden – wer sät, hat später die Ernte."},
+ {q:"Rezept : Gericht = Bauplan : ?",o:["Haus","Architekt","Ziegel","Kran","Grundstück"],c:0,rel:"Anleitung → Ergebnis",d:4,e:"Nach dem Rezept entsteht das Gericht – nach dem Bauplan das Haus."},
+ {q:"zufrieden : begeistert = ärgerlich : ?",o:["wütend","traurig","müde","unzufrieden","ruhig"],c:0,rel:"Steigerung",d:4,e:"Begeistert ist die Steigerung von zufrieden – wütend die Steigerung von ärgerlich."},
+ {q:"Satz : Absatz = Vers : ?",o:["Strophe","Gedicht","Reim","Zeile","Buch"],c:0,rel:"Teil → nächstgrößere Einheit",d:4,e:"Mehrere Sätze bilden einen Absatz – mehrere Verse eine Strophe (Gedicht wäre zwei Stufen größer)."},
+ {q:"Symptom : Diagnose = Indiz : ?",o:["Urteil","Täter","Richter","Zeuge","Gesetz"],c:0,rel:"Hinweis → daraus abgeleitete Entscheidung",d:4,e:"Aus Symptomen entsteht die Diagnose – aus Indizien das Urteil."},
+ {q:"Flüstern : Schreien = Nieseln : ?",o:["Wolkenbruch","Nebel","Wind","Schauer","Tau"],c:0,rel:"Steigerung",d:4,e:"Schreien ist die starke Form des Flüsterns – der Wolkenbruch die starke Form des Nieselns (Schauer liegt dazwischen)."},
+ {q:"Gewitter : Blitz = Vulkan : ?",o:["Lava","Berg","Hitze","Insel","Erdbeben"],c:0,rel:"Ganzes → typischer Bestandteil",d:4,e:"Der Blitz ist ein typischer Bestandteil des Gewitters – die Lava ein typischer Bestandteil des Vulkanausbruchs."},
+ {q:"Lampe : Glühbirne = Auto : ?",o:["Motor","Straße","Garage","Benzin","Fahrer"],c:0,rel:"Ganzes → Kernteil",d:4,e:"Die Glühbirne ist das Kernteil der Lampe, das die Funktion liefert – der Motor das Kernteil des Autos."},
+ {q:"Zitrone : sauer = Chili : ?",o:["scharf","rot","klein","bitter","heiß"],c:0,rel:"Gegenstand → Geschmack",d:4,e:"Die Zitrone schmeckt sauer – Chili scharf (heiß beschreibt Temperatur)."},
+ {q:"Grundstein : Gebäude = Prototyp : ?",o:["Serienprodukt","Labor","Ingenieur","Werkzeug","Zeichnung"],c:0,rel:"erster Schritt → fertiges Ergebnis",d:4,e:"Mit dem Grundstein beginnt das Gebäude – mit dem Prototyp das Serienprodukt."},
+ {q:"Stimme : Chor = Instrument : ?",o:["Orchester","Konzert","Noten","Musiker","Melodie"],c:0,rel:"Teil → Ganzes",d:4,e:"Viele Stimmen bilden den Chor – viele Instrumente das Orchester."},
+ {q:"Lexikon : nachschlagen = Roman : ?",o:["lesen","drucken","schreiben","verkaufen","verfilmen"],c:0,rel:"Gegenstand → typische Nutzung",d:4,e:"Im Lexikon schlägt man nach – einen Roman liest man (von vorn bis hinten)."},
+ {q:"Reibung : Wärme = Bewegung : ?",o:["Energie","Geschwindigkeit","Weg","Zeit","Muskel"],c:0,rel:"Vorgang → erzeugte Größe",d:4,e:"Reibung erzeugt Wärme – Bewegung Energie (Bewegungsenergie)."},
+ /* d5 */
+ {q:"Hypothese : Experiment = Angeklagter : ?",o:["Prozess","Richter","Gefängnis","Anwalt","Verbrechen"],c:0,rel:"Prüfgegenstand → Prüfverfahren",d:5,e:"Die Hypothese wird im Experiment geprüft – der Angeklagte im Prozess."},
+ {q:"Dirigent : Partitur = Pilot : ?",o:["Flugplan","Flugzeug","Cockpit","Passagier","Wolke"],c:0,rel:"Person → Vorgabe, der sie folgt",d:5,e:"Der Dirigent folgt der Partitur – der Pilot dem Flugplan."},
+ {q:"Wurzel : Pflanze = Fundament : ?",o:["Gebäude","Keller","Beton","Baugrube","Dach"],c:0,rel:"tragender Teil → Ganzes",d:5,e:"Die Wurzel verankert die Pflanze – das Fundament das Gebäude (der Keller ist nur ein Geschoss)."},
+ {q:"Knappheit : Wert = Übung : ?",o:["Können","Zeit","Sport","Lehrer","Pause"],c:0,rel:"Ursache → Wirkung (abstrakt)",d:5,e:"Knappheit erhöht den Wert – Übung erhöht das Können."},
+ {q:"Zweifel : Gewissheit = Chaos : ?",o:["Ordnung","Lärm","Stille","Regel","Unglück"],c:0,rel:"Gegensatz (abstrakt)",d:5,e:"Zweifel und Gewissheit sind Gegensätze – ebenso Chaos und Ordnung."},
+ {q:"Gesetz : Verfassung = Regel : ?",o:["Prinzip","Verbot","Strafe","Spiel","Vertrag"],c:0,rel:"Konkretes → übergeordneter Rahmen",d:5,e:"Ein Gesetz muss der Verfassung entsprechen – eine Regel dem Prinzip, das hinter ihr steht."},
+ {q:"Anker : Schiff = Wurzel : ?",o:["Baum","Erde","Wasser","Ast","Wald"],c:0,rel:"Teil → gehaltenes Ganzes",d:5,e:"Der Anker hält das Schiff fest – die Wurzel den Baum (die Erde ist das Medium, nicht das Gehaltene)."},
+ {q:"Pulsschlag : Herz = Tick : ?",o:["Uhr","Zeit","Zeiger","Sekunde","Wecker"],c:0,rel:"Lebenszeichen → Quelle",d:5,e:"Der Pulsschlag ist das Lebenszeichen des Herzens – das Ticken das der Uhr (Wecker ist zu speziell, Sekunde die Einheit)."},
+ {q:"Symptom : Krankheit = Rauch : ?",o:["Feuer","Schornstein","Luft","Asche","Nebel"],c:0,rel:"sichtbares Zeichen → Ursache",d:5,e:"Das Symptom zeigt die Krankheit an – der Rauch das Feuer (Asche ist das Ergebnis, nicht die Ursache)."},
+ {q:"Dirigent : Takt = Schiedsrichter : ?",o:["Regeln","Pfeife","Spiel","Mannschaft","Tor"],c:0,rel:"Person → das, worüber sie wacht",d:5,e:"Der Dirigent wacht über den Takt – der Schiedsrichter über die Regeln (die Pfeife ist nur sein Werkzeug)."},
+ {q:"Kritik : Verbesserung = Dünger : ?",o:["Wachstum","Garten","Erde","Pflanze","Ernte"],c:0,rel:"Mittel → beabsichtigte Wirkung",d:5,e:"Kritik soll Verbesserung bewirken – Dünger Wachstum (die Ernte ist ein späteres Ergebnis)."},
+ {q:"Mangel : Bedürfnis = Reiz : ?",o:["Reaktion","Nerv","Haut","Gefühl","Licht"],c:0,rel:"Auslöser → Folge",d:5,e:"Ein Mangel löst ein Bedürfnis aus – ein Reiz eine Reaktion."},
+ {q:"Gerücht : Beweis = Vermutung : ?",o:["Gewissheit","Zweifel","Idee","Frage","Theorie"],c:0,rel:"unsicher → gesichert",d:5,e:"Dem Gerücht steht der Beweis gegenüber, der Vermutung die Gewissheit (gleiche Stufe der Sicherheit)."},
+ {q:"Metapher : Sprache = Symbol : ?",o:["Zeichen","Buch","Kunst","Flagge","Bild"],c:0,rel:"Stilmittel → System, in dem es wirkt",d:5,e:"Die Metapher ist ein bildhaftes Mittel innerhalb der Sprache – das Symbol ein bildhaftes Mittel innerhalb der Zeichen."},
+ {q:"Erosion : Fels = Rost : ?",o:["Eisen","Wasser","Farbe","Zeit","Luft"],c:0,rel:"Zerstörungsvorgang → Material",d:5,e:"Erosion zersetzt den Fels – Rost zersetzt das Eisen."},
+ {q:"Impfung : Krankheit = Versicherung : ?",o:["Schaden","Geld","Vertrag","Unfall","Bank"],c:0,rel:"Vorsorge → abgewendete Folge",d:5,e:"Die Impfung schützt vor der Krankheit – die Versicherung vor dem (finanziellen) Schaden; der Unfall selbst wird nicht verhindert."}
+];
+/* ---- Kategorien: disjunkt, je ≥8 Begriffe; near = thematisch nahe, aber NICHT zugehörige Begriffe; nearCats = nahe, aber falsche Oberbegriffe ---- */
+const CATS3={
+  Säugetiere:{w:['Hund','Katze','Pferd','Löwe','Maus','Elefant','Kuh','Delfin','Wal','Fuchs'],near:['Nest','Stall','Fell','Zoo','Käfig'],nearCats:['Vögel','Reptilien','Fische','Insekten']},
+  Vögel:{w:['Adler','Spatz','Amsel','Taube','Ente','Pinguin','Eule','Storch','Möwe','Papagei'],near:['Nest','Feder','Schnabel','Ei','Flug'],nearCats:['Säugetiere','Insekten','Reptilien','Fische']},
+  Fische:{w:['Forelle','Hai','Lachs','Karpfen','Hering','Thunfisch','Hecht','Aal','Makrele','Barsch'],near:['Angel','Netz','Aquarium','Kieme','Schuppe'],nearCats:['Säugetiere','Reptilien','Vögel','Insekten']},
+  Insekten:{w:['Biene','Ameise','Käfer','Fliege','Mücke','Schmetterling','Heuschrecke','Wespe','Libelle','Grille'],near:['Spinne','Wurm','Schnecke','Zecke','Bienenstock'],nearCats:['Reptilien','Vögel','Fische','Säugetiere']},
+  Reptilien:{w:['Schlange','Eidechse','Krokodil','Schildkröte','Chamäleon','Gecko','Leguan','Alligator'],near:['Frosch','Salamander','Molch','Panzer','Terrarium'],nearCats:['Säugetiere','Fische','Insekten','Vögel']},
+  Obst:{w:['Apfel','Birne','Banane','Kirsche','Traube','Pfirsich','Pflaume','Mango','Orange','Erdbeere'],near:['Marmelade','Saft','Obstbaum','Kern','Schale'],nearCats:['Gemüse','Nüsse','Gewürze','Getränke']},
+  Gemüse:{w:['Möhre','Tomate','Gurke','Zwiebel','Kohl','Paprika','Bohne','Erbse','Spinat','Lauch'],near:['Beet','Salatschüssel','Suppe','Gärtner','Kompost'],nearCats:['Obst','Hülsenfrüchte','Gewürze','Kräuter']},
+  Gewürze:{w:['Pfeffer','Zimt','Kümmel','Paprikapulver','Muskat','Gewürznelke','Curry','Ingwer','Safran','Koriander'],near:['Salz','Zucker','Topf','Küche','Rezept'],nearCats:['Gemüse','Kräuter','Soßen','Getränke']},
+  Getränke:{w:['Wasser','Tee','Kaffee','Saft','Limonade','Milch','Cola','Kakao','Bier','Wein'],near:['Glas','Flasche','Durst','Tasse','Kellner'],nearCats:['Speisen','Obst','Gewürze','Süßigkeiten']},
+  Möbel:{w:['Tisch','Stuhl','Schrank','Bett','Sofa','Regal','Kommode','Hocker','Sessel','Truhe'],near:['Teppich','Lampe','Vorhang','Wohnung','Schreiner'],nearCats:['Haushaltsgeräte','Werkzeuge','Gebäude','Kleidung']},
+  Werkzeuge:{w:['Hammer','Säge','Zange','Bohrer','Schraubenzieher','Feile','Meißel','Schraubenschlüssel','Hobel','Axt'],near:['Nagel','Schraube','Werkstatt','Handwerker','Werkbank'],nearCats:['Haushaltsgeräte','Möbel','Musikinstrumente','Verkehrsmittel']},
+  Musikinstrumente:{w:['Geige','Klavier','Flöte','Trompete','Gitarre','Harfe','Cello','Posaune','Schlagzeug','Klarinette'],near:['Dirigent','Notenschlüssel','Konzert','Orchester','Melodie'],nearCats:['Musikrichtungen','Tonarten','Berufe','Werkzeuge']},
+  Berufe:{w:['Arzt','Lehrer','Bäcker','Maurer','Pilot','Koch','Schneider','Gärtner','Anwalt','Friseur'],near:['Arbeit','Gehalt','Büro','Ausbildung','Chef'],nearCats:['Sportarten','Wissenschaften','Schulfächer','Hobbys']},
+  Sportarten:{w:['Fußball','Tennis','Handball','Schwimmen','Boxen','Judo','Rudern','Turnen','Golf','Hockey'],near:['Trainer','Stadion','Pokal','Trikot','Schiedsrichter'],nearCats:['Berufe','Hobbys','Spiele','Musikrichtungen']},
+  Kleidung:{w:['Hemd','Hose','Jacke','Mantel','Rock','Pullover','Schal','Mütze','Bluse','Weste'],near:['Kleiderschrank','Schneider','Knopf','Stoff','Mode'],nearCats:['Möbel','Schmuck','Werkzeuge','Körperteile']},
+  Bäume:{w:['Eiche','Buche','Birke','Tanne','Ahorn','Linde','Kiefer','Ulme','Fichte','Kastanie'],near:['Wald','Blatt','Ast','Holz','Förster'],nearCats:['Blumen','Sträucher','Gemüse','Getreide']},
+  Blumen:{w:['Rose','Tulpe','Nelke','Lilie','Veilchen','Narzisse','Margerite','Aster','Dahlie','Sonnenblume'],near:['Vase','Gärtner','Blüte','Strauß','Beet'],nearCats:['Bäume','Sträucher','Gemüse','Kräuter']},
+  Körperteile:{w:['Arm','Bein','Hand','Fuß','Schulter','Knie','Ellbogen','Ferse','Finger','Nase'],near:['Schuh','Handschuh','Arzt','Röntgen','Pflaster'],nearCats:['Organe','Kleidung','Krankheiten','Sinne']},
+  Verkehrsmittel:{w:['Auto','Zug','Bus','Flugzeug','Schiff','Fahrrad','Straßenbahn','U-Bahn','Motorrad','Fähre'],near:['Straße','Bahnhof','Fahrkarte','Fahrer','Garage'],nearCats:['Werkzeuge','Gebäude','Berufe','Maschinen']},
+  Metalle:{w:['Eisen','Gold','Silber','Kupfer','Zinn','Blei','Aluminium','Nickel','Zink','Platin'],near:['Rost','Schmied','Erz','Münze','Draht'],nearCats:['Edelsteine','Gesteine','Werkzeuge','Währungen']},
+  Edelsteine:{w:['Diamant','Rubin','Saphir','Smaragd','Opal','Topas','Amethyst','Granat'],near:['Ring','Juwelier','Kette','Schmuck','Diadem'],nearCats:['Metalle','Gesteine','Schmuck','Währungen']},
+  Planeten:{w:['Merkur','Venus','Erde','Mars','Jupiter','Saturn','Uranus','Neptun'],near:['Sonne','Mond','Komet','Teleskop','Rakete'],nearCats:['Sterne','Monde','Sternbilder','Elemente']},
+  Farben:{w:['Rot','Blau','Grün','Gelb','Lila','Schwarz','Braun','Rosa','Türkis','Grau'],near:['Pinsel','Regenbogen','Maler','Leinwand','Licht'],nearCats:['Formen','Gefühle','Materialien','Blumen']},
+  Sprachen:{w:['Deutsch','Englisch','Französisch','Spanisch','Italienisch','Russisch','Chinesisch','Arabisch','Japanisch','Portugiesisch'],near:['Wörterbuch','Grammatik','Übersetzer','Alphabet','Dialekt'],nearCats:['Länder','Nationalitäten','Schulfächer','Währungen']},
+  Länder:{w:['Frankreich','Spanien','Italien','Polen','Schweden','Japan','Kanada','Brasilien','Ägypten','Indien'],near:['Hauptstadt','Grenze','Reisepass','Kontinent','Botschaft'],nearCats:['Städte','Sprachen','Kontinente','Flüsse']},
+  Flüsse:{w:['Rhein','Donau','Elbe','Nil','Amazonas','Themse','Seine','Wolga','Mississippi','Ganges'],near:['Brücke','Ufer','Mündung','Staudamm','Fähre'],nearCats:['Seen','Meere','Gebirge','Länder']},
+  Gebirge:{w:['Alpen','Pyrenäen','Anden','Himalaya','Karpaten','Rocky Mountains','Ural','Atlas','Apenninen','Kaukasus'],near:['Gipfel','Tal','Seilbahn','Bergsteiger','Lawine'],nearCats:['Flüsse','Wüsten','Inseln','Länder']},
+  Währungen:{w:['Euro','Dollar','Pfund','Yen','Franken','Rubel','Krone','Peso','Rupie','Lira'],near:['Bank','Geldbörse','Kasse','Zins','Preis'],nearCats:['Länder','Metalle','Edelsteine','Sprachen']},
+  Schulfächer:{w:['Mathematik','Physik','Chemie','Biologie','Geschichte','Erdkunde','Musik','Kunst','Sport','Informatik'],near:['Zeugnis','Lehrer','Pause','Hausaufgabe','Tafel'],nearCats:['Berufe','Sportarten','Wissenschaften','Hobbys']},
+  Wetterphänomene:{w:['Regen','Schnee','Hagel','Nebel','Gewitter','Sturm','Tau','Raureif','Wirbelsturm','Blitz'],near:['Regenschirm','Thermometer','Wolke','Jahreszeit','Wetterbericht'],nearCats:['Jahreszeiten','Naturkatastrophen','Himmelskörper','Gewässer']}
 };
-const CAT_NAMES=Object.keys(CATS);
+const CAT3_NAMES=Object.keys(CATS3);
+/* Beibehaltener Alt-Name: CATS zeigt jetzt auf die Wortlisten (Oberbegriff/Passende greifen darauf zu). */
+const CATS=Object.fromEntries(CAT3_NAMES.map(k=>[k,CATS3[k].w]));
+const CAT_NAMES=CAT3_NAMES;
 function pairKey(a,b){return [a,b].sort().join(' · ');}
-function genOberbegriff(){
-  const cat=pick(CAT_NAMES), ws=shuffle(CATS[cat].slice());
-  const others=shuffle(CAT_NAMES.filter(c=>c!==cat)).slice(0,4);
+/* Nah-Distraktoren erst ab Level 3; L4/5 überwiegend nah. Kategorienamen bleiben eindeutig (keine Oberkategorie der Zielkategorie). */
+function genOberbegriff(L){
+  L=clamp(Math.round(L)||1,1,5);
+  const cat=pick(CAT_NAMES), info=CATS3[cat], ws=shuffle(info.w.slice());
+  const far=shuffle(CAT_NAMES.filter(c=>c!==cat&&!info.nearCats.includes(c)));
+  const near=shuffle(info.nearCats.slice());
+  const nNear=L<=2?0:L===3?2:L===4?3:4;
+  const others=near.slice(0,nNear).concat(far).slice(0,4);
   const opts=shuffle([cat,...others]);
   return {q:`Welcher Oberbegriff passt zu <b>${ws[0]}</b> und <b>${ws[1]}</b>?`,o:opts,c:opts.indexOf(cat),
-    h:`Was sind ${ws[0]} und ${ws[1]} beide?`,h2:'Suche die Kategorie, zu der beide gehören.',
-    e:`${ws[0]} und ${ws[1]} sind beides Beispiele für die Kategorie ${cat}.`};
+    h:`Was sind ${ws[0]} und ${ws[1]} beide?`,h2:L>=3?'Einige Optionen liegen thematisch nah – wähle die Kategorie, zu der BEIDE Begriffe wirklich gehören.':'Suche die Kategorie, zu der beide gehören.',
+    e:`${ws[0]} und ${ws[1]} sind beides Beispiele für die Kategorie ${cat}.`,difficulty:L};
 }
-function genPassende(){
-  const cat=pick(CAT_NAMES), ws=shuffle(CATS[cat].slice()), w1=ws[0], w2=ws[1];
-  const others=shuffle(CAT_NAMES.filter(c=>c!==cat)).slice(0,4).map(c=>pick(CATS[c]));
+function genPassende(L){
+  L=clamp(Math.round(L)||1,1,5);
+  const cat=pick(CAT_NAMES), info=CATS3[cat], ws=shuffle(info.w.slice()), w1=ws[0], w2=ws[1];
+  const catOf=w=>CAT_NAMES.find(k=>CATS3[k].w.includes(w))||null;              // Nah-Begriffe können Mitglied einer ANDEREN Kategorie sein
+  const usedCats=new Set([cat]); const others=[];
+  const take=w=>{ if(!w||others.includes(w)||info.w.includes(w))return false; const c=catOf(w); if(c&&usedCats.has(c))return false; if(c)usedCats.add(c); others.push(w); return true; };
+  if(L>=3){ for(const w of shuffle(info.near.slice())){ if(take(w))break; } }                     // ein thematisch naher, aber nicht zugehöriger Begriff
+  if(L>=4){ for(const c of shuffle(info.nearCats.filter(c=>CATS3[c]&&!usedCats.has(c)))){ if(take(pick(CATS3[c].w)))break; } }  // ein Begriff einer Nachbarkategorie
+  for(const c of shuffle(CAT_NAMES.filter(c=>c!==cat&&!info.nearCats.includes(c)))){ if(others.length>=4)break; if(usedCats.has(c))continue; take(pick(CATS3[c].w)); }
+  let guard=0; while(others.length<4&&guard++<50){ const c=pick(CAT_NAMES); if(c===cat||usedCats.has(c))continue; take(pick(CATS3[c].w)); }
   const shown=shuffle([w1,w2,...others]);
   const correct=pairKey(w1,w2), set=new Set([correct]);
   let g=0; while(set.size<5 && g++<80){const a=pick(shown),b=pick(shown);if(a!==b)set.add(pairKey(a,b));}
   const opts=shuffle([...set]).slice(0,5);
   if(!opts.includes(correct))opts[opts.length-1]=correct;
-  return {q:`Sechs Begriffe: <b>${shown.join(', ')}</b>.<br>Welche zwei gehören zusammen?`,o:opts,c:opts.indexOf(correct),
-    h:'Welche zwei stammen aus derselben Kategorie?',h2:'Die übrigen Begriffe gehören zu ganz verschiedenen Bereichen.',
-    e:`${w1} und ${w2} gehören beide zur Kategorie ${cat}; die anderen Begriffe stammen aus unterschiedlichen Bereichen.`};
+  return {q:`Sechs Begriffe: <b>${shown.join(', ')}</b>.<br>Welche zwei gehören zur selben Kategorie?`,o:opts,c:opts.indexOf(correct),
+    h:'Welche zwei stammen aus derselben Kategorie?',h2:L>=3?'Ein Begriff passt nur thematisch dazu, gehört aber nicht zur Kategorie – lass dich nicht täuschen.':'Die übrigen Begriffe gehören zu ganz verschiedenen Bereichen.',
+    e:`${w1} und ${w2} gehören beide zur Kategorie ${cat}; die anderen Begriffe stammen aus anderen Kategorien${L>=3?' oder passen nur thematisch dazu':''}.`,difficulty:L};
 }
+/* ---- Tatsache oder Meinung: d = Schwierigkeit. f = Tatsache? e = optionale spezifische Erklärung ---- */
+const FAKT3=[
+ {s:"Wasser gefriert bei 0 Grad Celsius.",f:true,d:1},{s:"Berlin ist die Hauptstadt von Deutschland.",f:true,d:1},{s:"Ein Jahr hat zwölf Monate.",f:true,d:1},
+ {s:"Die Erde dreht sich um die Sonne.",f:true,d:1},{s:"Ein Dreieck hat drei Ecken.",f:true,d:1},{s:"Spinnen haben acht Beine.",f:true,d:1},{s:"Eisen ist ein Metall.",f:true,d:1},
+ {s:"Der Mount Everest ist der höchste Berg der Erde.",f:true,d:2},{s:"Ein Kilometer hat 1000 Meter.",f:true,d:1},{s:"Honig wird von Bienen erzeugt.",f:true,d:1},
+ {s:"Das Wasser im Meer ist salzig.",f:true,d:1},{s:"Die Sonne ist ein Stern.",f:true,d:2},{s:"Ein Quadrat hat vier gleich lange Seiten.",f:true,d:1},{s:"Menschen atmen Sauerstoff ein.",f:true,d:1},
+ {s:"Schokolade schmeckt besser als Vanille.",f:false,d:1},{s:"Der Sommer ist die schönste Jahreszeit.",f:false,d:1},{s:"Hunde sind bessere Haustiere als Katzen.",f:false,d:1},
+ {s:"Mathematik ist langweilig.",f:false,d:1},{s:"Blau ist die schönste Farbe.",f:false,d:1},{s:"Fußball ist spannender als Tennis.",f:false,d:1},{s:"Im Urlaub sollte man ans Meer fahren.",f:false,d:2},
+ {s:"Klassische Musik ist entspannend.",f:false,d:2},{s:"Lesen ist wertvoller als Fernsehen.",f:false,d:2},{s:"In der Stadt lebt es sich besser als auf dem Land.",f:false,d:2},
+ {s:"Früh aufzustehen lohnt sich.",f:false,d:2},{s:"Reisen bildet mehr als Bücher.",f:false,d:2},{s:"Ein selbst gekochtes Essen ist immer besser.",f:false,d:2},{s:"Kaffee schmeckt am Morgen am besten.",f:false,d:1},
+ /* d2: Tatsachen mit Zahlen/Fachwissen, Meinungen ohne Signalwort */
+ {s:"Licht ist schneller als Schall.",f:true,d:2},{s:"Der Pazifik ist der größte Ozean der Erde.",f:true,d:2},{s:"Ein Würfel hat sechs Flächen.",f:true,d:2},
+ {s:"Dieses Gemälde ist ein Meisterwerk.",f:false,d:2,e:"„Meisterwerk“ ist eine Bewertung – andere können das Bild anders beurteilen."},
+ {s:"Dieser Film ist zu lang.",f:false,d:2,e:"Ob etwas „zu lang“ ist, hängt vom persönlichen Empfinden ab (die Laufzeit selbst wäre eine Tatsache)."},
+ {s:"Die Deutsche Bahn hat 2023 mehr Fahrgäste befördert als 2022.",f:true,d:2,e:"Das lässt sich anhand von Fahrgastzahlen prüfen – unabhängig davon, ob es stimmt."},
+ /* d3: Prognose vs. Tatsache */
+ {s:"Nächstes Jahr wird der Sommer heißer als dieses Jahr.",f:false,d:3,e:"Eine Prognose: Sie lässt sich heute nicht überprüfen – das ist eine Einschätzung, keine Tatsache."},
+ {s:"Im letzten Jahr lag die Durchschnittstemperatur in Deutschland über dem langjährigen Mittel.",f:true,d:3,e:"Vergangene Messwerte sind überprüfbar – das ist eine Tatsachenbehauptung (sie kann wahr oder falsch sein)."},
+ {s:"Der Aktienkurs wird im nächsten Monat steigen.",f:false,d:3,e:"Eine Vorhersage über die Zukunft ist nicht überprüfbar – also Meinung/Einschätzung."},
+ {s:"Die Bevölkerung dieser Stadt ist in den letzten zehn Jahren gewachsen.",f:true,d:3,e:"Einwohnerzahlen sind dokumentiert und überprüfbar."},
+ {s:"Dieses Unternehmen wird in fünf Jahren Marktführer sein.",f:false,d:3,e:"Zukunftsaussage ohne Überprüfungsmöglichkeit – Einschätzung."},
+ {s:"Die Wahrscheinlichkeit, mit einem fairen Würfel eine Sechs zu werfen, beträgt ein Sechstel.",f:true,d:3,e:"Eine mathematisch überprüfbare Aussage über ein Zufallsexperiment – Tatsache."},
+ {s:"Morgen wird es wahrscheinlich regnen.",f:false,d:3,e:"Eine Prognose, auch wenn sie mit „wahrscheinlich“ abgeschwächt ist – nicht überprüfbar, bevor der Tag vorbei ist."},
+ {s:"Dieses Medikament hat in der Studie bei 60 Prozent der Patienten gewirkt.",f:true,d:3,e:"Studienergebnisse sind dokumentiert und überprüfbar."},
+ {s:"Elektroautos werden in zwanzig Jahren alle Verbrenner ersetzt haben.",f:false,d:3,e:"Zukunftsprognose – Einschätzung, keine Tatsache."},
+ {s:"Der Zug ist gestern mit 20 Minuten Verspätung angekommen.",f:true,d:3,e:"Vergangenes, dokumentierbares Ereignis – Tatsachenbehauptung."},
+ /* d4: Werturteile in Tatsachensprache */
+ {s:"Dieses Auto ist eindeutig das beste seiner Klasse.",f:false,d:4,e:"„Das beste“ ist ein Werturteil, auch wenn „eindeutig“ nach Tatsache klingt – was „gut“ heißt, ist Ansichtssache."},
+ {s:"Dieses Auto verbraucht laut Herstellerangabe 5 Liter auf 100 Kilometer.",f:true,d:4,e:"Die Herstellerangabe lässt sich nachschlagen – Tatsache (unabhängig davon, ob der reale Verbrauch höher ist)."},
+ {s:"Die Steuerreform war ein Fehler.",f:false,d:4,e:"„Fehler“ ist eine Bewertung – andere können die Reform anders beurteilen."},
+ {s:"Die Steuerreform hat den Spitzensteuersatz gesenkt.",f:true,d:4,e:"Ob der Satz gesenkt wurde, steht im Gesetz – überprüfbar."},
+ {s:"Die Regierung hat offensichtlich versagt.",f:false,d:4,e:"„Offensichtlich“ tarnt ein Werturteil als Tatsache – was als Versagen gilt, ist Ansichtssache."},
+ {s:"Die Arbeitslosenquote lag im März bei 5,7 Prozent.",f:true,d:4,e:"Eine überprüfbare Statistik – Tatsache (auch wenn die Zahl falsch sein könnte)."},
+ {s:"Diese Stadt hat die schlechteste Verkehrsplanung des Landes.",f:false,d:4,e:"Ein Superlativ-Urteil ohne objektiven Maßstab – Meinung."},
+ {s:"Diese Stadt hat mehr Fahrradwege als jede andere Stadt des Landes.",f:true,d:4,e:"Kilometer Radwege lassen sich zählen und vergleichen – Tatsachenbehauptung."},
+ {s:"Dieses Buch ist das wichtigste Werk des Jahrhunderts.",f:false,d:4,e:"„Wichtigste“ ist eine Bewertung ohne messbaren Maßstab."},
+ {s:"Dieses Buch wurde über zehn Millionen Mal verkauft.",f:true,d:4,e:"Verkaufszahlen sind überprüfbar."},
+ {s:"Das Konzert war viel zu laut.",f:false,d:4,e:"„Zu laut“ ist ein persönliches Empfinden; ein Dezibelwert wäre eine Tatsache."},
+ {s:"Bei dem Konzert wurden 105 Dezibel gemessen.",f:true,d:4,e:"Ein Messwert – überprüfbar."},
+ /* d5: überprüfbarer Kern + normative Folgerung, unklare Verallgemeinerungen */
+ {s:"Rauchen erhöht das Krebsrisiko, deshalb sollte es verboten werden.",f:false,d:5,e:"Der erste Teil ist überprüfbar, aber die Folgerung („sollte verboten werden“) ist eine normative Forderung – insgesamt eine Meinung."},
+ {s:"Rauchen erhöht das Risiko, an Lungenkrebs zu erkranken.",f:true,d:5,e:"Eine wissenschaftlich überprüfbare Aussage ohne Bewertung – Tatsache."},
+ {s:"Weil die Mieten steigen, muss der Staat eingreifen.",f:false,d:5,e:"Steigende Mieten sind überprüfbar, „muss eingreifen“ ist eine politische Forderung – Meinung."},
+ {s:"Die Mieten in Großstädten sind in den letzten zehn Jahren im Schnitt gestiegen.",f:true,d:5,e:"Mietspiegel und Statistiken machen die Aussage überprüfbar."},
+ {s:"Die meisten Menschen sind im Grunde faul.",f:false,d:5,e:"Eine pauschale, nicht messbare Verallgemeinerung mit Wertung – Meinung."},
+ {s:"In einer Umfrage gaben 40 Prozent der Befragten an, weniger als eine Stunde pro Woche Sport zu treiben.",f:true,d:5,e:"Umfrageergebnisse sind dokumentiert – Tatsachenbehauptung."},
+ {s:"Es ist nur fair, dass Reiche mehr Steuern zahlen.",f:false,d:5,e:"„Fair“ ist ein Werturteil – was gerecht ist, lässt sich nicht messen."},
+ {s:"In Deutschland steigt der Einkommensteuersatz mit dem Einkommen.",f:true,d:5,e:"Der Steuertarif ist gesetzlich festgelegt – überprüfbar."},
+ {s:"Kinder, die viel lesen, werden später erfolgreicher – deshalb sollten Schulen mehr Lesezeit einplanen.",f:false,d:5,e:"Der Zusammenhang wäre prüfbar, aber die Empfehlung („sollten“) ist normativ – als Ganzes eine Meinung."},
+ {s:"Es gibt einen statistischen Zusammenhang zwischen Lesehäufigkeit und Schulnoten.",f:true,d:5,e:"Ob ein Zusammenhang existiert, kann empirisch geprüft werden – Tatsachenbehauptung."},
+ {s:"Wahrscheinlich hat jeder schon einmal gelogen.",f:false,d:5,e:"Eine Vermutung über alle Menschen, die sich nicht überprüfen lässt – Einschätzung."},
+ {s:"Technischer Fortschritt macht das Leben insgesamt besser.",f:false,d:5,e:"„Besser“ ist eine Bewertung; die Aussage ist nicht messbar – Meinung."},
+ {s:"Die durchschnittliche Lebenserwartung in Europa ist seit 1950 gestiegen.",f:true,d:5,e:"Demografische Daten belegen oder widerlegen das – Tatsache."},
+ {s:"Wer hart arbeitet, wird es immer zu etwas bringen.",f:false,d:5,e:"Eine unzulässige Verallgemeinerung („immer“) mit Wertung – Meinung."}
+];
+/* Level-Ziehung aus einer Bank: exaktes d bevorzugt, sonst ±1, sonst alles; pro Level ein eigenes Deck (keine Wiederholung bis Pool erschöpft). */
+const LOGIC_DECKS={};
+function logicDraw(bank,id,L){
+  L=clamp(Math.round(L)||1,1,5); const key=id+':'+L;
+  if(!LOGIC_DECKS[key]){ let pool=bank.filter(it=>it.d===L); if(pool.length<4)pool=bank.filter(it=>Math.abs(it.d-L)<=1); if(pool.length<4)pool=bank.slice(); LOGIC_DECKS[key]=deck(pool); }
+  return LOGIC_DECKS[key]();
+}
+function genAnalogie3(L){
+  L=clamp(Math.round(L)||1,1,5); const it=logicDraw(ANALOGIEN3,'analogien',L);
+  const order=shuffle(it.o.map((_,i)=>i)); const o=order.map(i=>it.o[i]), c=order.indexOf(it.c);
+  return {render:'choice',q:it.q,opts:o,c,hints:[`Bestimme zuerst die Beziehung des ersten Paares (${it.rel}).`,'Übertrage genau diese Beziehung auf das dritte Wort – nur eine Option passt in derselben Weise.'],explain:it.e,difficulty:it.d,relation:it.rel,type:it.rel};
+}
+function genFakt3(L){
+  L=clamp(Math.round(L)||1,1,5); const it=logicDraw(FAKT3,'fakt',L);
+  const base=it.f?'Das ist eine Tatsache – objektiv überprüfbar (sie kann wahr oder falsch sein, aber man kann es nachprüfen).':'Das ist eine Meinung – eine Bewertung, Prognose oder Forderung, die sich nicht objektiv überprüfen lässt.';
+  return {render:'choice',q:`Tatsache oder Meinung?<br><span class="stmt" style="font-style:italic">„${it.s}“</span>`,
+    opts:['Tatsache','Meinung'],c:it.f?0:1,
+    hints:['Lässt sich die Aussage objektiv überprüfen – jetzt oder anhand von Daten?',L>=3?'Vorsicht bei Prognosen, Superlativen und Wörtern wie „sollte“, „offensichtlich“, „zu“: Sie verraten Bewertung oder Forderung.':'Tatsache = nachweisbar wahr/falsch. Meinung = persönliche Bewertung (oft mit „besser“, „schönste“, „sollte“).'],
+    explain:base+(it.e?' '+it.e:''),difficulty:it.d};
+}
+/* __BANKS3_END__ */
 
 /* --- Wort-/Sprachanalogien --- */
 const bankAnalogien=[
@@ -1150,6 +1375,15 @@ function sylScenarios(rnd,pick,shuffle){
     correct:{t:'some',a:3,b:2},
     dis:[[{t:'all',a:3,b:2},'someAll'],[{t:'all',a:2,b:0},'converse'],[{t:'all',a:2,b:3},'converse'],[{t:'someNot',a:3,b:2},'negation']],
     expl:(T)=>`Zwei Ketten-Schritte: Die ${T[3].p}, die ${T[0].p} sind, sind ${T[1].p} und damit ${T[2].p}. „Einige ${T[2].p} sind ${T[1].p}“ scheitert dagegen am Existenzfehler – aus reinen Alle-Aussagen folgt keine Existenz.`}),
+  /* Logik 3.0: Existenz ausdrücklich genutzt + getrennte Mengen */
+  (T)=>({prems:[P('no',0,1),P('all',2,0),{t:'exists',a:2,b:2}],mode:'must',
+    correct:{t:'someNot',a:2,b:1},
+    dis:[[{t:'some',a:2,b:1},'negation'],[{t:'all',a:1,b:0},'converse'],[{t:'exists',a:1,b:1},'exist'],[{t:'someNot',a:0,b:2},'possible']],
+    expl:(T)=>`${T[2].p} liegen in den ${T[0].p}, und ${T[0].p} sind von ${T[1].p} getrennt. Weil mindestens ein ${T[2].s} existiert, gibt es sicher ${T[2].p}, die keine ${T[1].p} sind. Ob es ${T[1].p} überhaupt gibt, bleibt offen.`}),
+  (T)=>({prems:[P('all',0,1),P('all',0,2),{t:'exists',a:0,b:0}],mode:'must',
+    correct:{t:'some',a:1,b:2},
+    dis:[[{t:'all',a:1,b:2},'someAll'],[{t:'no',a:1,b:2},'negation'],[{t:'all',a:2,b:0},'converse'],[{t:'someNot',a:1,b:2},'possible']],
+    expl:(T)=>`Der existierende ${T[0].s} ist zugleich ${T[1].s} und ${T[2].s} – also überschneiden sich ${T[1].p} und ${T[2].p}. Dass ALLE ${T[1].p} ${T[2].p} sind, folgt daraus nicht.`}),
  ],
  5:[ // Mehrstufige Deduktion + Fragevarianten
   (T)=>({prems:[P('all',0,1),P('no',1,2),P('some',3,0),P('all',3,4)],mode:'must',
@@ -1172,6 +1406,23 @@ function sylScenarios(rnd,pick,shuffle){
     correct:{t:'no',a:1,b:3},
     dis:[[{t:'someNot',a:1,b:3},'possible'],[{t:'some',a:2,b:1},'possible'],[{t:'all',a:3,b:1},'possible'],[{t:'exists',a:3,b:3},'possible']],
     expl:(T)=>`Mit „Kein ${T[1].s} ist ein ${T[3].s}“ schließt sich die Kette: Die ${T[2].p}, die ${T[0].p} sind, sind ${T[1].p} und damit sicher keine ${T[3].p}. „Einige ${T[1].p} sind keine ${T[3].p}“ reicht nicht – es könnte die falschen ${T[1].p} treffen.`}),
+  /* Logik 3.0: Widerspruch (mustFalse), Vereinbarkeit (canOnly), Transitivität über drei Schritte, notwendige Zusatzinformation (Existenz) */
+  (T)=>({prems:[P('all',0,1),P('no',1,2),P('some',3,2)],mode:'mustFalse',
+    correct:{t:'all',a:3,b:0},
+    dis:[[{t:'some',a:3,b:1},'possible'],[{t:'someNot',a:3,b:0},'possible'],[{t:'no',a:3,b:0},'possible'],[{t:'exists',a:0,b:0},'possible']],
+    expl:(T)=>`Einige ${T[3].p} sind ${T[2].p}. Wären ALLE ${T[3].p} ${T[0].p}, dann wären diese ${T[2].p} auch ${T[0].p} und damit ${T[1].p} – aber kein ${T[1].s} ist ein ${T[2].s}. Widerspruch. Die anderen Aussagen sind mit den Angaben vereinbar.`}),
+  (T)=>({prems:[P('all',0,1),P('some',1,2),P('no',0,2)],mode:'canOnly',
+    correct:{t:'all',a:2,b:1},
+    dis:[[{t:'some',a:0,b:2},'mustFalse'],[{t:'all',a:1,b:0},'mustFalse'],[{t:'all',a:2,b:0},'mustFalse'],[{t:'no',a:1,b:2},'mustFalse']],
+    expl:(T)=>`„Alle ${T[2].p} sind ${T[1].p}“ ist mit den Angaben vereinbar: ${T[2].p} dürfen in den ${T[1].p} liegen, solange sie die ${T[0].p} nicht berühren (sie folgt aber nicht zwingend). Die übrigen Aussagen widersprechen den Angaben: „Alle ${T[1].p} sind ${T[0].p}“ oder „Alle ${T[2].p} sind ${T[0].p}“ würden die ${T[1].p}, die ${T[2].p} sind, zu ${T[0].p} machen – kein ${T[0].s} ist aber ein ${T[2].s}.`}),
+  (T)=>({prems:[P('all',0,1),P('all',1,2),P('all',2,3),P('some',4,0)],mode:'must',
+    correct:{t:'some',a:4,b:3},
+    dis:[[{t:'all',a:4,b:3},'someAll'],[{t:'all',a:3,b:0},'converse'],[{t:'someNot',a:4,b:3},'negation'],[{t:'all',a:0,b:4},'converse']],
+    expl:(T)=>`Drei Ketten-Schritte: Die ${T[4].p}, die ${T[0].p} sind, sind ${T[1].p}, damit ${T[2].p} und damit ${T[3].p}. Mehr als „einige“ ist nicht gesichert, und die Umkehrungen folgen nicht.`}),
+  (T)=>({prems:[P('all',0,1),P('all',1,2)],mode:'suffices',target:{t:'some',a:2,b:0},
+    correct:{t:'exists',a:0,b:0},
+    dis:[[{t:'exists',a:2,b:2},'possible'],[{t:'all',a:2,b:1},'possible'],[{t:'some',a:1,b:2},'possible'],[{t:'exists',a:1,b:1},'possible']],
+    expl:(T)=>`Aus den Alle-Aussagen allein folgt keine Existenz. Erst „Mindestens ein ${T[0].s} existiert“ liefert einen ${T[0].s}, der ${T[1].s} und ${T[2].s} ist – also „Einige ${T[2].p} sind ${T[0].p}“. Die Existenz von ${T[2].p} oder ${T[1].p} allein sagt nichts über ${T[0].p}.`}),
  ]};
 }
 const SYL_SCEN=sylScenarios();
@@ -1188,8 +1439,8 @@ const SYL_MODE_HINT={
   canOnly:"Vereinbar heißt: Es gibt mindestens ein Modell, in dem Angaben und Aussage zusammen gelten.",
   suffices:"Prüfe: Erzwingen die Angaben PLUS diese Zusatzinfo das Ziel in jedem Modell?"
 };
-function sylLevelDiff(L){ // externes Level 1–4 → interne Difficulty 1–5 (Band, leicht gestreut)
-  const band={1:[1,1,2],2:[2,2,3],3:[3,3,4],4:[4,5,5]}[clamp(L,1,4)]||[2,3];
+function sylLevelDiff(L){ // externes Level 1–5 → interne Difficulty 1–5 (Band, leicht gestreut; Logik 3.0: L5 = reine Difficulty 5)
+  const band={1:[1,1,2],2:[2,2,3],3:[3,3,4],4:[4,4,5],5:[5,5,5]}[clamp(Math.round(L)||2,1,5)]||[2,3];
   return pick(band);
 }
 function sylVerify(k,s){ // Laufzeit-Selbstverifikation (identisch zu den Harness-Regeln)
@@ -1296,29 +1547,941 @@ function seriesBuild(L){
   const a=rnd(1,9),d=rnd(2,6),seq=[];for(let i=0;i<6;i++)seq.push(a+i*d);       // sicherer Fallback: konstante Differenz
   return {prompt:`${seq.slice(0,5).join(' , ')} , ?`,answer:seq[5],hints:["Untersuche die Differenzen benachbarter Zahlen."],explain:`Konstante Differenz +${d}. Daher folgt ${seq[4]} + ${d} = ${seq[5]}.`};
 }
+/* __SER3_START__  Zahlenreihen 3.0 – Familien-Registry (L1–L5), Solver-Set für die Eindeutigkeitsprüfung,
+   sechs Frageformate und gestufte Erklärungen. Additiv: SERIES_PATTERNS/seriesBuild bleiben als Fallback bestehen.
+   Alle Antworten entstehen aus einer expliziten Regel (kein Polynom-Fitting als Generator). Jede Aufgabe wird vor
+   der Anzeige gegen ALLE Solver geprüft: liefert eine andere unterstützte Regel an der gefragten Stelle einen
+   anderen Wert, wird der Kandidat verworfen und neu erzeugt. */
+const SER3={};
+SER3.PRIMES=[2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131];
+SER3.FIB=[1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597];
+SER3.eq=(a,b)=>Math.abs(a-b)<=1e-9*Math.max(1,Math.abs(a),Math.abs(b));
+SER3.isNum=v=>typeof v==='number'&&isFinite(v);
+SER3.nice=v=>SER3.isNum(v)&&Math.abs(v*4-Math.round(v*4))<1e-9;          // ganz, .5, .25, .75
+SER3.round=v=>Math.round(v*1e6)/1e6;
+/* Bekannte Folgen (Index n ab 0) */
+SER3.SEQ={
+  nat:n=>n+1, sq:n=>(n+1)*(n+1), cube:n=>(n+1)**3, tri:n=>(n+1)*(n+2)/2, pron:n=>(n+1)*(n+2),
+  prime:n=>SER3.PRIMES[n], pow2:n=>2**n, pow3:n=>3**n, fib:n=>SER3.FIB[n], odd:n=>2*n+1, even:n=>2*n+2, primesq:n=>SER3.PRIMES[n]**2
+};
+SER3.SEQ_NAME={nat:'natürliche Zahlen',sq:'Quadratzahlen',cube:'Kubikzahlen',tri:'Dreieckszahlen',pron:'pronische Zahlen n·(n+1)',prime:'Primzahlen',pow2:'Zweierpotenzen',pow3:'Dreierpotenzen',fib:'Fibonacci-Zahlen',odd:'ungerade Zahlen',even:'gerade Zahlen',primesq:'Primzahl-Quadrate'};
+SER3.SEQ_KEYS=Object.keys(SER3.SEQ);
+SER3.fmtN=v=>{ if(!SER3.isNum(v))return '?'; const r=Math.round(v*100)/100; return (r<0?'−':'')+fmt(Math.abs(r)); };
+SER3.sgn=v=>v<0?'− '+SER3.fmtN(-v):'+ '+SER3.fmtN(v);          // "+ 5" / "− 3"
+SER3.fillKnown=(vis)=>vis.map((v,i)=>SER3.isNum(v)?i:-1).filter(i=>i>=0);
+
+/* ---------- Solver: jede Funktion liefert eine Liste vollständiger (oder teilweise gefüllter) Vorhersage-Arrays ---------- */
+SER3.verify=(vis,f)=>{ for(let i=0;i<vis.length;i++){ if(!SER3.isNum(vis[i]))continue; const p=f(i); if(!SER3.isNum(p)||!SER3.eq(p,vis[i]))return false; } return true; };
+SER3.fromF=(vis,f)=>vis.map((_,i)=>{const p=f(i);return SER3.isNum(p)?SER3.round(p):null;});
+SER3.adjPairs=(vis,filter)=>{ const out=[]; for(let i=0;i+1<vis.length;i++) if(SER3.isNum(vis[i])&&SER3.isNum(vis[i+1])&&(!filter||filter(i)))out.push(i); return out; };
+/* Iteratives Auffüllen über eine Schrittfunktion fwd(i,x)=a[i+1], bwd(i,y)=a[i] (beide optional) */
+SER3.fillStep=(vis,fwd,bwd)=>{ const a=vis.slice(); let ch=true,guard=0; while(ch&&guard++<20){ ch=false;
+  for(let i=0;i+1<a.length;i++){ if(SER3.isNum(a[i])&&!SER3.isNum(a[i+1])&&fwd){const v=fwd(i,a[i]);if(SER3.isNum(v)){a[i+1]=SER3.round(v);ch=true;}}
+    if(!SER3.isNum(a[i])&&SER3.isNum(a[i+1])&&bwd){const v=bwd(i,a[i+1]);if(SER3.isNum(v)){a[i]=SER3.round(v);ch=true;}} } }
+  return a; };
+SER3.solvers={};
+SER3.solvers.arith=vis=>{ const k=SER3.fillKnown(vis); if(k.length<3)return []; const i=k[0],j=k[1]; const d=(vis[j]-vis[i])/(j-i), a0=vis[i]-i*d;
+  const f=n=>a0+n*d; return SER3.verify(vis,f)?[SER3.fromF(vis,f)]:[]; };
+SER3.solvers.geo=vis=>{ const k=SER3.fillKnown(vis); if(k.length<3)return []; const i=k[0],j=k[1]; if(vis[i]===0||vis[j]===0)return [];
+  const q=vis[j]/vis[i], gap=j-i; let r; if(gap===1)r=q; else { if(q<0&&gap%2===0)return []; r=Math.sign(q)*Math.pow(Math.abs(q),1/gap); if(!SER3.eq(Math.sign(q)*Math.pow(Math.abs(r),gap),q))return []; }
+  if(SER3.eq(r,1)||SER3.eq(r,0))return []; const a0=vis[i]/Math.pow(r,i); const f=n=>a0*Math.pow(r,n); return SER3.verify(vis,f)?[SER3.fromF(vis,f)]:[]; };
+SER3.solvers.affine=vis=>{ const P=SER3.adjPairs(vis); if(P.length<3)return []; let k=null,c=null;
+  for(let u=0;u<P.length&&k==null;u++)for(let w=u+1;w<P.length;w++){ const x1=vis[P[u]],y1=vis[P[u]+1],x2=vis[P[w]],y2=vis[P[w]+1]; if(SER3.eq(x1,x2))continue; k=(y2-y1)/(x2-x1); c=y1-k*x1; break; }
+  if(k==null||SER3.eq(k,1)||SER3.eq(k,0))return []; for(const i of P)if(!SER3.eq(k*vis[i]+c,vis[i+1]))return [];
+  return [SER3.fillStep(vis,(i,x)=>k*x+c,(i,y)=>(y-c)/k)]; };
+SER3.solvePoly=(xs,ys)=>{ const n=xs.length, M=xs.map((x,r)=>{const row=[];for(let c=0;c<n;c++)row.push(Math.pow(x,c));row.push(ys[r]);return row;});
+  for(let c=0;c<n;c++){ let p=c; for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[p][c]))p=r; [M[c],M[p]]=[M[p],M[c]]; if(Math.abs(M[c][c])<1e-12)return null;
+    for(let r=0;r<n;r++){ if(r===c)continue; const f=M[r][c]/M[c][c]; for(let cc=c;cc<=n;cc++)M[r][cc]-=f*M[c][cc]; } }
+  return M.map((row,i)=>row[n]/row[i]); };
+SER3.solvers.quad=vis=>{ const k=SER3.fillKnown(vis); if(k.length<5)return []; const co=SER3.solvePoly(k.slice(0,3),k.slice(0,3).map(i=>vis[i])); if(!co||SER3.eq(co[2],0))return [];
+  const f=n=>co[0]+co[1]*n+co[2]*n*n; return SER3.verify(vis,f)?[SER3.fromF(vis,f)]:[]; };
+SER3.solvers.cubic=vis=>{ const k=SER3.fillKnown(vis); if(k.length<6)return []; const co=SER3.solvePoly(k.slice(0,4),k.slice(0,4).map(i=>vis[i])); if(!co||SER3.eq(co[3],0))return [];
+  const f=n=>co[0]+co[1]*n+co[2]*n*n+co[3]*n*n*n; return SER3.verify(vis,f)?[SER3.fromF(vis,f)]:[]; };
+SER3.solvers.rec2=vis=>{ const T=[]; for(let i=2;i<vis.length;i++)if(SER3.isNum(vis[i])&&SER3.isNum(vis[i-1])&&SER3.isNum(vis[i-2]))T.push(i); if(T.length<3)return []; const out=[];
+  for(let p=-3;p<=3;p++)for(let q=-3;q<=3;q++)for(let c=-3;c<=3;c++){ if(q===0)continue; let ok=true; for(const i of T){ if(!SER3.eq(p*vis[i-1]+q*vis[i-2]+c,vis[i])){ok=false;break;} } if(!ok)continue;
+    const a=vis.slice(); let ch=true,g=0; while(ch&&g++<20){ ch=false; for(let i=2;i<a.length;i++){ if(!SER3.isNum(a[i])&&SER3.isNum(a[i-1])&&SER3.isNum(a[i-2])){a[i]=SER3.round(p*a[i-1]+q*a[i-2]+c);ch=true;}
+      if(!SER3.isNum(a[i-2])&&SER3.isNum(a[i-1])&&SER3.isNum(a[i])){a[i-2]=SER3.round((a[i]-p*a[i-1]-c)/q);ch=true;} } }
+    out.push(a); if(out.length>12)break; }
+  return out; };
+/* Teilfolgen-Solver (für verschachtelte Reihen, Blöcke, Spiegel): konservativ – mind. 3 bekannte Glieder je Teilfolge */
+SER3.subSolve=sub=>{ const out=[]; const k=SER3.fillKnown(sub); if(k.length<2)return out;
+  if(k.length>=2&&k.every(i=>SER3.eq(sub[i],sub[k[0]]))&&k.length>=2){ out.push(sub.map(()=>sub[k[0]])); }
+  if(k.length>=3){ out.push(...SER3.solvers.arith(sub)); out.push(...SER3.solvers.geo(sub));
+    for(const key of SER3.SEQ_KEYS)for(const m of [1,2,3,-1,-2,-4,4,0.5])for(let s=0;s<=7;s++){ const f=n=>m*SER3.SEQ[key](n+s); if(SER3.verify(sub,f))out.push(SER3.fromF(sub,f)); } }
+  if(k.length>=4){ out.push(...SER3.solvers.affine(sub)); }
+  if(k.length>=5){ out.push(...SER3.solvers.quad(sub)); }
+  return out; };
+SER3.interleave=(vis,period)=>{ const subs=[]; for(let ph=0;ph<period;ph++){ const s=[]; for(let i=ph;i<vis.length;i+=period)s.push(vis[i]); subs.push(s); }
+  const sols=subs.map(SER3.subSolve); if(sols.some(s=>!s.length))return [];
+  const out=[]; const rec=(ph,acc)=>{ if(out.length>=16)return; if(ph===period){ const a=vis.slice(); for(let p=0;p<period;p++)acc[p].forEach((v,j)=>{a[p+j*period]=v;}); out.push(a); return; }
+    for(const s of sols[ph])rec(ph+1,acc.concat([s])); }; rec(0,[]); return out; };
+SER3.solvers.inter2=vis=>SER3.interleave(vis,2);
+SER3.solvers.inter3=vis=>vis.length>=8?SER3.interleave(vis,3):[];
+/* Abwechselnde / zyklische Operatoren: a[i+1]=k·a[i]+c mit Phase i mod period */
+SER3.K_SET=[1,2,3,4,0.5,1/3,0.25,-1,-2];
+SER3.cycleAffine=(vis,period)=>{ const cand=[]; for(let ph=0;ph<period;ph++){ const P=SER3.adjPairs(vis,i=>i%period===ph); if(P.length<2)return [];
+    const x=vis[P[0]],y=vis[P[0]+1]; const cs=[]; for(const k of SER3.K_SET){ const c=y-k*x; if(Math.abs(c)>80||!SER3.nice(c))continue; if(P.every(i=>SER3.eq(k*vis[i]+c,vis[i+1])))cs.push([k,c]); } if(!cs.length)return []; cand.push(cs); }
+  const out=[]; const rec=(ph,acc)=>{ if(out.length>=16)return; if(ph===period){ if(period>1&&acc.every(kc=>kc[0]===acc[0][0]&&SER3.eq(kc[1],acc[0][1])))return;      // reiner Affin-Fall → affine/arith
+      out.push(SER3.fillStep(vis,(i,x)=>acc[i%period][0]*x+acc[i%period][1],(i,y)=>(y-acc[i%period][1])/acc[i%period][0])); return; }
+    for(const kc of cand[ph])rec(ph+1,acc.concat([kc])); }; rec(0,[]); return out; };
+SER3.solvers.alt2=vis=>SER3.cycleAffine(vis,2);
+SER3.solvers.cyc3=vis=>vis.length>=8?SER3.cycleAffine(vis,3):[];
+/* Differenzen folgen einer bekannten Folge: a[i+1]-a[i] = sgn·m·S[i+s] */
+SER3.solvers.diffSeq=vis=>{ const P=SER3.adjPairs(vis); if(P.length<3)return []; const out=[];
+  for(const key of SER3.SEQ_KEYS)for(const m of [1,2,3,-1,-2,-3])for(let s=0;s<=6;s++){ const d=i=>m*SER3.SEQ[key](i+s); if(!P.every(i=>SER3.isNum(d(i))&&SER3.eq(vis[i]+d(i),vis[i+1])))continue;
+    out.push(SER3.fillStep(vis,(i,x)=>x+d(i),(i,y)=>y-d(i))); if(out.length>12)return out; } return out; };
+/* Faktor + wachsender Zuschlag: a[i+1]=k·a[i]+c0+s·i */
+SER3.solvers.growAffine=vis=>{ const P=SER3.adjPairs(vis); if(P.length<3)return []; const out=[];
+  for(const k of [2,3,-2,0.5,1])for(let c0=-8;c0<=8;c0++)for(let s=-4;s<=4;s++){ if(s===0)continue; if(!P.every(i=>SER3.eq(k*vis[i]+c0+s*i,vis[i+1])))continue;
+    out.push(SER3.fillStep(vis,(i,x)=>k*x+c0+s*i,(i,y)=>(y-c0-s*i)/k)); if(out.length>12)return out; } return out; };
+/* Faktor + bekannte Folge: a[i+1]=k·a[i]+sgn·S[i+s] */
+SER3.solvers.affineSeq=vis=>{ const P=SER3.adjPairs(vis); if(P.length<3)return []; const out=[];
+  for(const k of [2,3,-1,0.5])for(const key of ['prime','sq','nat','tri','pow2','fib','odd','cube'])for(const sg of [1,-1])for(let s=0;s<=4;s++){ const d=i=>sg*SER3.SEQ[key](i+s);
+    if(!P.every(i=>SER3.eq(k*vis[i]+d(i),vis[i+1])))continue; out.push(SER3.fillStep(vis,(i,x)=>k*x+d(i),(i,y)=>(y-d(i))/k)); if(out.length>12)return out; } return out; };
+/* Geschlossene Form: a[n]=sgnAlt(n)·(m·S[n+s]+c) */
+SER3.solvers.closed=vis=>{ const k=SER3.fillKnown(vis); if(k.length<4)return []; const out=[]; const i0=k[0];
+  for(const key of SER3.SEQ_KEYS)for(const m of [1,2,3,-1,-2,4,5,10,0.5,-4,1.5])for(let s=0;s<=8;s++)for(const alt of [false,true]){
+    const base=n=>{const v=SER3.SEQ[key](n+s);return SER3.isNum(v)?v:NaN;}; const sign=n=>alt?(n%2?-1:1):1;
+    const c=vis[i0]*sign(i0)-m*base(i0); if(!SER3.isNum(c)||Math.abs(c)>12||!SER3.nice(c))continue;
+    const f=n=>sign(n)*(m*base(n)+c); if(SER3.verify(vis,f)){out.push(SER3.fromF(vis,f)); if(out.length>12)return out;} } return out; };
+/* Summe / Produkt zweier bekannter Folgen (zwei Eigenschaften zugleich, Positionsabhängigkeit) */
+SER3.solvers.twoSeq=vis=>{ const k=SER3.fillKnown(vis); if(k.length<5)return []; const out=[]; const keys=['sq','prime','tri','nat','pow2','cube','fib','odd'];
+  for(const k1 of keys)for(const k2 of keys)for(let s1=0;s1<=3;s1++)for(let s2=0;s2<=3;s2++)for(const op of ['+','*','-']){ if(op!=='-'&&k1>k2)continue; if(op==='-'&&k1===k2&&s1===s2)continue;
+    const f=n=>{const a=SER3.SEQ[k1](n+s1),b=SER3.SEQ[k2](n+s2);return op==='+'?a+b:op==='*'?a*b:a-b;}; if(SER3.verify(vis,f)){out.push(SER3.fromF(vis,f)); if(out.length>12)return out;} } return out; };
+/* Verhältnisse folgen einer Folge: a[i+1]=a[i]·r(i) */
+SER3.solvers.ratioSeq=vis=>{ const P=SER3.adjPairs(vis); if(P.length<3)return []; const out=[]; const rs=[];
+  for(const r0 of [1,2,3])for(const s of [1,-1,2])rs.push(i=>r0+s*i); for(const key of ['nat','prime','odd','even','fib','sq'])for(let s=0;s<=3;s++)rs.push(i=>SER3.SEQ[key](i+s));
+  for(const r of rs){ if(!P.every(i=>SER3.isNum(r(i))&&SER3.eq(vis[i]*r(i),vis[i+1])))continue; if(P.every(i=>SER3.eq(r(i),r(P[0]))))continue;        // konstantes Verhältnis → geo
+    out.push(SER3.fillStep(vis,(i,x)=>x*r(i),(i,y)=>r(i)?y/r(i):NaN)); if(out.length>12)return out; } return out; };
+/* Paar-Beziehung: a[2j+1]=f(a[2j]) */
+SER3.solvers.pair=vis=>{ const P=SER3.adjPairs(vis,i=>i%2===0); if(P.length<3)return []; const out=[]; const x0=vis[P[0]],y0=vis[P[0]+1];
+  const fs=[]; for(const k of [1,2,3,0.5,-1,4]){ const c=y0-k*x0; if(Math.abs(c)<=30&&SER3.nice(c))fs.push({f:x=>k*x+c,inv:y=>(y-c)/k}); }
+  { const c=y0-x0*x0; if(Math.abs(c)<=10&&SER3.nice(c))fs.push({f:x=>x*x+c,inv:y=>Math.sqrt(y-c)}); }
+  for(const F of fs){ if(!P.every(i=>SER3.eq(F.f(vis[i]),vis[i+1])))continue; const a=vis.slice(); for(let i=0;i+1<a.length;i+=2){ if(SER3.isNum(a[i])&&!SER3.isNum(a[i+1]))a[i+1]=SER3.round(F.f(a[i])); else if(!SER3.isNum(a[i])&&SER3.isNum(a[i+1])){const v=F.inv(a[i+1]);if(SER3.isNum(v))a[i]=SER3.round(v);} }
+    out.push(a); } return out; };
+/* Spiegel-/symmetrische Reihe um ein Zentrum c */
+SER3.solvers.mirror=vis=>{ const n=vis.length, out=[]; for(let c=2;c<=n-3;c++){ let pairs=0,ok=true; const left=[];
+    for(let t=0;t<=c;t++){ const L=vis[c-t],R=(c+t<n)?vis[c+t]:undefined; if(SER3.isNum(L)&&SER3.isNum(R)){ if(!SER3.eq(L,R)){ok=false;break;} pairs++; } left.push(SER3.isNum(L)?L:(SER3.isNum(R)?R:null)); }
+    if(!ok||pairs<2)continue; const lv=left.reverse();                                  // lv = Werte 0..c (links nach rechts)
+    for(const s of SER3.subSolve(lv)){ const a=vis.slice(); for(let t=0;t<=c;t++){ const v=s[c-t]; if(c-t>=0&&c-t<n&&!SER3.isNum(a[c-t]))a[c-t]=v; if(c+t<n&&!SER3.isNum(a[c+t]))a[c+t]=v; } if(a.every(SER3.isNum))out.push(a); } }
+  return out; };
+SER3.SOLVER_KEYS=Object.keys(SER3.solvers);
+SER3.solveAll=vis=>{ const out=[]; for(const k of SER3.SOLVER_KEYS){ let r=[]; try{ r=SER3.solvers[k](vis)||[]; }catch(e){ r=[]; } for(const a of r)out.push({solver:k,a}); } return out; };
+/* Eindeutigkeitsprüfung: an den gefragten Positionen darf KEIN Solver einen anderen Wert liefern, mind. einer muss den Zielwert liefern. */
+SER3.unique=(vis,target,positions)=>{ const sols=SER3.solveAll(vis); let covered=false;
+  for(const s of sols){ for(const p of positions){ const v=s.a[p]; if(!SER3.isNum(v))continue; if(!SER3.eq(v,target[p]))return {ok:false,why:'ambig:'+s.solver}; } if(positions.every(p=>SER3.isNum(s.a[p])))covered=true; }
+  return covered?{ok:true}:{ok:false,why:'nosolver'}; };
+/* Zweite-Differenzen folgen einer bekannten Folge: a[i+2]-2a[i+1]+a[i]=m·S[i+s] */
+SER3.solvers.diff2Seq=vis=>{ const T=[]; for(let i=0;i+2<vis.length;i++)if(SER3.isNum(vis[i])&&SER3.isNum(vis[i+1])&&SER3.isNum(vis[i+2]))T.push(i); if(T.length<3)return []; const out=[];
+  for(const key of ['nat','prime','sq','odd','even','fib','tri','pow2'])for(const m of [1,2,-1,-2])for(let s=0;s<=3;s++){ const d2=i=>m*SER3.SEQ[key](i+s);
+    if(!T.every(i=>SER3.eq(vis[i+2]-2*vis[i+1]+vis[i],d2(i))))continue;
+    const a=vis.slice(); let ch=true,g=0; while(ch&&g++<20){ ch=false; for(let i=0;i+2<a.length;i++){ const A=SER3.isNum(a[i]),B=SER3.isNum(a[i+1]),C=SER3.isNum(a[i+2]);
+      if(A&&B&&!C){a[i+2]=SER3.round(2*a[i+1]-a[i]+d2(i));ch=true;} else if(!A&&B&&C){a[i]=SER3.round(2*a[i+1]-a[i+2]+d2(i));ch=true;} else if(A&&!B&&C){a[i+1]=SER3.round((a[i]+a[i+2]-d2(i))/2);ch=true;} } }
+    out.push(a); if(out.length>12)return out; } return out; };
+SER3.SOLVER_KEYS=Object.keys(SER3.solvers);
+
+/* ---------- Familien-Registry ----------
+   Jede Familie: id · fam (Strategie-Gruppe) · L (Zielschwierigkeit) · len (Glieder inkl. Antwort) · gen() → {seq, rule, step(i), tip2}
+   step(i) erklärt, wie Glied i (0-basiert) entsteht; rule ist der Regelsatz; tip2 ist der konkrete 2. Tipp ohne Lösung. */
+SER3.FAM=[];
+SER3.def=(id,fam,L,len,gen,extra)=>SER3.FAM.push(Object.assign({id,fam,L,len,gen},extra||{}));
+SER3.STRAT={
+  diff:'Bilde die Differenzen benachbarter Zahlen: Sind sie konstant, wachsend – oder selbst eine bekannte Folge?',
+  ratio:'Prüfe die Verhältnisse: Wird jede Zahl mit demselben Faktor multipliziert oder durch ihn geteilt?',
+  affine:'Prüfe, ob jede Zahl aus der vorherigen durch „mal etwas, dann plus/minus etwas“ entsteht.',
+  closed:'Vergleiche mit bekannten Folgen: Quadratzahlen, Primzahlen, Dreieckszahlen, Potenzen – ggf. plus/minus eine Konstante.',
+  inter:'Betrachte jede zweite (oder dritte) Zahl getrennt – oft stecken mehrere einfache Reihen ineinander.',
+  alt:'Prüfe, ob sich zwei Rechenschritte abwechseln (z. B. erst +, dann ×).',
+  rec:'Vergleiche jede Zahl mit den beiden davor: Entsteht sie aus ihnen?',
+  pos:'Nummeriere die Glieder (1., 2., 3. …): Hängt jede Zahl direkt von ihrer Nummer ab?',
+  mirror:'Lies die Reihe auch rückwärts – ist sie symmetrisch um eine Mitte?',
+  pair:'Betrachte die Zahlen paarweise: Wie entsteht die zweite Zahl eines Paares aus der ersten?',
+  block:'Suche Blöcke gleicher Länge und vergleiche Block mit Block.'
+};
+(function(){
+const N=SER3.fmtN, S=SER3.sgn, P=SER3.PRIMES, def=SER3.def;
+const arr=(n,f)=>Array.from({length:n},(_,i)=>f(i));
+const dstep=(seq,i,label)=>`${label?label+' ':''}${N(seq[i-1])} ${S(seq[i]-seq[i-1])} = ${N(seq[i])}`;
+const diffTip=seq=>`Die ersten Differenzen sind ${S(seq[1]-seq[0])}, ${S(seq[2]-seq[1])}, ${S(seq[3]-seq[2])} … – wie geht das Muster weiter?`;
+const ratioTip=seq=>`Von ${N(seq[0])} auf ${N(seq[1])} und von ${N(seq[1])} auf ${N(seq[2])}: Welcher Faktor steckt dahinter?`;
+/* ===== L1 ===== */
+def('add_const','diff',1,6,()=>{const a=rnd(1,15),d=rnd(2,9),seq=arr(6,n=>a+n*d);return{seq,rule:`Konstante Differenz ${S(d)}`,step:i=>dstep(seq,i,`Nächste Differenz ${S(d)}:`),tip2:`Von ${N(seq[0])} auf ${N(seq[1])} sind es ${S(d)}. Gilt derselbe Schritt überall?`};});
+def('sub_const','diff',1,6,()=>{const d=rnd(2,9),a=rnd(5*d+2,95),seq=arr(6,n=>a-n*d);return{seq,rule:`Konstante Differenz ${S(-d)}`,step:i=>dstep(seq,i,`Nächste Differenz ${S(-d)}:`),tip2:`Jede Zahl ist um denselben Betrag kleiner als die vorherige – wie groß ist der Abzug?`};});
+def('times2','ratio',1,6,()=>{const a=rnd(1,5),seq=arr(6,n=>a*2**n);return{seq,rule:'Jede Zahl wird verdoppelt (×2)',step:i=>`${N(seq[i-1])} × 2 = ${N(seq[i])}`,tip2:ratioTip(seq)};});
+def('times3','ratio',1,5,()=>{const a=rnd(1,3),seq=arr(5,n=>a*3**n);return{seq,rule:'Konstanter Faktor ×3',step:i=>`${N(seq[i-1])} × 3 = ${N(seq[i])}`,tip2:ratioTip(seq)};});
+def('div2','ratio',1,6,()=>{const a=rnd(3,9)*32,seq=arr(6,n=>a/2**n);return{seq,rule:'Jede Zahl wird halbiert (÷2)',step:i=>`${N(seq[i-1])} ÷ 2 = ${N(seq[i])}`,tip2:'Die Zahlen werden kleiner – prüfe, ob jede Zahl die Hälfte der vorherigen ist.'};});
+def('alt_plus_minus','alt',1,7,()=>{const a=rnd(3,9),b=rnd(1,a-1),s=rnd(2,15),seq=[s];for(let i=1;i<7;i++)seq.push(seq[i-1]+(i%2?a:-b));return{seq,rule:`Abwechselnd ${S(a)} und ${S(-b)}`,step:i=>dstep(seq,i,`Schritt ${i%2?S(a):S(-b)}:`),tip2:`Die Reihe geht hoch, runter, hoch, runter: ${S(a)}, ${S(-b)} … Welcher Schritt ist als Nächstes dran?`};});
+def('evens','diff',1,6,()=>{const a=rnd(1,12)*2,seq=arr(6,n=>a+2*n);return{seq,rule:'Gerade Zahlen der Reihe nach (+2)',step:i=>dstep(seq,i,'Nächste Differenz + 2:'),tip2:'Alle Zahlen sind gerade und lassen keine gerade Zahl aus.'};});
+def('odds','diff',1,6,()=>{const a=rnd(0,12)*2+1,seq=arr(6,n=>a+2*n);return{seq,rule:'Ungerade Zahlen der Reihe nach (+2)',step:i=>dstep(seq,i,'Nächste Differenz + 2:'),tip2:'Alle Zahlen sind ungerade und lassen keine ungerade Zahl aus.'};});
+def('multiples','diff',1,6,()=>{const m=rnd(3,9),k=rnd(1,3),seq=arr(6,n=>m*(n+k));return{seq,rule:`Vielfache von ${m} der Reihe nach (${S(m)})`,step:i=>`${N(seq[i-1])} ${S(m)} = ${N(seq[i])} (das ${(i+k)}. Vielfache von ${m})`,tip2:`Durch welche Zahl sind alle Glieder teilbar?`};});
+def('linear_simple','pos',1,6,()=>{const m=rnd(2,5),c=rnd(1,6),seq=arr(6,n=>m*(n+1)+c);return{seq,rule:`n × ${m} + ${c} für das n-te Glied (konstante Differenz ${S(m)})`,step:i=>`Glied ${i+1}: ${i+1} × ${m} + ${c} = ${N(seq[i])}`,tip2:`Die Differenz ist immer ${S(m)}. Welche Zahl folgt also?`};});
+def('add_round','diff',1,6,()=>{const d=pick([10,20,25,50]),a=rnd(5,40),seq=arr(6,n=>a+n*d);return{seq,rule:`Konstante Differenz ${S(d)}`,step:i=>dstep(seq,i,`Nächste Differenz ${S(d)}:`),tip2:`Der Schritt ist eine runde Zahl – vergleiche die ersten beiden Glieder.`};});
+/* ===== L2 ===== */
+def('inc_diff_1','diff',2,7,()=>{const a=rnd(1,10),d0=rnd(1,5),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+d0+i-1);return{seq,rule:`Die Differenzen wachsen um 1 (${S(d0)}, ${S(d0+1)}, ${S(d0+2)} …)`,step:i=>dstep(seq,i,`Nächste Differenz ${S(d0+i-1)}:`),tip2:diffTip(seq)};});
+def('inc_diff_2','diff',2,7,()=>{const a=rnd(1,10),d0=rnd(1,4),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+d0+2*(i-1));return{seq,rule:`Die Differenzen wachsen um 2 (${S(d0)}, ${S(d0+2)}, ${S(d0+4)} …)`,step:i=>dstep(seq,i,`Nächste Differenz ${S(d0+2*(i-1))}:`),tip2:diffTip(seq)};});
+def('diff_shrink','diff',2,7,()=>{const a=rnd(1,10),d0=rnd(7,11),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+d0-(i-1));return{seq,rule:`Die Differenzen fallen um 1 (${S(d0)}, ${S(d0-1)}, ${S(d0-2)} …)`,step:i=>dstep(seq,i,`Nächste Differenz ${S(d0-(i-1))}:`),tip2:diffTip(seq)};});
+def('sub_grow','diff',2,7,()=>{const a=rnd(50,90),d0=rnd(2,4),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]-(d0+i-1));return{seq,rule:`Fallende Reihe, der Abzug wächst um 1 (${S(-d0)}, ${S(-d0-1)}, ${S(-d0-2)} …)`,step:i=>dstep(seq,i,`Nächster Abzug ${S(-(d0+i-1))}:`),tip2:diffTip(seq)};});
+def('squares','closed',2,6,()=>{const k=rnd(1,5),seq=arr(6,n=>(k+n)**2);return{seq,rule:`Aufeinanderfolgende Quadratzahlen (${k}², ${k+1}², …)`,step:i=>`${k+i}² = ${N(seq[i])}`,tip2:`${N(seq[0])} und ${N(seq[1])} sind beides Quadratzahlen – welche Wurzeln haben sie?`};});
+def('squares_plus_c','closed',2,6,()=>{const k=rnd(1,5),c=pick([-2,-1,1,2,3]),seq=arr(6,n=>(k+n)**2+c);return{seq,rule:`Quadratzahlen ${S(c)} (n² ${S(c)})`,step:i=>`${k+i}² ${S(c)} = ${N(seq[i])}`,tip2:`Jede Zahl liegt dicht neben einer Quadratzahl – wie weit daneben?`};});
+def('triangular','closed',2,6,()=>{const k=rnd(1,4),seq=arr(6,n=>(k+n)*(k+n+1)/2);return{seq,rule:'Dreieckszahlen: Die Differenzen sind 1, 2, 3, … (jeweils + die nächste ganze Zahl)',step:i=>dstep(seq,i,`Nächste Differenz ${S(k+i)}:`),tip2:diffTip(seq)};});
+def('pronic','closed',2,6,()=>{const k=rnd(1,4),seq=arr(6,n=>(k+n)*(k+n+1));return{seq,rule:`Pronische Zahlen n·(n+1): ${k}·${k+1}, ${k+1}·${k+2}, …`,step:i=>`${k+i} · ${k+i+1} = ${N(seq[i])}`,tip2:`Jede Zahl ist das Produkt zweier Nachbarzahlen (z. B. ${k}·${k+1}).`};});
+def('primes','closed',2,7,()=>{const s=rnd(0,4),seq=P.slice(s,s+7);return{seq,rule:'Primzahlen der Reihe nach',step:i=>`Nach ${N(seq[i-1])} kommt die nächste Primzahl ${N(seq[i])}`,tip2:'Alle Zahlen sind nur durch 1 und sich selbst teilbar.'};});
+def('double_primes','closed',2,7,()=>{const s=rnd(0,4),ps=P.slice(s,s+7),seq=ps.map(p=>2*p);return{seq,rule:'Jeweils 2 × Primzahl (2·2, 2·3, 2·5, …)',step:i=>`2 × ${ps[i]} = ${N(seq[i])}`,tip2:'Halbiere jede Zahl – welche bekannte Folge erscheint?'};});
+def('half_plus_c','affine',2,6,()=>{const c=rnd(1,6),last=rnd(c+1,c+9),seq=[last];for(let i=1;i<6;i++)seq.unshift(2*(seq[0]-c));return{seq,rule:`Halbieren und ${S(c)} (÷2 ${S(c)})`,step:i=>`${N(seq[i-1])} ÷ 2 ${S(c)} = ${N(seq[i])}`,tip2:`Die Zahlen werden etwa halb so groß – aber nicht genau. Welcher kleine Zuschlag kommt nach dem Halbieren?`};});
+def('alt_add_ab','alt',2,7,()=>{let a=rnd(2,9),b=rnd(2,9);if(a===b)b=a+1;const s=rnd(1,12),seq=[s];for(let i=1;i<7;i++)seq.push(seq[i-1]+(i%2?a:b));return{seq,rule:`Abwechselnd ${S(a)} und ${S(b)}`,step:i=>dstep(seq,i,`Schritt ${i%2?S(a):S(b)}:`),tip2:`Die Differenzen wechseln: ${S(a)}, ${S(b)}, ${S(a)} … Welcher Schritt ist als Nächstes dran?`};});
+/* ===== L3 ===== */
+def('second_diff','diff',3,7,()=>{const a=rnd(1,6),d0=rnd(1,4),s=rnd(2,3),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+d0+s*(i-1));return{seq,rule:`Zweite Differenzen konstant +${s} (Differenzen ${S(d0)}, ${S(d0+s)}, ${S(d0+2*s)} …)`,step:i=>dstep(seq,i,`Nächste Differenz ${S(d0+s*(i-1))}:`),tip2:diffTip(seq)+' Bilde auch die Differenzen der Differenzen.'};});
+def('fib_like','rec',3,7,()=>{const x=rnd(1,5),y=rnd(x,7),seq=[x,y];for(let i=2;i<7;i++)seq.push(seq[i-1]+seq[i-2]);return{seq,rule:'Jede Zahl ist die Summe der beiden Vorgänger',step:i=>i<2?`Startwert ${N(seq[i])}`:`${N(seq[i-2])} + ${N(seq[i-1])} = ${N(seq[i])}`,tip2:`Addiere ${N(seq[0])} und ${N(seq[1])} – was fällt auf?`};},{missingAt:[5],noTwo:true});
+def('fib_down','rec',3,8,()=>{const x=rnd(1,3),y=rnd(x+1,5),f=[x,y];for(let i=2;i<8;i++)f.push(f[i-1]+f[i-2]);const seq=f.slice().reverse();return{seq,rule:'Jede Zahl ist die Differenz der beiden Vorgänger (vorletzte minus letzte)',step:i=>i<2?`Startwert ${N(seq[i])}`:`${N(seq[i-2])} − ${N(seq[i-1])} = ${N(seq[i])}`,tip2:`Ziehe ${N(seq[1])} von ${N(seq[0])} ab – was ergibt das?`};},{missingAt:[6],noTwo:true});
+def('times2_plus1','affine',3,6,()=>{const a=rnd(1,4),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*2+1);return{seq,rule:'Jede Zahl entsteht aus der vorherigen durch ×2 + 1',step:i=>`${N(seq[i-1])} × 2 + 1 = ${N(seq[i])}`,tip2:'Die Zahlen verdoppeln sich fast – welcher kleine Zuschlag kommt dazu?'};});
+def('times2_minus1','affine',3,6,()=>{const a=rnd(2,5),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*2-1);return{seq,rule:'Jede Zahl entsteht aus der vorherigen durch ×2 − 1',step:i=>`${N(seq[i-1])} × 2 − 1 = ${N(seq[i])}`,tip2:'Die Zahlen verdoppeln sich fast – welcher kleine Abzug kommt dazu?'};});
+def('times3_plus1','affine',3,6,()=>{const a=rnd(1,2),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*3+1);return{seq,rule:'Jede Zahl entsteht aus der vorherigen durch ×3 + 1',step:i=>`${N(seq[i-1])} × 3 + 1 = ${N(seq[i])}`,tip2:'Die Zahlen verdreifachen sich etwa – prüfe den Rest.'};});
+def('times3_minus1','affine',3,6,()=>{const a=rnd(2,3),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*3-1);return{seq,rule:'Jede Zahl entsteht aus der vorherigen durch ×3 − 1',step:i=>`${N(seq[i-1])} × 3 − 1 = ${N(seq[i])}`,tip2:'Die Zahlen verdreifachen sich etwa – prüfe den Rest.'};});
+def('times2_grow','affine',3,6,()=>{const a=rnd(1,4),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*2+i);return{seq,rule:'×2 mit wachsendem Zuschlag: ×2+1, ×2+2, ×2+3, …',step:i=>`${N(seq[i-1])} × 2 + ${i} = ${N(seq[i])}`,tip2:'Verdopple jede Zahl und vergleiche mit der nächsten: Der Rest wächst.'};});
+def('add_primes','diff',3,7,()=>{const a=rnd(1,10),s=rnd(0,1),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+P[s+i-1]);return{seq,rule:'Es werden nacheinander Primzahlen addiert',step:i=>dstep(seq,i,`Nächste Differenz ${S(P[s+i-1])} (Primzahl):`),tip2:diffTip(seq)+' Kennst du diese Folge?'};});
+def('add_squares','diff',3,7,()=>{const a=rnd(1,10),s=rnd(0,1),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+(s+i)**2);return{seq,rule:'Es werden nacheinander Quadratzahlen addiert',step:i=>dstep(seq,i,`Nächste Differenz ${S((s+i)**2)} (= ${s+i}²):`),tip2:diffTip(seq)+' Kennst du diese Folge?'};});
+def('inter_arith_geo','inter',3,8,()=>{const a=rnd(1,9),d=rnd(2,5),b=rnd(1,3),seq=arr(8,n=>n%2?b*2**((n-1)/2):a+d*(n/2));return{seq,rule:`Zwei verschachtelte Reihen: Position 1/3/5 … ${S(d)}, Position 2/4/6 … ×2`,step:i=>i%2?`Teilfolge B: ${N(seq[i-2])} × 2 = ${N(seq[i])}`:`Teilfolge A: ${N(seq[i-2])} ${S(d)} = ${N(seq[i])}`,tip2:`Schreibe die 1., 3., 5. Zahl untereinander und daneben die 2., 4., 6. – zwei einfache Reihen.`};});
+def('alt_add_mul','alt',3,7,()=>{const s=rnd(1,5),a=rnd(1,4),seq=[s];for(let i=1;i<7;i++)seq.push(i%2?seq[i-1]+a:seq[i-1]*2);return{seq,rule:`Abwechselnd ${S(a)} und ×2`,step:i=>i%2?`${N(seq[i-1])} ${S(a)} = ${N(seq[i])}`:`${N(seq[i-1])} × 2 = ${N(seq[i])}`,tip2:`Erst ein kleiner Schritt, dann ein Sprung: ${N(seq[0])} → ${N(seq[1])} → ${N(seq[2])}. Welche zwei Rechenarten wechseln sich ab?`};});
+def('two_arith','inter',3,8,()=>{let a=rnd(2,6),b=rnd(2,6);if(a===b)b=a+1;const s1=rnd(1,9),s2=rnd(10,30),seq=arr(8,n=>n%2?s2+b*((n-1)/2):s1+a*(n/2));return{seq,rule:`Zwei verschachtelte arithmetische Reihen: Position 1/3/5 … ${S(a)}, Position 2/4/6 … ${S(b)}`,step:i=>`Teilfolge ${i%2?'B':'A'}: ${N(seq[i-2])} ${S(i%2?b:a)} = ${N(seq[i])}`,tip2:'Vergleiche jede Zahl mit der übernächsten – nicht mit der direkt folgenden.'};});
+def('inter_sq_arith','inter',3,8,()=>{const k=rnd(1,3),s=rnd(2,15),d=rnd(2,6),seq=arr(8,n=>n%2?s+d*((n-1)/2):(k+n/2)**2);return{seq,rule:`Zwei verschachtelte Reihen: Position 1/3/5 … Quadratzahlen, Position 2/4/6 … ${S(d)}`,step:i=>i%2?`Teilfolge B: ${N(seq[i-2])} ${S(d)} = ${N(seq[i])}`:`Teilfolge A: ${k+i/2}² = ${N(seq[i])}`,tip2:'Jede zweite Zahl ist eine Quadratzahl – und die anderen bilden eine eigene Reihe.'};});
+/* ===== L4 ===== */
+def('inter_tri_arith','inter',4,8,()=>{const k=rnd(1,3),s=rnd(2,20),d=rnd(2,7),seq=arr(8,n=>n%2?s+d*((n-1)/2):(k+n/2)*(k+n/2+1)/2);return{seq,rule:`Zwei Teilfolgen mit verschiedenen Regeln: Position 1/3/5 … Dreieckszahlen, Position 2/4/6 … ${S(d)}`,step:i=>i%2?`Teilfolge B: ${N(seq[i-2])} ${S(d)} = ${N(seq[i])}`:`Teilfolge A: Dreieckszahl ${N(seq[i-2])} ${S(k+i/2)} = ${N(seq[i])}`,tip2:'Trenne die Reihe in zwei Teilfolgen – sie folgen unterschiedlichen Regeln.'};});
+def('three_arith','inter',4,10,()=>{const ds=shuffle([2,3,4,5,6]).slice(0,3),st=[rnd(1,9),rnd(10,20),rnd(21,35)],seq=arr(10,n=>st[n%3]+ds[n%3]*Math.floor(n/3));return{seq,rule:`Drei verschachtelte Reihen: jede dritte Zahl ${S(ds[0])}, ${S(ds[1])} bzw. ${S(ds[2])}`,step:i=>`Teilfolge ${'ABC'[i%3]}: ${N(seq[i-3])} ${S(ds[i%3])} = ${N(seq[i])}`,tip2:'Vergleiche jede Zahl mit der drei Stellen davor.'};});
+def('diffs_fib','diff',4,7,()=>{const a=rnd(2,10),s=rnd(1,2),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+SER3.FIB[s+i-1]);return{seq,rule:'Die Differenzen bilden die Fibonacci-Folge (1, 2, 3, 5, 8, …)',step:i=>dstep(seq,i,`Nächste Differenz ${S(SER3.FIB[s+i-1])}:`),tip2:diffTip(seq)+' Jede Differenz ist die Summe der beiden vorherigen.'};});
+def('diffs_pow2','diff',4,7,()=>{const a=rnd(1,10),s=rnd(0,1),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+2**(s+i-1));return{seq,rule:'Die Differenzen verdoppeln sich (1, 2, 4, 8, …)',step:i=>dstep(seq,i,`Nächste Differenz ${S(2**(s+i-1))}:`),tip2:diffTip(seq)};});
+def('diffs_primes2','diff',4,7,()=>{const a=rnd(1,20),s=rnd(1,2),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+2*P[s+i-1]);return{seq,rule:'Die Differenzen sind das Doppelte der Primzahlen (2·3, 2·5, 2·7, …)',step:i=>dstep(seq,i,`Nächste Differenz ${S(2*P[s+i-1])} (= 2·${P[s+i-1]}):`),tip2:diffTip(seq)+' Halbiere die Differenzen.'};});
+def('diffs_squares2','diff',4,7,()=>{const a=rnd(1,15),s=rnd(2,3),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+(s+i)**2);return{seq,rule:`Die Differenzen sind Quadratzahlen (${(s+1)**2}, ${(s+2)**2}, ${(s+3)**2}, …)`,step:i=>dstep(seq,i,`Nächste Differenz ${S((s+i)**2)} (= ${s+i}²):`),tip2:diffTip(seq)};});
+def('times2_plus_odd','affine',4,6,()=>{const a=rnd(1,3),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*2+(2*i-1));return{seq,rule:'×2 mit wachsendem Zuschlag +1, +3, +5, +7, …',step:i=>`${N(seq[i-1])} × 2 + ${2*i-1} = ${N(seq[i])}`,tip2:'Verdopple jede Zahl und schaue, was bis zur nächsten fehlt – der Rest wächst regelmäßig.'};});
+def('times3_minus_grow','affine',4,6,()=>{const a=rnd(1,2),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*3-i);return{seq,rule:'×3 mit wachsendem Abzug: ×3−1, ×3−2, ×3−3, …',step:i=>`${N(seq[i-1])} × 3 − ${i} = ${N(seq[i])}`,tip2:'Verdreifache jede Zahl und vergleiche mit der nächsten – der Abzug wächst.'};});
+def('alt_mul_sub','alt',4,8,()=>{const c=rnd(1,5),s=rnd(c+2,c+8),seq=[s];for(let i=1;i<8;i++)seq.push(i%2?seq[i-1]*2:seq[i-1]-c);return{seq,rule:`Abwechselnd ×2 und ${S(-c)}`,step:i=>i%2?`${N(seq[i-1])} × 2 = ${N(seq[i])}`:`${N(seq[i-1])} − ${c} = ${N(seq[i])}`,tip2:'Große Sprünge und kleine Rückschritte wechseln sich ab – welche zwei Operationen sind es?'};});
+def('block3','block',4,10,()=>{const b0=rnd(2,6),seq=arr(10,n=>(b0+Math.floor(n/3))*((n%3)+1));return{seq,rule:`Dreierblöcke: Zahl, Doppeltes, Dreifaches – der Startwert steigt pro Block um 1 (${b0}, ${b0+1}, ${b0+2}, …)`,step:i=>i%3?`Block ${Math.floor(i/3)+1}: ${b0+Math.floor(i/3)} × ${(i%3)+1} = ${N(seq[i])}`:`Neuer Block: Startwert ${b0+Math.floor(i/3)}`,tip2:'Teile die Reihe in Dreierblöcke – wie hängt jeder Block mit seiner ersten Zahl zusammen?'};});
+def('pair_affine','pair',4,8,()=>{const k=pick([2,3]),c=pick([-2,-1,1,2,3]),x0=rnd(1,8),dx=rnd(1,3),seq=arr(8,n=>{const x=x0+dx*Math.floor(n/2);return n%2?k*x+c:x;});return{seq,rule:`Paare (x, ${k}·x ${S(c)}); die ersten Zahlen der Paare steigen um ${dx}`,step:i=>i%2?`Paar ${Math.floor(i/2)+1}: ${N(seq[i-1])} × ${k} ${S(c)} = ${N(seq[i])}`:`Erste Zahl von Paar ${i/2+1}: ${N(seq[i-2])} ${S(dx)} = ${N(seq[i])}`,tip2:'Fasse die Zahlen zu Paaren zusammen: Wie entsteht jeweils die zweite aus der ersten?'};});
+def('pos_prime_prod','pos',4,6,()=>{const seq=arr(6,n=>(n+1)*P[n]);return{seq,rule:'n × n-te Primzahl (1·2, 2·3, 3·5, 4·7, …)',step:i=>`${i+1} × ${P[i]} = ${N(seq[i])}`,tip2:'Teile jede Zahl durch ihre Nummer in der Reihe – welche Folge erscheint?'};});
+def('pos_quad','pos',4,6,()=>{const c=rnd(2,4),seq=arr(6,n=>(n+1)*(n+1+c));return{seq,rule:`n × (n + ${c}) für das n-te Glied: 1·${1+c}, 2·${2+c}, 3·${3+c}, …`,step:i=>`${i+1} × ${i+1+c} = ${N(seq[i])}`,tip2:'Teile jede Zahl durch ihre Nummer in der Reihe – was bleibt übrig?'};});
+def('cubes','closed',4,6,()=>{const k=rnd(1,2),seq=arr(6,n=>(k+n)**3);return{seq,rule:`Aufeinanderfolgende Kubikzahlen (${k}³, ${k+1}³, …)`,step:i=>`${k+i}³ = ${N(seq[i])}`,tip2:`${N(seq[0])} und ${N(seq[1])} – welche Zahl hoch drei ergibt das?`};});
+def('square_plus_linear','pos',4,6,()=>{const m=rnd(2,4),seq=arr(6,n=>(n+1)**2+m*(n+1));return{seq,rule:`n² + ${m}·n für das n-te Glied (zweite Differenzen konstant +2)`,step:i=>`${i+1}² + ${m}·${i+1} = ${N(seq[i])}`,tip2:diffTip(seq)+' Die Differenzen der Differenzen sind konstant.'};});
+def('pair_square','pair',4,8,()=>{const x0=rnd(2,6),seq=arr(8,n=>{const x=x0+Math.floor(n/2);return n%2?x*x:x;});return{seq,rule:'Paare (x, x²); die ersten Zahlen der Paare steigen um 1',step:i=>i%2?`Paar ${Math.floor(i/2)+1}: ${N(seq[i-1])}² = ${N(seq[i])}`:`Erste Zahl von Paar ${i/2+1}: ${N(seq[i-2])} + 1 = ${N(seq[i])}`,tip2:'Betrachte die Reihe paarweise – jede zweite Zahl hängt direkt von der Zahl davor ab.'};});
+def('pow2_plus_n','pos',4,6,()=>{const seq=arr(6,n=>2**(n+1)+(n+1));return{seq,rule:'2ⁿ + n für das n-te Glied (2¹+1, 2²+2, 2³+3, …)',step:i=>`2^${i+1} + ${i+1} = ${N(seq[i])}`,tip2:'Die Zahlen liegen knapp über Zweierpotenzen – wie weit darüber?'};});
+def('diffs_tri','diff',4,7,()=>{const a=rnd(1,10),s=rnd(0,1),seq=[a];for(let i=1;i<7;i++)seq.push(seq[i-1]+(s+i)*(s+i+1)/2);return{seq,rule:'Die Differenzen sind Dreieckszahlen (1, 3, 6, 10, 15, …)',step:i=>dstep(seq,i,`Nächste Differenz ${S((s+i)*(s+i+1)/2)}:`),tip2:diffTip(seq)+' Bilde auch die Differenzen der Differenzen.'};});
+def('arith_decimal','diff',4,6,()=>{const d=pick([0.5,1.5,2.5,0.25,0.75]),a=rnd(1,10)+pick([0,0.5]),seq=arr(6,n=>SER3.round(a+n*d));return{seq,rule:`Konstante Differenz ${S(d)}`,step:i=>dstep(seq,i,`Nächste Differenz ${S(d)}:`),tip2:'Der Schritt ist nicht ganzzahlig – rechne mit Dezimalzahlen.'};});
+def('sub_const_neg','diff',4,7,()=>{const a=rnd(5,20),d=rnd(3,8),seq=arr(7,n=>a-n*d);return{seq,rule:`Konstante Differenz ${S(-d)} – die Reihe läuft ins Negative`,step:i=>dstep(seq,i,`Nächste Differenz ${S(-d)}:`),tip2:'Der Abzug bleibt gleich, auch unter null.'};});
+/* ===== L5 ===== */
+def('triple_nest','inter',5,11,()=>{const a=rnd(1,9),d=rnd(2,5),b=rnd(1,3),k=rnd(1,3),seq=arr(11,n=>{const j=Math.floor(n/3);return n%3===0?a+d*j:n%3===1?b*2**j:(k+j)**2;});return{seq,rule:`Dreifach verschachtelt: jede dritte Zahl ${S(d)}, ×2 bzw. Quadratzahlen`,step:i=>{const j=Math.floor(i/3);return i%3===0?`Teilfolge A: ${N(seq[i-3])} ${S(d)} = ${N(seq[i])}`:i%3===1?`Teilfolge B: ${N(seq[i-3])} × 2 = ${N(seq[i])}`:`Teilfolge C: ${k+j}² = ${N(seq[i])}`;},tip2:'Drei Reihen sind ineinander verschachtelt – vergleiche jede Zahl mit der drei Stellen davor.'};});
+def('rec_a_plus_2b','rec',5,7,()=>{let x=rnd(1,3),y=rnd(x+1,5);if(y===2*x)y++;const seq=[x,y];for(let i=2;i<7;i++)seq.push(seq[i-1]+2*seq[i-2]);return{seq,rule:'Jede Zahl = Vorgänger + 2 × Vorvorgänger',step:i=>i<2?`Startwert ${N(seq[i])}`:`${N(seq[i-1])} + 2 × ${N(seq[i-2])} = ${N(seq[i])}`,tip2:`Vergleiche ${N(seq[2])} mit ${N(seq[1])} und ${N(seq[0])}: Eine der beiden Vorgängerzahlen wird doppelt gezählt.`};},{missingAt:[5],noTwo:true});
+def('rec_2a_plus_b','rec',5,7,()=>{const x=rnd(1,2),y=rnd(x,3),seq=[x,y];for(let i=2;i<7;i++)seq.push(2*seq[i-1]+seq[i-2]);return{seq,rule:'Jede Zahl = 2 × Vorgänger + Vorvorgänger',step:i=>i<2?`Startwert ${N(seq[i])}`:`2 × ${N(seq[i-1])} + ${N(seq[i-2])} = ${N(seq[i])}`,tip2:`Vergleiche ${N(seq[2])} mit ${N(seq[1])} und ${N(seq[0])}: Eine der beiden Vorgängerzahlen wird doppelt gezählt.`};},{missingAt:[5],noTwo:true});
+def('second_diff_grow','diff',5,7,()=>{const a=rnd(1,5),d0=rnd(1,3),seq=[a];let d=d0;for(let i=1;i<7;i++){seq.push(seq[i-1]+d);d+=i;}return{seq,rule:`Die Differenzen wachsen selbst immer schneller: zweite Differenzen 1, 2, 3, 4, … (Differenzen ${S(d0)}, ${S(d0+1)}, ${S(d0+3)}, ${S(d0+6)} …)`,step:i=>dstep(seq,i,`Nächste Differenz ${S(seq[i]-seq[i-1])}:`),tip2:diffTip(seq)+' Bilde dann die Differenzen der Differenzen – auch sie folgen einem Muster.'};},{noTwo:true});
+def('diff2_primes','diff',5,8,()=>{const a=rnd(1,8),d0=rnd(1,3),seq=[a];let d=d0;for(let i=1;i<8;i++){seq.push(seq[i-1]+d);d+=P[i-1];}return{seq,rule:`Die zweiten Differenzen sind Primzahlen (2, 3, 5, 7, …); erste Differenzen ${S(d0)}, ${S(d0+2)}, ${S(d0+5)}, ${S(d0+10)} …`,step:i=>dstep(seq,i,`Nächste Differenz ${S(seq[i]-seq[i-1])}:`),tip2:diffTip(seq)+' Bilde dann die Differenzen der Differenzen.'};},{noTwo:true});
+def('op_cycle3','alt',5,10,()=>{const a=rnd(2,5),b=rnd(1,3),s=rnd(2,6),seq=[s];for(let i=1;i<10;i++){const ph=(i-1)%3;seq.push(ph===0?seq[i-1]+a:ph===1?seq[i-1]*2:seq[i-1]-b);}return{seq,rule:`Drei Operationen im Zyklus: ${S(a)}, ×2, ${S(-b)}, ${S(a)}, ×2, …`,step:i=>{const ph=(i-1)%3;return ph===0?`${N(seq[i-1])} ${S(a)} = ${N(seq[i])}`:ph===1?`${N(seq[i-1])} × 2 = ${N(seq[i])}`:`${N(seq[i-1])} − ${b} = ${N(seq[i])}`;},tip2:'Es wechseln sich nicht zwei, sondern drei Rechenschritte ab – finde den Zyklus.'};},{noTwo:true});
+def('factor_plus_primes','affine',5,6,()=>{const a=rnd(1,3),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*2+P[i-1]);return{seq,rule:'×2 plus die nächste Primzahl (×2+2, ×2+3, ×2+5, ×2+7, …)',step:i=>`${N(seq[i-1])} × 2 + ${P[i-1]} = ${N(seq[i])}`,tip2:'Verdopple jede Zahl und schaue, was bis zur nächsten fehlt – die Reste bilden eine bekannte Folge.'};});
+def('mirror','mirror',5,9,()=>{const a=rnd(1,6),d0=rnd(2,4),left=[a];for(let i=1;i<5;i++)left.push(left[i-1]+d0+i-1);const seq=left.concat(left.slice(0,4).reverse());return{seq,rule:`Symmetrische Reihe: Aufstieg mit wachsenden Differenzen (${S(d0)}, ${S(d0+1)}, ${S(d0+2)}, ${S(d0+3)}), dann spiegelbildlich zurück`,step:i=>i<=4?dstep(seq,i,`Aufstieg, Differenz ${S(seq[i]-seq[i-1])}:`):`Abstieg spiegelt Stelle ${9-i}: ${N(seq[8-i])}`,tip2:'Die Reihe ist spiegelsymmetrisch – die zweite Hälfte wiederholt die erste rückwärts.'};},{modes:['missing','next'],missingAt:[5,6,7]});
+def('ratio_seq','ratio',5,6,()=>{const a=rnd(1,2),seq=[a];for(let i=1;i<6;i++)seq.push(seq[i-1]*(i+1));return{seq,rule:'Die Faktoren wachsen: ×2, ×3, ×4, ×5, …',step:i=>`${N(seq[i-1])} × ${i+1} = ${N(seq[i])}`,tip2:ratioTip(seq)+' Der Faktor bleibt nicht gleich.'};});
+def('ratio_half','ratio',5,6,()=>{const a=8*rnd(1,3),seq=arr(6,n=>SER3.round(a*1.5**n));return{seq,rule:'Konstanter Faktor ×1,5 (jede Zahl plus ihre Hälfte)',step:i=>`${N(seq[i-1])} × 1,5 = ${N(seq[i])}`,tip2:ratioTip(seq)+' Das Verhältnis ist nicht ganzzahlig.'};});
+def('pair_pronic','pair',5,8,()=>{const x0=rnd(2,5),seq=arr(8,n=>{const x=x0+Math.floor(n/2);return n%2?x*(x+1):x;});return{seq,rule:'Paare (n, n·(n+1)); die ersten Zahlen der Paare steigen um 1',step:i=>i%2?`Paar ${Math.floor(i/2)+1}: ${N(seq[i-1])} × ${N(seq[i-1]+1)} = ${N(seq[i])}`:`Erste Zahl von Paar ${i/2+1}: ${N(seq[i-2])} + 1 = ${N(seq[i])}`,tip2:'Betrachte die Reihe paarweise: Die zweite Zahl ist ein Produkt aus der ersten.'};});
+def('square_plus_prime','pos',5,6,()=>{const seq=arr(6,n=>(n+1)**2+P[n]);return{seq,rule:'n² + n-te Primzahl (1²+2, 2²+3, 3²+5, …)',step:i=>`${i+1}² + ${P[i]} = ${N(seq[i])}`,tip2:'Ziehe von jeder Zahl die Quadratzahl ihrer Nummer ab – was bleibt?'};});
+def('primes_squared','closed',5,6,()=>{const s=rnd(0,1),seq=P.slice(s,s+6).map(p=>p*p);return{seq,rule:'Quadrate der Primzahlen (2², 3², 5², 7², …)',step:i=>`${P[s+i]}² = ${N(seq[i])}`,tip2:'Alle Zahlen sind Quadratzahlen – welche Wurzeln haben sie?'};});
+def('geo_neg2','ratio',5,6,()=>{const a=rnd(1,3),seq=arr(6,n=>a*(-2)**n);return{seq,rule:'Konstanter Faktor ×(−2): Verdoppeln mit Vorzeichenwechsel',step:i=>`${N(seq[i-1])} × (−2) = ${N(seq[i])}`,tip2:'Das Vorzeichen wechselt bei jedem Schritt – betrachte zuerst nur die Beträge.'};});
+def('alt_sign_squares','closed',5,6,()=>{const seq=arr(6,n=>(n%2?-1:1)*(n+1)**2);return{seq,rule:'Quadratzahlen mit wechselndem Vorzeichen (+1², −2², +3², …)',step:i=>`${i%2?'−':'+'}${i+1}² = ${N(seq[i])}`,tip2:'Betrachte zuerst nur die Beträge – dann das Muster der Vorzeichen.'};});
+def('tri_plus_prime','pos',5,8,()=>{const seq=arr(8,n=>(n+1)*(n+2)/2+P[n]);return{seq,rule:'n-te Dreieckszahl + n-te Primzahl (1+2, 3+3, 6+5, 10+7, …)',step:i=>`${(i+1)*(i+2)/2} + ${P[i]} = ${N(seq[i])}`,tip2:'Zwei bekannte Folgen sind addiert – ziehe testweise die Dreieckszahlen 1, 3, 6, 10 … ab.'};});
+def('pow2_minus_n','pos',5,8,()=>{const seq=arr(8,n=>2**(n+1)-(n+1));return{seq,rule:'2ⁿ − n für das n-te Glied (2¹−1, 2²−2, 2³−3, …)',step:i=>`2^${i+1} − ${i+1} = ${N(seq[i])}`,tip2:'Die Zahlen liegen knapp unter Zweierpotenzen – wie weit darunter?'};});
+def('inter_sq_prime','inter',5,10,()=>{const k=rnd(1,2),s=rnd(0,2),seq=arr(10,n=>n%2?P[s+(n-1)/2]:(k+n/2)**2);return{seq,rule:'Zwei Eigenschaften verschachtelt: Position 1/3/5 … Quadratzahlen, Position 2/4/6 … Primzahlen',step:i=>i%2?`Teilfolge B: nach ${N(seq[i-2])} kommt die nächste Primzahl ${N(seq[i])}`:`Teilfolge A: ${k+i/2}² = ${N(seq[i])}`,tip2:'Trenne die Reihe in zwei Teilfolgen – beide sind bekannte Zahlenfolgen.'};});
+})();
+SER3.byLevel={}; SER3.FAM.forEach(f=>{(SER3.byLevel[f.L]||(SER3.byLevel[f.L]=[])).push(f);});
+/* ---------- Aufgaben-Builder ---------- */
+SER3.MODE_W={1:{next:7,missing:3},2:{next:5,missing:3,wrong:2},3:{next:35,missing:20,prev:15,wrong:15,rule:15},4:{next:30,missing:15,prev:10,wrong:15,rule:15,two:15},5:{next:30,missing:15,prev:10,wrong:15,rule:15,two:15}};
+SER3.MODE_LABEL={next:'Nächste Zahl',missing:'Fehlende Zahl',prev:'Vorherige Zahl',wrong:'Falscher Term',rule:'Regel erkennen',two:'Zwei Lücken'};
+SER3.recent=[];                                                     // Session-lokal: zuletzt gezogene ruleIds (kein Profil, kein Store)
+SER3.LIMIT={1:[0,300],2:[0,500],3:[0,1200],4:[-300,2500],5:[-600,6000]};
+SER3.valid=(seq,L)=>{ const [lo,hi]=SER3.LIMIT[L]||SER3.LIMIT[5]; return seq.every(v=>SER3.isNum(v)&&SER3.nice(v)&&v>=lo&&v<=hi); };
+SER3.pickMode=(fam,L)=>{ const w=Object.assign({},SER3.MODE_W[L]||SER3.MODE_W[5]); let keys=Object.keys(w);
+  if(fam.modes)keys=keys.filter(k=>fam.modes.includes(k)); if(fam.len<6)keys=keys.filter(k=>k!=='wrong'); if(fam.len<7||fam.noTwo)keys=keys.filter(k=>k!=='two');
+  if(!keys.length)keys=['next']; const tot=keys.reduce((s,k)=>s+w[k],0); let r=Math.random()*tot; for(const k of keys){r-=w[k];if(r<=0)return k;} return keys[keys.length-1]; };
+SER3.serHTML=(vis,marks)=>'<span class="ser" role="img" aria-label="'+SER3.aria(vis)+'">'+vis.map((v,i)=>{ const m=marks&&marks[i]; if(!SER3.isNum(v))return '<b class="qm">?</b>'; return `<b${m?' class="'+m+'"':''}>${SER3.fmtN(v)}</b>`; }).join('')+'</span>';
+SER3.aria=vis=>'Zahlenreihe: '+vis.map(v=>SER3.isNum(v)?SER3.fmtN(v):'unbekannt').join(', ');
+/* Regel-Distraktoren: aus der Reihe selbst abgeleitete, aber nachweislich NICHT passende Regeln */
+SER3.ruleDistractors=(seq,correctRule)=>{ const N=SER3.fmtN,S=SER3.sgn; const d1=seq[1]-seq[0],d2=seq[2]-seq[1],s2=d2-d1; const r=seq[0]?seq[1]/seq[0]:NaN; const c=[];
+  const isArith=d=>seq.every((v,i)=>i===0||SER3.eq(v-seq[i-1],d));
+  const isGeo=k=>seq.every((v,i)=>i===0||SER3.eq(v,seq[i-1]*k));
+  const isSecond=s=>{for(let i=2;i<seq.length;i++)if(!SER3.eq((seq[i]-seq[i-1])-(seq[i-1]-seq[i-2]),s))return false;return true;};
+  const isFib=()=>{for(let i=2;i<seq.length;i++)if(!SER3.eq(seq[i],seq[i-1]+seq[i-2]))return false;return true;};
+  const isAffine=(k,cc)=>seq.every((v,i)=>i===0||SER3.eq(v,seq[i-1]*k+cc));
+  const isAlt=(a,b)=>seq.every((v,i)=>i===0||SER3.eq(v-seq[i-1],i%2?a:b));
+  const isInter=(a,b)=>seq.every((v,i)=>i<2||SER3.eq(v-seq[i-2],i%2?b:a));
+  const isClosed=key=>{for(let s=0;s<=6;s++){if(seq.every((v,i)=>SER3.eq(v,SER3.SEQ[key](i+s))))return true;}return false;};
+  const isDiffSeq=key=>{for(let s=0;s<=3;s++){if(seq.every((v,i)=>i===0||SER3.eq(v-seq[i-1],SER3.SEQ[key](i-1+s))))return true;}return false;};
+  const add=(text,fits)=>{ if(!fits&&text!==correctRule&&!c.some(x=>x.text===text))c.push({text}); };
+  /* Distraktoren im selben Stil und ähnlicher Länge wie die echten Regelsätze (kein Längen-Bias). */
+  add(`Konstante Differenz ${S(d1)} (jede Zahl ${S(d1)} ergibt die nächste)`,isArith(d1)); add(`Konstante Differenz ${S(d1+1)} (jede Zahl ${S(d1+1)} ergibt die nächste)`,isArith(d1+1)); add(`Konstante Differenz ${S(d1-1)} (jede Zahl ${S(d1-1)} ergibt die nächste)`,isArith(d1-1));
+  if(SER3.nice(r)&&!SER3.eq(r,1)&&Math.abs(r)<=10)add(`Konstanter Faktor ×${N(r)} (jede Zahl mal ${N(r)} ergibt die nächste)`,isGeo(r)); add('Konstanter Faktor ×2 (jede Zahl wird verdoppelt)',isGeo(2)); add('Konstanter Faktor ×3 (jede Zahl wird verdreifacht)',isGeo(3));
+  if(s2!==0)add(`Die Differenzen wachsen um ${N(s2)} (${S(d1)}, ${S(d1+s2)}, ${S(d1+2*s2)}, …)`,isSecond(s2)); add(`Die Differenzen wachsen um ${N(s2+1)} (${S(d1)}, ${S(d1+s2+1)}, ${S(d1+2*(s2+1))}, …)`,isSecond(s2+1));
+  add('Jede Zahl ist die Summe der beiden Vorgänger (Fibonacci-artig)',isFib());
+  add('Jede Zahl entsteht aus der vorherigen durch ×2 + 1 (verdoppeln, dann plus 1)',isAffine(2,1)); add('Jede Zahl entsteht aus der vorherigen durch ×2 − 1 (verdoppeln, dann minus 1)',isAffine(2,-1)); add('Jede Zahl entsteht aus der vorherigen durch ×3 + 1 (verdreifachen, dann plus 1)',isAffine(3,1));
+  add(`Abwechselnd ${S(d1)} und ${S(d2)} (die beiden Schritte wechseln sich ab)`,isAlt(d1,d2));
+  add(`Zwei verschachtelte Reihen: Position 1/3/5 … ${S(seq[2]-seq[0])}, Position 2/4/6 … ${S(seq[3]-seq[1])}`,isInter(seq[2]-seq[0],seq[3]-seq[1]));
+  add('Aufeinanderfolgende Quadratzahlen (1², 2², 3², … oder ab einem späteren Start)',isClosed('sq')); add('Primzahlen der Reihe nach (2, 3, 5, 7, 11, … oder ab einem späteren Start)',isClosed('prime')); add('Dreieckszahlen der Reihe nach (1, 3, 6, 10, 15, … oder ab einem späteren Start)',isClosed('tri')); add('Aufeinanderfolgende Kubikzahlen (1³, 2³, 3³, … oder ab einem späteren Start)',isClosed('cube'));
+  add('Es werden nacheinander Primzahlen addiert (+2, +3, +5, +7, …)',isDiffSeq('prime')); add('Es werden nacheinander Quadratzahlen addiert (+1, +4, +9, +16, …)',isDiffSeq('sq'));
+  return c; };
+SER3.corrupt=(seq,p,L)=>{ const v=seq[p]; const mag=Math.max(1,Math.round(Math.abs(v)*0.12)); const ds=[1,2,3,-1,-2,-3,mag,-mag,mag+1,-(mag+1)]; const [lo]=SER3.LIMIT[L]||SER3.LIMIT[5];
+  for(const d of shuffle(ds)){ const w=SER3.round(v+d); if(d===0||w<lo||!SER3.nice(w))continue; if(seq.some((x,i)=>i!==p&&SER3.eq(x,w)))continue; return w; } return null; };
+SER3.build=function(L,opts){
+  L=clamp(Math.round(L)||1,1,5); const tries=40; const N=SER3.fmtN;
+  const pool=SER3.byLevel[L]||SER3.byLevel[5]; const lastFam=SER3.recent.length?SER3.recent[SER3.recent.length-1].fam:null;
+  for(let t=0;t<tries;t++){
+    let cands=pool.filter(f=>!SER3.recent.some(r=>r.id===f.id)); if(cands.length>2)cands=cands.filter(f=>f.fam!==lastFam).length>=2?cands.filter(f=>f.fam!==lastFam):cands; if(!cands.length)cands=pool;
+    const fam=pick(cands); let g=null; try{ g=fam.gen(); }catch(e){ continue; }
+    if(!g||!Array.isArray(g.seq)||g.seq.length!==fam.len||!SER3.valid(g.seq,L))continue;
+    const seq=g.seq.map(SER3.round), n=seq.length, mode=SER3.pickMode(fam,L);
+    const signed=seq.some(v=>v<0); const base={ruleId:fam.id,family:fam.fam,difficulty:L,seriesMode:mode,type:fam.id,
+      hints:[SER3.STRAT[fam.fam]||SER3.STRAT.diff,g.tip2||'Prüfe die Regel an den ersten drei Zahlen und setze sie fort.']};
+    const expl=(head,body)=>`<b>Regel:</b> ${g.rule}. ${head?head+' ':''}${body}`;
+    let item=null;
+    if(mode==='next'||mode==='missing'||mode==='prev'){
+      let pos; if(mode==='next')pos=n-1; else if(mode==='prev')pos=0; else pos=fam.missingAt?pick([].concat(fam.missingAt)):rnd(1,n-2);
+      const vis=seq.slice(); vis[pos]=null; const u=SER3.unique(vis,seq,[pos]); if(!u.ok){SER3._rej(fam.id,mode,u.why);continue;}
+      const body=mode==='next'?`<b>Rechnung:</b> ${g.step(pos)}.`:mode==='prev'?`<b>Rückwärts:</b> Das erste Glied muss ${N(seq[0])} sein, denn ${g.step(1)}.`:`<b>Lücke (Stelle ${pos+1}):</b> ${g.step(pos)}. <b>Kontrolle:</b> ${g.step(pos+1)}.`;
+      item=Object.assign(base,{render:'input',prompt:SER3.serHTML(vis),ariaLabel:SER3.aria(vis),answer:seq[pos],explain:expl('',body)}); if(signed)item.signed=true;
+    } else if(mode==='wrong'){
+      const p=rnd(1,n-2), w=SER3.corrupt(seq,p,L); if(w==null)continue; const bad=seq.slice(); bad[p]=w;
+      if(SER3.solveAll(bad).length){SER3._rej(fam.id,mode,'corruptFits');continue;}
+      let amb=false; for(let j=0;j<n&&!amb;j++){ if(j===p)continue; const v=bad.slice(); v[j]=null; const sols=SER3.solveAll(v); if(sols.some(s=>SER3.isNum(s.a[j])))amb=true; }
+      if(amb){SER3._rej(fam.id,mode,'otherRemovable');continue;}
+      { const v=bad.slice(); v[p]=null; const u=SER3.unique(v,seq,[p]); if(!u.ok){SER3._rej(fam.id,mode,u.why);continue;} }
+      const uniq=[...new Set(bad)]; if(uniq.length<4)continue; const others=shuffle(uniq.filter(x=>!SER3.eq(x,w))).slice(0,4); const opts=shuffle(others.concat([w]));
+      item=Object.assign(base,{render:'choice',q:`<div class="q-math ser-wrap">${SER3.serHTML(bad)}</div><b>Welche Zahl passt nicht in die Reihe?</b>`,ariaLabel:SER3.aria(bad),opts:opts.map(N),c:opts.findIndex(x=>SER3.eq(x,w)),
+        explain:expl(`<b>Falscher Term:</b> An Stelle ${p+1} steht ${N(w)}, richtig wäre ${N(seq[p])}:`,`${g.step(p)}.`)});
+      item.hints=[base.hints[0],'Suche die Stelle, an der die Regel genau einmal bricht – vor und nach dem Fehler stimmt sie wieder.'];
+    } else if(mode==='rule'){
+      if(SER3.solveAll(seq).length===0){SER3._rej(fam.id,mode,'nosolver');continue;}
+      const dis=shuffle(SER3.ruleDistractors(seq,g.rule)).slice(0,3); if(dis.length<3)continue;
+      const opts=shuffle([{text:g.rule,ok:true}].concat(dis));
+      item=Object.assign(base,{render:'choice',q:`<div class="q-math ser-wrap">${SER3.serHTML(seq)}</div><b>Welche Regel beschreibt die Reihe?</b>`,ariaLabel:SER3.aria(seq),opts:opts.map(o=>o.text),c:opts.findIndex(o=>o.ok),
+        explain:expl('<b>Kontrolle:</b>',`${g.step(1)}; ${g.step(2)}; ${g.step(3)}.`)});
+      item.hints=[base.hints[0],'Prüfe jede Regel an den ersten drei Zahlen – eine falsche Regel scheitert dort schon.'];
+    } else if(mode==='two'){
+      const i=rnd(1,n-3), j=i+rnd(2,Math.min(3,n-1-i)); const vis=seq.slice(); vis[i]=null; vis[j]=null;
+      const u=SER3.unique(vis,seq,[i,j]); if(!u.ok){SER3._rej(fam.id,mode,u.why);continue;}
+      const near=v=>{const ds=[1,2,-1,-2,3,-3].map(d=>SER3.round(v+d)).filter(x=>!seq.some(y=>SER3.eq(x,y))); return pick(ds);};
+      const a=seq[i],b=seq[j]; const alts=[[near(a),b],[a,near(b)],[near(a),near(b)]]; const opts=shuffle([[a,b]].concat(alts));
+      item=Object.assign(base,{render:'choice',q:`<div class="q-math ser-wrap">${SER3.serHTML(vis)}</div><b>Welche zwei Zahlen fehlen (in dieser Reihenfolge)?</b>`,ariaLabel:SER3.aria(vis),opts:opts.map(o=>`${N(o[0])} und ${N(o[1])}`),c:opts.findIndex(o=>SER3.eq(o[0],a)&&SER3.eq(o[1],b)),
+        explain:expl('',`<b>Lücke 1 (Stelle ${i+1}):</b> ${g.step(i)}. <b>Lücke 2 (Stelle ${j+1}):</b> ${g.step(j)}.`)});
+    }
+    if(!item)continue;
+    SER3.recent.push({id:fam.id,fam:fam.fam}); if(SER3.recent.length>4)SER3.recent.shift();
+    return item;
+  }
+  SER3._rej('_fallback','-','fallback'); const fb=seriesBuild(Math.min(L,4)); fb.ruleId='legacy';fb.family='diff';fb.difficulty=L;fb.seriesMode='next';fb.type='legacy';
+  fb.prompt=SER3.serHTML(fb.prompt.split(' , ').map(s=>s==='?'?null:+s)); return fb;
+};
+SER3.REJ={}; SER3._rej=(id,mode,why)=>{ const k=why.split(':')[0]; SER3.REJ[k]=(SER3.REJ[k]||0)+1; const km=mode+":"+k; SER3.REJM=SER3.REJM||{}; SER3.REJM[km]=(SER3.REJM[km]||0)+1; const kf=id+":"+mode+":"+k; SER3.REJF=SER3.REJF||{}; SER3.REJF[kf]=(SER3.REJF[kf]||0)+1; };
+/* __SER3_END__ */
+
+/* __LET3_START__  Buchstabenreihen 3.0: ≥25 Regelfamilien über Alphabet-Positionen (A = 1 … Z = 26), L1–L5.
+   Eindeutigkeit über denselben Solver-Satz wie die Zahlenreihen (Positionen als Zahlenfolge). Keine Sprachtricks. */
+const LET3={};
+LET3.ch=p=>String.fromCharCode(64+p);                                    // 1 → A
+LET3.pos=ch=>ch.charCodeAt(0)-64;
+LET3.FAM=[]; LET3.def=(id,L,gen,extra)=>LET3.FAM.push(Object.assign({id,L,gen},extra||{}));
+LET3.recent=[];
+LET3.TIP1='Denke in Alphabet-Positionen (A = 1, B = 2, … Z = 26) – dann wird daraus eine Zahlenreihe.';
+(function(){
+const def=LET3.def, C=LET3.ch, S=SER3.sgn;
+const arr=(n,f)=>Array.from({length:n},(_,i)=>f(i));
+const inRange=ps=>ps.every(p=>p>=1&&p<=26);
+const stepGen=(id,L,steps,len,dir)=>def(id,L,()=>{const d=pick(steps)*(dir<0?-1:1);const span=Math.abs(d)*(len-1);const start=dir<0?rnd(1+span,26):rnd(1,26-span);const ps=arr(len,i=>start+i*d);
+  return {ps,rule:`Konstanter Schritt ${S(d)} im Alphabet`,step:i=>`${C(ps[i-1])} (${ps[i-1]}) ${S(d)} → ${C(ps[i])} (${ps[i]})`,tip2:`Zähle, wie viele Buchstaben zwischen ${C(ps[0])} und ${C(ps[1])} liegen.`};});
+/* L1 */
+stepGen('l_step1',1,[1],6,1); stepGen('l_step2',1,[2],6,1); stepGen('l_step3',1,[3],6,1); stepGen('l_back1',1,[1],6,-1); stepGen('l_back2',1,[2,3],6,-1);
+def('l_every_other_back',1,()=>{const start=rnd(12,26),ps=arr(5,i=>start-2*i);return {ps,rule:'Rückwärts, jeder zweite Buchstabe (−2)',step:i=>`${C(ps[i-1])} (${ps[i-1]}) − 2 → ${C(ps[i])} (${ps[i]})`,tip2:'Die Reihe läuft rückwärts – wie viele Buchstaben werden übersprungen?'};});
+/* L2 */
+stepGen('l_step_big',2,[4,5,6],5,1); stepGen('l_back_big',2,[4,5,6],5,-1);
+def('l_grow',2,()=>{const start=rnd(1,6),ps=[start];for(let i=1;i<6;i++)ps.push(ps[i-1]+i);return {ps,rule:'Wachsender Schritt: +1, +2, +3, +4, …',step:i=>`${C(ps[i-1])} (${ps[i-1]}) + ${i} → ${C(ps[i])} (${ps[i]})`,tip2:'Die Abstände werden jedes Mal um eins größer.'};});
+def('l_shrink',2,()=>{const start=rnd(1,4),steps=[6,5,4,3,2],ps=[start];steps.forEach(s=>ps.push(ps[ps.length-1]+s));return {ps,rule:'Schrumpfender Schritt: +6, +5, +4, +3, +2',step:i=>`${C(ps[i-1])} (${ps[i-1]}) + ${steps[i-1]} → ${C(ps[i])} (${ps[i]})`,tip2:'Die Abstände werden jedes Mal um eins kleiner.'};});
+def('l_alt_fb',2,()=>{const a=rnd(3,5),b=rnd(1,a-1),start=rnd(1,8),ps=[start];for(let i=1;i<7;i++)ps.push(ps[i-1]+(i%2?a:-b));return {ps,rule:`Abwechselnd ${S(a)} vorwärts und ${S(-b)} rückwärts`,step:i=>`${C(ps[i-1])} ${i%2?S(a):S(-b)} → ${C(ps[i])}`,tip2:'Die Reihe springt vor und zurück – zwei Schritte wechseln sich ab.'};});
+def('l_mirror',2,()=>{const start=rnd(1,4),ps=[];for(let i=0;i<6;i++)ps.push(i%2?27-(start+(i-1)/2):start+i/2);return {ps,rule:'Spiegelpaare: A↔Z, B↔Y, C↔X … (Position + Spiegelposition = 27)',step:i=>i%2?`Spiegel von ${C(ps[i-1])} (${ps[i-1]}): 27 − ${ps[i-1]} = ${ps[i]} → ${C(ps[i])}`:`Nächster Buchstabe vorwärts: ${C(ps[i])}`,tip2:'Betrachte die Buchstaben paarweise: Der zweite ist jeweils das Spiegelbild des ersten vom Alphabet-Ende her.'};},{modes:['next']});
+/* L3 */
+def('l_two_inter',3,()=>{let a=rnd(1,3),b=rnd(1,3);if(a===b)b=a+1;const s1=rnd(1,6),s2=rnd(8,14),ps=arr(8,i=>i%2?s2+b*((i-1)/2):s1+a*(i/2));return {ps,rule:`Zwei verschachtelte Reihen: Position 1/3/5 … ${S(a)}, Position 2/4/6 … ${S(b)}`,step:i=>`Teilfolge ${i%2?'B':'A'}: ${C(ps[i-2])} ${S(i%2?b:a)} → ${C(ps[i])}`,tip2:'Betrachte jeden zweiten Buchstaben getrennt.'};});
+def('l_grow2',3,()=>{const start=rnd(1,3),ps=[start];for(let i=1;i<6;i++)ps.push(ps[i-1]+(2*i-1));return {ps,rule:'Wachsender Schritt: +1, +3, +5, +7, …',step:i=>`${C(ps[i-1])} (${ps[i-1]}) + ${2*i-1} → ${C(ps[i])} (${ps[i]})`,tip2:'Die Abstände wachsen – aber nicht um eins.'};});
+def('l_primes',3,()=>{const ps=[2,3,5,7,11,13,17,19,23];const s=rnd(0,2);return {ps:ps.slice(s,s+6),rule:'Die Positionen sind Primzahlen (2, 3, 5, 7, 11, …)',step:i=>`Nächste Primzahl-Position ${ps[s+i]} → ${C(ps[s+i])}`,tip2:'Schreibe die Positionen auf – kennst du diese Zahlenfolge?'};});
+def('l_squares',3,()=>{const ps=[1,4,9,16,25];return {ps,rule:'Die Positionen sind Quadratzahlen (1, 4, 9, 16, 25)',step:i=>`Position ${i+1}² = ${ps[i]} → ${C(ps[i])}`,tip2:'Schreibe die Positionen auf – 1, 4, 9 …'};});
+def('l_tri',3,()=>{const ps=[1,3,6,10,15,21];return {ps,rule:'Die Positionen sind Dreieckszahlen (Schritte +2, +3, +4, +5, +6)',step:i=>`${C(ps[i-1])} (${ps[i-1]}) + ${i+1} → ${C(ps[i])} (${ps[i]})`,tip2:'Die Abstände wachsen um jeweils eins.'};});
+def('l_pairs',3,()=>{const g=rnd(3,4),start=rnd(1,3),groups=arr(5,i=>start+i*g).map(p=>C(p)+C(p+1));return {groups,ps:arr(5,i=>start+i*g),rule:`Buchstabenpaare: jedes Paar beginnt ${S(g)} Buchstaben nach dem vorherigen`,step:i=>`Paar ${i+1} beginnt bei ${C(start+i*g)} (${start+i*g}) → ${groups[i]}`,tip2:'Schau nur auf den ersten Buchstaben jedes Paares.'};},{modes:['next'],group:true});
+/* L4 */
+def('l_letter_number',4,()=>{const ds=rnd(1,3),dn=rnd(1,3),s=rnd(1,5),n0=rnd(1,4);const ps=arr(6,i=>s+i*ds),ns=arr(6,i=>n0+i*dn);const groups=ps.map((p,i)=>C(p)+ns[i]);return {groups,ps,ns,rule:`Buchstabe ${S(ds)} im Alphabet, Zahl ${S(dn)}`,step:i=>`${groups[i-1]} → Buchstabe ${S(ds)}, Zahl ${S(dn)} → ${groups[i]}`,tip2:'Betrachte Buchstaben und Zahlen getrennt – jede Hälfte hat ihren eigenen Schritt.'};},{modes:['next'],group:true});
+def('l_three_inter',4,()=>{const s1=rnd(1,4),s2=rnd(20,26),s3=rnd(9,13),ps=arr(10,i=>{const j=Math.floor(i/3);return i%3===0?s1+j:i%3===1?s2-j:s3+2*j;});if(!inRange(ps))return null;return {ps,rule:'Drei verschachtelte Reihen: jeder dritte Buchstabe +1, −1 bzw. +2',step:i=>`Teilfolge ${'ABC'[i%3]}: ${C(ps[i-3])} ${S(ps[i]-ps[i-3])} → ${C(ps[i])}`,tip2:'Vergleiche jeden Buchstaben mit dem drei Stellen davor.'};});
+def('l_alt_big',4,()=>{const a=rnd(4,6),b=rnd(2,3),start=rnd(1,6),ps=[start];for(let i=1;i<8;i++)ps.push(ps[i-1]+(i%2?a:-b));if(!inRange(ps))return null;return {ps,rule:`Abwechselnd ${S(a)} und ${S(-b)}`,step:i=>`${C(ps[i-1])} ${i%2?S(a):S(-b)} → ${C(ps[i])}`,tip2:'Große Sprünge vor, kleine zurück – welche zwei Schritte wechseln sich ab?'};});
+def('l_fib_steps',4,()=>{const start=rnd(1,5),st=[1,1,2,3,5,8],ps=[start];st.forEach(s=>ps.push(ps[ps.length-1]+s));if(!inRange(ps))return null;return {ps,rule:'Die Schritte folgen der Fibonacci-Folge: +1, +1, +2, +3, +5, +8',step:i=>`${C(ps[i-1])} + ${st[i-1]} → ${C(ps[i])}`,tip2:'Schreibe die Abstände auf – jeder ist die Summe der beiden vorherigen.'};});
+def('l_cycle',4,()=>{const start=rnd(1,6),groups=arr(5,i=>C(start+i)+C(start+i+1)+C(start+i+2));return {groups,ps:arr(5,i=>start+i),rule:'Dreiergruppen aufeinanderfolgender Buchstaben, jede Gruppe um einen Buchstaben verschoben',step:i=>`Gruppe ${i+1} beginnt bei ${C(start+i)} → ${groups[i]}`,tip2:'Vergleiche nur die Anfangsbuchstaben der Gruppen.'};},{modes:['next'],group:true});
+def('l_pairs_mirror',4,()=>{const d=rnd(2,3),start=rnd(1,3),ps=arr(5,i=>start+i*d),groups=ps.map(p=>C(p)+C(27-p));return {groups,ps,rule:`Paare aus Buchstabe und seinem Spiegelbild (A↔Z): der erste Buchstabe geht ${S(d)} voran`,step:i=>`Paar ${i+1}: ${C(ps[i])} (${ps[i]}) und Spiegel 27 − ${ps[i]} = ${27-ps[i]} → ${groups[i]}`,tip2:'Der zweite Buchstabe jedes Paares ist das Spiegelbild des ersten vom Ende des Alphabets her.'};},{modes:['next'],group:true});
+/* L5 */
+def('l_double',5,()=>{const ps=[1,2,4,8,16];return {ps,rule:'Jede Position ist das Doppelte der vorherigen (1, 2, 4, 8, 16)',step:i=>`${ps[i-1]} × 2 = ${ps[i]} → ${C(ps[i])}`,tip2:'Die Abstände verdoppeln sich – prüfe die Positionen.'};});
+def('l_double_plus1',5,()=>{const ps=[2,5,11,23];return {ps,rule:'Position ×2 + 1 (2, 5, 11, 23)',step:i=>`${ps[i-1]} × 2 + 1 = ${ps[i]} → ${C(ps[i])}`,tip2:'Vergleiche jede Position mit dem Doppelten der vorherigen.'};});
+def('l_sq_plus1',5,()=>{const ps=[2,5,10,17,26];return {ps,rule:'Positionen = Quadratzahl + 1 (1²+1, 2²+1, 3²+1, …)',step:i=>`${i+1}² + 1 = ${ps[i]} → ${C(ps[i])}`,tip2:'Ziehe von jeder Position 1 ab – welche Folge erscheint?'};});
+def('l_three_mixed',5,()=>{const s1=rnd(1,3),s2=rnd(1,4),s3=rnd(22,26),ps=arr(10,i=>{const j=Math.floor(i/3);return i%3===0?s1+j:i%3===1?s2+3*j:s3-2*j;});if(!inRange(ps))return null;return {ps,rule:'Drei verschachtelte Reihen mit eigenen Regeln: +1, +3 und −2',step:i=>`Teilfolge ${'ABC'[i%3]}: ${C(ps[i-3])} ${S(ps[i]-ps[i-3])} → ${C(ps[i])}`,tip2:'Teile die Reihe in drei Teilfolgen (1., 4., 7. … / 2., 5., 8. … / 3., 6., 9. …).'};});
+def('l_letter_number_mul',5,()=>{const ds=rnd(2,4),s=rnd(1,4);const ps=arr(5,i=>s+i*ds),ns=arr(5,i=>2**i);const groups=ps.map((p,i)=>C(p)+ns[i]);if(!inRange(ps))return null;return {groups,ps,ns,rule:`Buchstabe ${S(ds)} im Alphabet, Zahl verdoppelt sich`,step:i=>`${groups[i-1]} → Buchstabe ${S(ds)}, Zahl × 2 → ${groups[i]}`,tip2:'Buchstaben und Zahlen getrennt betrachten: eine Hälfte addiert, die andere multipliziert.'};},{modes:['next'],group:true});
+def('l_skip_grow_back',5,()=>{const start=rnd(22,26),ps=[start];for(let i=1;i<6;i++)ps.push(ps[i-1]-i);if(!inRange(ps))return null;return {ps,rule:'Rückwärts mit wachsendem Schritt: −1, −2, −3, −4, −5',step:i=>`${C(ps[i-1])} (${ps[i-1]}) − ${i} → ${C(ps[i])} (${ps[i]})`,tip2:'Die Reihe läuft rückwärts, und die Abstände wachsen.'};});
+})();
+LET3.byLevel={}; LET3.FAM.forEach(f=>{(LET3.byLevel[f.L]||(LET3.byLevel[f.L]=[])).push(f);});
+LET3.html=(items)=>'<span class="ser" role="img" aria-label="Buchstabenreihe: '+items.map(v=>v==null?'unbekannt':v).join(', ')+'">'+items.map(v=>v==null?'<b class="qm">?</b>':`<b>${v}</b>`).join('')+'</span>';
+LET3.REJ={};
+LET3.build=function(L){
+  L=clamp(Math.round(L)||1,1,5); const pool=LET3.byLevel[L]||LET3.byLevel[5];
+  for(let t=0;t<40;t++){
+    let cands=pool.filter(f=>!LET3.recent.includes(f.id)); if(!cands.length)cands=pool; const fam=pick(cands);
+    let g=null; try{g=fam.gen();}catch(e){g=null;} if(!g||!g.ps||!g.ps.every(p=>p>=1&&p<=26))continue;
+    const modes=fam.modes||(L>=2?['next','next','missing']:['next']); const mode=pick(modes);
+    const n=(g.groups||g.ps).length; const pos=mode==='next'?n-1:rnd(1,n-2);
+    const vis=g.ps.slice(); vis[pos]=null;
+    const u=SER3.unique(vis,g.ps,[pos]); if(!u.ok){LET3.REJ[u.why.split(':')[0]]=(LET3.REJ[u.why.split(':')[0]]||0)+1;continue;}
+    if(g.ns){ const vn=g.ns.slice(); vn[pos]=null; const u2=SER3.unique(vn,g.ns,[pos]); if(!u2.ok){LET3.REJ['num']=(LET3.REJ['num']||0)+1;continue;} }
+    const shown=(g.groups||g.ps.map(LET3.ch)).map((v,i)=>i===pos?null:v); const answer=(g.groups||g.ps.map(LET3.ch))[pos];
+    const explain=`<b>Regel:</b> ${g.rule}. <b>Positionen:</b> ${g.ps.map((p,i)=>i===pos?'?':p).join(', ')}. <b>Rechnung:</b> ${g.step(pos)}.`;
+    LET3.recent.push(fam.id); if(LET3.recent.length>4)LET3.recent.shift();
+    return {prompt:LET3.html(shown),answer,ariaLabel:'Buchstabenreihe: '+shown.map(v=>v==null?'unbekannt':v).join(', '),hints:[LET3.TIP1,g.tip2],explain,ruleId:fam.id,family:'letters',difficulty:L,seriesMode:mode,type:fam.id};
+  }
+  const step=rnd(1,3),start=rnd(1,8),ps=[0,1,2,3,4,5].map(i=>start+i*step),shown=ps.slice(0,5).map(LET3.ch);   // sicherer Fallback: konstanter Schritt
+  return {prompt:LET3.html(shown.concat([null])),answer:LET3.ch(ps[5]),hints:[LET3.TIP1,'Zähle die Schritte zwischen den ersten beiden Buchstaben.'],explain:`<b>Regel:</b> Konstanter Schritt +${step}. <b>Rechnung:</b> ${LET3.ch(ps[4])} (${ps[4]}) + ${step} → ${LET3.ch(ps[5])} (${ps[5]}).`,ruleId:'l_step_fallback',family:'letters',difficulty:L,seriesMode:'next',type:'l_step_fallback'};
+};
+/* __LET3_END__ */
+
+/* __MX_START__  Matrizen (logic:matrix) – psychometrisches Matrizen-Denken, Logik 3.0.
+   Numerische 3×3- (und einfache 2×2-) Matrizen als HTML/CSS-Grid, figurale Matrizen als Inline-SVG aus
+   strukturierten Zuständen. Jede Familie besitzt generator UND parameterfreie Prüffunktion check(grid):
+   Die Prüffunktionen ALLER Familien bilden den Solver-Satz für die Eindeutigkeitsprüfung (Kandidatenwerte
+   bzw. Kandidatenzustände an der Lücke) – akzeptiert mehr als ein Wert, wird die Matrix verworfen.
+   Keine Bilder, keine Bibliotheken, keine zweite Session-Engine: Items laufen über fillQA (input/choice). */
+const MX={};
+MX.eq=(a,b)=>Math.abs(a-b)<1e-9;
+MX.cols=g=>g[0].map((_,c)=>g.map(r=>r[c]));
+MX.isInt=v=>Number.isInteger(v);
+MX.ok=v=>typeof v==='number'&&isFinite(v);
+MX.clone=g=>g.map(r=>r.slice());
+MX.NUM=[]; MX.VIS=[];
+/* def: {id,L,gen()→{grid,params?},check(g)→bool,miss(r,c,g)→bool (erlaubte Lückenpositionen),rule(p)→Text,expl(g,m,p)→Text,tip2(g,m,p)→Text,mc?:Wahrsch. Multiple-Choice} */
+MX.defN=(o)=>{MX.NUM.push(o);};
+/* ---- Hilfen für Zeilen-/Spaltenregeln ---- */
+MX.rowsOf=g=>g; MX.colsOf=g=>MX.cols(g);
+MX.N=v=>SER3.fmtN(v);
+MX.eqRow=(g,r,txt)=>`Zeile ${r+1}: ${txt}`;
+/* Generische Zeilen-Operation: dritte Zahl = f(erste, zweite). orient 'row'|'col'. */
+MX.opFam=(id,L,orient,f,sym,txtRule,range,extra)=>{
+  const lines=g=>orient==='row'?g:MX.cols(g);
+  const fam={id,L,kind:'num',orient,
+    gen:()=>{ for(let t=0;t<60;t++){ const rows=[]; let ok=true;
+        for(let r=0;r<3;r++){ const a=rnd(range[0],range[1]),b=rnd(range[0],range[1]); const c=f(a,b,r); if(!MX.ok(c)||!MX.isInt(c)||c<0||c>600){ok=false;break;} rows.push([a,b,c]); }
+        if(!ok)continue; if(extra&&extra.valid&&!extra.valid(rows))continue;
+        const grid=orient==='row'?rows:MX.cols(rows); return {grid}; } return null; },
+    check:g=>lines(g).every((l,i)=>MX.ok(f(l[0],l[1],i))&&MX.eq(f(l[0],l[1],i),l[2])),
+    miss:(r,c,g)=>!(extra&&extra.miss)||extra.miss(r,c,g),
+    rule:()=>(orient==='row'?'In jeder Zeile gilt: ':'In jeder Spalte gilt: ')+txtRule,
+    expl:(g,m)=>{ const ls=lines(g); const mi=orient==='row'?m.r:m.c; const name=orient==='row'?'Zeile':'Spalte';
+      const parts=ls.map((l,i)=>`${name} ${i+1}: ${sym(l,i)}`); const full=parts.filter((_,i)=>i!==mi).join(' · ');
+      return `<b>Kontrolle:</b> ${full}. <b>Lücke:</b> ${parts[mi]}.`; },
+    tip2:(g,m)=>{ const ls=lines(g); const i=ls.findIndex((_,k)=>k!==(orient==='row'?m.r:m.c)); const l=ls[i]; const name=orient==='row'?'Zeile':'Spalte';
+      return `${name} ${i+1} ist vollständig: ${MX.N(l[0])}, ${MX.N(l[1])}, ${MX.N(l[2])}. Wie entsteht die dritte Zahl aus den ersten beiden? Prüfe deine Idee an einer weiteren ${name}.`; }
+  }; if(extra)Object.assign(fam,extra.over||{}); MX.defN(fam); };
+MX._S=(op)=>(l)=>`${MX.N(l[0])} ${op} ${MX.N(l[1])} = ${MX.N(l[2])}`;
+/* ===== L1 ===== */
+MX.opFam('row_sum_small',1,'row',(a,b)=>a+b,MX._S('+'),'erste + zweite = dritte Zahl',[1,9]);
+MX.opFam('col_sum_small',1,'col',(a,b)=>a+b,MX._S('+'),'obere + mittlere = untere Zahl',[1,9]);
+MX.opFam('row_diff_small',1,'row',(a,b)=>a-b,MX._S('−'),'erste − zweite = dritte Zahl',[1,12],{valid:rows=>rows.every(r=>r[2]>=0)});
+MX.defN({id:'row_same_step',L:1,kind:'num',
+  gen:()=>{const d=rnd(2,6);const grid=[0,1,2].map(()=>{const a=rnd(1,15);return [a,a+d,a+2*d];});return {grid,p:{d}};},
+  check:g=>{const d=g[0][1]-g[0][0];return d!==0&&g.every(r=>MX.eq(r[1]-r[0],d)&&MX.eq(r[2]-r[1],d));},
+  miss:()=>true, rule:p=>`Jede Zeile wächst von links nach rechts um denselben Schritt (+${p.d})`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map((r,i)=>`${MX.N(r[0])} → ${MX.N(r[1])} → ${MX.N(r[2])} (jeweils +${p.d})`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1} mit Schritt +${p.d}: ${g[m.r].map(MX.N).join(' → ')}.`,
+  tip2:g=>`Zeile 1 lautet ${g[0].map(MX.N).join(', ')}: Welcher Schritt steckt dazwischen? Gilt er auch in den anderen Zeilen?`});
+MX.defN({id:'rows_double',L:1,kind:'num',
+  gen:()=>{const r0=[rnd(1,9),rnd(1,9),rnd(1,9)];if(new Set(r0).size<2)r0[1]=r0[0]+1;const grid=[r0,r0.map(v=>2*v),r0.map(v=>4*v)];return {grid,p:{}};},
+  check:g=>g[0].every((v,c)=>v!==0&&MX.eq(g[1][c],2*v)&&MX.eq(g[2][c],4*v)),
+  miss:()=>true, rule:()=>'Jede Zeile ist das Doppelte der Zeile darüber',
+  expl:(g,m)=>`<b>Kontrolle:</b> Zeile 1 ${g[0].map(MX.N).join(', ')} → ×2 → Zeile 2 ${g[1].map(MX.N).join(', ')} → ×2 → Zeile 3 ${g[2].map(MX.N).join(', ')}. <b>Lücke:</b> Spalte ${m.c+1}: ${m.r===0?`${MX.N(g[1][m.c])} ÷ 2 = ${MX.N(g[0][m.c])}`:`${MX.N(g[m.r-1][m.c])} × 2 = ${MX.N(g[m.r][m.c])}`}.`,
+  tip2:g=>`Vergleiche Spalte 1 von oben nach unten: ${g.map(r=>MX.N(r[0])).join(' → ')}. Was passiert von Zeile zu Zeile?`});
+MX.defN({id:'g2_row_step',L:1,kind:'num',size:2,
+  gen:()=>{const d=rnd(2,9),a=rnd(1,12),b=rnd(1,12);return {grid:[[a,a+d],[b,b+d]],p:{d}};},
+  check:g=>{const d=g[0][1]-g[0][0];return d!==0&&MX.eq(g[1][1]-g[1][0],d);},
+  miss:()=>true, rule:p=>`In beiden Zeilen gilt derselbe Schritt von links nach rechts (+${p.d})`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> Zeile ${2-m.r}: ${MX.N(g[1-m.r][0])} + ${p.d} = ${MX.N(g[1-m.r][1])}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])} + ${p.d} = ${MX.N(g[m.r][1])}.`,
+  tip2:g=>`Wie kommt man in der vollständigen Zeile von der linken zur rechten Zahl?`});
+MX.defN({id:'g2_add_k',L:1,kind:'num',size:2,
+  gen:()=>{const k=rnd(2,9),a=rnd(1,12),b=rnd(1,12);return {grid:[[a,b],[a+k,b+k]],p:{k}};},
+  check:g=>{const k=g[1][0]-g[0][0];return k!==0&&MX.eq(g[1][1]-g[0][1],k);},
+  miss:()=>true, rule:p=>`Die untere Zeile ist die obere Zeile + ${p.k}`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> Spalte ${2-m.c}: ${MX.N(g[0][1-m.c])} + ${p.k} = ${MX.N(g[1][1-m.c])}. <b>Lücke:</b> Spalte ${m.c+1}: ${MX.N(g[0][m.c])} + ${p.k} = ${MX.N(g[1][m.c])}.`,
+  tip2:()=>'Vergleiche die Spalte, die vollständig ist, von oben nach unten.'});
+/* ===== L2 ===== */
+MX.opFam('row_sum',2,'row',(a,b)=>a+b,MX._S('+'),'erste + zweite = dritte Zahl',[3,30]);
+MX.opFam('row_prod',2,'row',(a,b)=>a*b,MX._S('×'),'erste × zweite = dritte Zahl',[2,9]);
+MX.opFam('row_diff',2,'row',(a,b)=>a-b,MX._S('−'),'erste − zweite = dritte Zahl',[5,40],{valid:rows=>rows.every(r=>r[2]>=1)});
+MX.opFam('row_avg',2,'row',(a,b)=>(a+b)/2,l=>`(${MX.N(l[0])} + ${MX.N(l[1])}) ÷ 2 = ${MX.N(l[2])}`,'(erste + zweite) ÷ 2 = dritte Zahl (Mittelwert)',[2,30],{valid:rows=>rows.every(r=>r[0]!==r[1])});
+MX.opFam('col_prod',2,'col',(a,b)=>a*b,MX._S('×'),'obere × mittlere = untere Zahl',[2,9]);
+MX.opFam('col_diff',2,'col',(a,b)=>a-b,MX._S('−'),'obere − mittlere = untere Zahl',[5,40],{valid:rows=>rows.every(r=>r[2]>=1)});
+MX.defN({id:'row_const_sum',L:2,kind:'num',
+  gen:()=>{const S=rnd(12,30);const grid=[0,1,2].map(()=>{const a=rnd(1,S-2),b=rnd(1,S-a-1);return [a,b,S-a-b];});return {grid,p:{S}};},
+  check:g=>{const S=g[0][0]+g[0][1]+g[0][2];return g.every(r=>MX.eq(r[0]+r[1]+r[2],S));},
+  miss:()=>true, rule:p=>`Jede Zeile hat dieselbe Summe (${p.S})`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map((r,i)=>`${r.map(MX.N).join(' + ')} = ${p.S}`).join(' · ')}. <b>Lücke:</b> ${p.S} − ${MX.N(g[m.r][(m.c+1)%3])} − ${MX.N(g[m.r][(m.c+2)%3])} = ${MX.N(g[m.r][m.c])}.`,
+  tip2:g=>`Addiere die Zahlen der vollständigen Zeilen – was fällt auf?`});
+MX.defN({id:'col_const_sum',L:2,kind:'num',
+  gen:()=>{const S=rnd(12,30);const cols=[0,1,2].map(()=>{const a=rnd(1,S-2),b=rnd(1,S-a-1);return [a,b,S-a-b];});return {grid:MX.cols(cols),p:{S}};},
+  check:g=>{const C=MX.cols(g);const S=C[0][0]+C[0][1]+C[0][2];return C.every(c=>MX.eq(c[0]+c[1]+c[2],S));},
+  miss:()=>true, rule:p=>`Jede Spalte hat dieselbe Summe (${p.S})`,
+  expl:(g,m,p)=>{const C=MX.cols(g);return `<b>Kontrolle:</b> ${C.filter((_,i)=>i!==m.c).map(c=>`${c.map(MX.N).join(' + ')} = ${p.S}`).join(' · ')}. <b>Lücke:</b> ${p.S} − ${MX.N(g[(m.r+1)%3][m.c])} − ${MX.N(g[(m.r+2)%3][m.c])} = ${MX.N(g[m.r][m.c])}.`;},
+  tip2:()=>'Addiere die Zahlen der vollständigen Spalten – was fällt auf?'});
+MX.defN({id:'row_arith',L:2,kind:'num',
+  gen:()=>{const grid=[0,1,2].map(()=>{const a=rnd(1,20),d=rnd(2,9);return [a,a+d,a+2*d];});return {grid,p:{}};},
+  check:g=>g.every(r=>MX.eq(r[1]-r[0],r[2]-r[1])&&r[1]!==r[0]),
+  miss:()=>true, rule:()=>'Jede Zeile ist eine Reihe mit eigenem, gleichbleibendem Schritt',
+  expl:(g,m)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map(r=>`${r.map(MX.N).join(' → ')} (Schritt ${SER3.sgn(r[1]-r[0])})`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1} mit Schritt ${SER3.sgn(g[m.r][1]-g[m.r][0])}: ${g[m.r].map(MX.N).join(' → ')}.`,
+  tip2:g=>`Betrachte die Abstände innerhalb einer Zeile: ${MX.N(g[0][0])} → ${MX.N(g[0][1])} → ${MX.N(g[0][2])}. Jede Zeile hat ihren eigenen Schritt.`});
+MX.defN({id:'col_arith',L:2,kind:'num',
+  gen:()=>{const cols=[0,1,2].map(()=>{const a=rnd(1,20),d=rnd(2,9);return [a,a+d,a+2*d];});return {grid:MX.cols(cols),p:{}};},
+  check:g=>MX.cols(g).every(c=>MX.eq(c[1]-c[0],c[2]-c[1])&&c[1]!==c[0]),
+  miss:()=>true, rule:()=>'Jede Spalte ist eine Reihe mit eigenem, gleichbleibendem Schritt',
+  expl:(g,m)=>{const C=MX.cols(g);return `<b>Kontrolle:</b> ${C.filter((_,i)=>i!==m.c).map(c=>`${c.map(MX.N).join(' → ')} (Schritt ${SER3.sgn(c[1]-c[0])})`).join(' · ')}. <b>Lücke:</b> Spalte ${m.c+1} mit Schritt ${SER3.sgn(C[m.c][1]-C[m.c][0])}: ${C[m.c].map(MX.N).join(' → ')}.`;},
+  tip2:g=>`Betrachte die Abstände innerhalb einer Spalte von oben nach unten – jede Spalte hat ihren eigenen Schritt.`});
+/* ===== L3 ===== */
+MX.opFam('row_2a_b',3,'row',(a,b)=>2*a+b,l=>`2·${MX.N(l[0])} + ${MX.N(l[1])} = ${MX.N(l[2])}`,'2 × erste + zweite = dritte Zahl',[2,20]);
+MX.opFam('row_a_2b',3,'row',(a,b)=>a+2*b,l=>`${MX.N(l[0])} + 2·${MX.N(l[1])} = ${MX.N(l[2])}`,'erste + 2 × zweite = dritte Zahl',[2,20]);
+MX.defN({id:'row_prod_k',L:3,kind:'num',
+  gen:()=>{const k=pick([-3,-2,-1,1,2,3]);const grid=[0,1,2].map(()=>{const a=rnd(2,9),b=rnd(2,9);return [a,b,a*b+k];});return {grid,p:{k}};},
+  check:g=>{const k=g[0][2]-g[0][0]*g[0][1];return k!==0&&Math.abs(k)<=5&&g.every(r=>MX.eq(r[0]*r[1]+k,r[2]));},
+  miss:(r,c)=>true, rule:p=>`In jeder Zeile gilt: erste × zweite ${SER3.sgn(p.k)} = dritte Zahl`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map(r=>`${MX.N(r[0])} × ${MX.N(r[1])} ${SER3.sgn(p.k)} = ${MX.N(r[2])}`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])} × ${MX.N(g[m.r][1])} ${SER3.sgn(p.k)} = ${MX.N(g[m.r][2])}.`,
+  tip2:g=>`Multipliziere in einer vollständigen Zeile die ersten beiden Zahlen – wie weit liegt das Ergebnis von der dritten entfernt?`});
+MX.defN({id:'row_const_sum_var',L:3,kind:'num',
+  gen:()=>{const S=rnd(20,45);const grid=[0,1,2].map(()=>{const a=rnd(2,S-4),b=rnd(2,S-a-2);return [a,b,S-a-b];});return {grid,p:{S}};},
+  check:g=>{const S=g[0][0]+g[0][1]+g[0][2];return g.every(r=>MX.eq(r[0]+r[1]+r[2],S));},
+  miss:()=>true, rule:p=>`Jede Zeile hat dieselbe Summe (${p.S}) – die Verteilung ist beliebig`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map(r=>`${r.map(MX.N).join(' + ')} = ${p.S}`).join(' · ')}. <b>Lücke:</b> ${p.S} − ${MX.N(g[m.r][(m.c+1)%3])} − ${MX.N(g[m.r][(m.c+2)%3])} = ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Die Zahlen in den Zeilen sehen unregelmäßig aus – addiere trotzdem jede vollständige Zeile.'});
+MX.opFam('col_sum',3,'col',(a,b)=>a+b,MX._S('+'),'obere + mittlere = untere Zahl',[3,30]);
+MX.opFam('col_2a_b',3,'col',(a,b)=>2*a+b,l=>`2·${MX.N(l[0])} + ${MX.N(l[1])} = ${MX.N(l[2])}`,'2 × obere + mittlere = untere Zahl',[2,20]);
+MX.defN({id:'row_mid_sum',L:3,kind:'num',
+  gen:()=>{const grid=[0,1,2].map(()=>{const a=rnd(2,20),c=rnd(2,20);return [a,a+c,c];});return {grid,p:{}};},
+  check:g=>g.every(r=>MX.eq(r[0]+r[2],r[1])),
+  miss:()=>true, rule:()=>'In jeder Zeile ist die mittlere Zahl die Summe der beiden äußeren',
+  expl:(g,m)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map(r=>`${MX.N(r[0])} + ${MX.N(r[2])} = ${MX.N(r[1])}`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])} + ${MX.N(g[m.r][2])} = ${MX.N(g[m.r][1])}.`,
+  tip2:()=>'Die mittlere Zahl jeder Zeile ist auffällig groß – wie hängt sie mit links und rechts zusammen?'});
+MX.defN({id:'row_mid_diff',L:3,kind:'num',
+  gen:()=>{const grid=[0,1,2].map(()=>{const c=rnd(2,20),b=rnd(2,20);return [b+c,b,c];});return {grid,p:{}};},
+  check:g=>g.every(r=>MX.eq(r[0]-r[2],r[1])),
+  miss:()=>true, rule:()=>'In jeder Zeile ist die mittlere Zahl die Differenz der beiden äußeren (links − rechts)',
+  expl:(g,m)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map(r=>`${MX.N(r[0])} − ${MX.N(r[2])} = ${MX.N(r[1])}`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])} − ${MX.N(g[m.r][2])} = ${MX.N(g[m.r][1])}.`,
+  tip2:()=>'Die linke Zahl jeder Zeile ist die größte – wie entsteht die mittlere aus links und rechts?'});
+MX.defN({id:'diag_const',L:3,kind:'num',
+  gen:()=>{const a=rnd(1,12),d=rnd(2,7),v=[0,1,2,3,4].map(i=>a+i*d);const grid=[0,1,2].map(r=>[0,1,2].map(c=>v[r+c]));return {grid,p:{d}};},
+  check:g=>{for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let r2=0;r2<3;r2++)for(let c2=0;c2<3;c2++)if(r+c===r2+c2&&!MX.eq(g[r][c],g[r2][c2]))return false; return g[0][1]!==g[0][0];},
+  miss:(r,c)=>!(r===0&&c===0)&&!(r===2&&c===2), rule:()=>'Auf jeder Diagonale von rechts oben nach links unten stehen gleiche Zahlen',
+  expl:(g,m)=>{const s=m.r+m.c;const other=[];for(let r=0;r<3;r++)for(let c=0;c<3;c++)if(r+c===s&&!(r===m.r&&c===m.c))other.push(`Zeile ${r+1}/Spalte ${c+1}`);return `<b>Kontrolle:</b> z. B. ${MX.N(g[0][1])} steht auch in Zeile 2/Spalte 1. <b>Lücke:</b> liegt auf derselben Diagonale wie ${other.join(' und ')} → ${MX.N(g[m.r][m.c])}.`;},
+  tip2:()=>'Suche gleiche Zahlen in der Matrix – wo stehen sie zueinander?'});
+MX.defN({id:'grid_linear',L:3,kind:'num',
+  gen:()=>{const a=rnd(1,15),dr=rnd(2,9),dc=rnd(2,9);if(dr===dc)return null;const grid=[0,1,2].map(r=>[0,1,2].map(c=>a+r*dr+c*dc));return {grid,p:{dr,dc}};},
+  check:g=>{const dr=g[1][0]-g[0][0],dc=g[0][1]-g[0][0];if(dr===0||dc===0||dr===dc)return false;for(let r=0;r<3;r++)for(let c=0;c<3;c++)if(!MX.eq(g[r][c],g[0][0]+r*dr+c*dc))return false;return true;},
+  miss:()=>true, rule:p=>`Nach rechts immer +${p.dc}, nach unten immer +${p.dr}`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> Zeile 1: ${g[0].map(MX.N).join(' → ')} (+${p.dc}); Spalte 1: ${g.map(r=>MX.N(r[0])).join(' → ')} (+${p.dr}). <b>Lücke:</b> ${m.c>0?`${MX.N(g[m.r][m.c-1])} + ${p.dc}`:`${MX.N(g[m.r][m.c+1])} − ${p.dc}`} = ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Prüfe die Schritte nach rechts und nach unten getrennt – beide sind konstant, aber verschieden.'});
+/* ===== L4 ===== */
+MX.defN({id:'add_table',L:4,kind:'num',
+  gen:()=>{const R=[rnd(1,9),rnd(10,19),rnd(20,30)],C=[rnd(0,5),rnd(6,12),rnd(13,20)];const grid=[0,1,2].map(r=>[0,1,2].map(c=>R[r]+C[c]));return {grid,p:{}};},
+  check:g=>{for(let r=0;r<3;r++)for(let c=0;c<3;c++)if(!MX.eq(g[r][c]-g[r][0],g[0][c]-g[0][0]))return false;return (g[0][1]!==g[0][0])&&(g[1][0]!==g[0][0])&&!( (g[1][0]-g[0][0])===(g[2][0]-g[1][0]) && (g[0][1]-g[0][0])===(g[0][2]-g[0][1]) );},
+  miss:()=>true, rule:()=>'Jede Zelle = Zeilenwert + Spaltenwert: Zeile UND Spalte bestimmen die Zahl gemeinsam',
+  expl:(g,m)=>`<b>Kontrolle:</b> Der Unterschied zwischen zwei Spalten ist in jeder Zeile gleich (z. B. Spalte 2 − Spalte 1: ${MX.N(g[0][1]-g[0][0])}). <b>Lücke:</b> ${MX.N(g[m.r][(m.c+1)%3])} + (${MX.N(g[(m.r+1)%3][m.c])} − ${MX.N(g[(m.r+1)%3][(m.c+1)%3])}) = ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Vergleiche zwei Spalten miteinander: Der Unterschied ist in jeder Zeile derselbe – nutze das für die Lücke.'});
+MX.defN({id:'mult_table',L:4,kind:'num',
+  gen:()=>{const R=shuffle([2,3,4,5,6,7]).slice(0,3),C=shuffle([2,3,4,5,6,7,8,9]).slice(0,3);const grid=[0,1,2].map(r=>[0,1,2].map(c=>R[r]*C[c]));return {grid,p:{}};},
+  check:g=>{if(g.some(r=>r.some(v=>v===0)))return false;for(let r=0;r<3;r++)for(let c=0;c<3;c++)if(!MX.eq(g[r][c]*g[0][0],g[r][0]*g[0][c]))return false;return g[0][1]!==g[0][0]&&g[1][0]!==g[0][0];},
+  miss:()=>true, rule:()=>'Jede Zelle = Zeilenfaktor × Spaltenfaktor (Multiplikationstafel): Zeile UND Spalte bestimmen die Zahl gemeinsam',
+  expl:(g,m)=>`<b>Kontrolle:</b> Das Verhältnis zweier Spalten ist in jeder Zeile gleich (z. B. Spalte 2 ÷ Spalte 1: ${MX.N(g[0][1]/g[0][0])}). <b>Lücke:</b> ${MX.N(g[m.r][(m.c+1)%3])} × ${MX.N(g[(m.r+1)%3][m.c])} ÷ ${MX.N(g[(m.r+1)%3][(m.c+1)%3])} = ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Teile die Zahlen einer Zeile durch die entsprechenden Zahlen einer anderen Zeile – das Verhältnis ist konstant.'});
+MX.defN({id:'col_times_rowidx',L:4,kind:'num',
+  gen:()=>{const v=[rnd(2,12),rnd(2,12),rnd(2,12)];if(new Set(v).size<3)v[2]=v[0]+v[1];const grid=[1,2,3].map(k=>v.map(x=>x*k));return {grid,p:{}};},
+  check:g=>g[0].every((v,c)=>v!==0&&MX.eq(g[1][c],2*v)&&MX.eq(g[2][c],3*v)),
+  miss:()=>true, rule:()=>'Zeile 2 ist das Doppelte, Zeile 3 das Dreifache der ersten Zeile (Positionsfaktor der Zeile)',
+  expl:(g,m)=>`<b>Kontrolle:</b> Spalte 1: ${MX.N(g[0][0])} × 1, × 2, × 3 = ${g.map(r=>MX.N(r[0])).join(', ')}. <b>Lücke:</b> Spalte ${m.c+1}: ${m.r===0?`${MX.N(g[1][m.c])} ÷ 2`:`${MX.N(g[0][m.c])} × ${m.r+1}`} = ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Vergleiche jede Zeile mit der ersten Zeile – mit welchem Faktor?'});
+MX.defN({id:'row_sum_plus_rowidx',L:4,kind:'num',
+  gen:()=>{const grid=[0,1,2].map(r=>{const a=rnd(2,20),b=rnd(2,20);return [a,b,a+b+r];});return {grid,p:{}};},
+  check:g=>g.every((r,i)=>MX.eq(r[0]+r[1]+i,r[2])),
+  miss:()=>true, rule:()=>'erste + zweite = dritte, aber mit wachsendem Zuschlag: Zeile 1 +0, Zeile 2 +1, Zeile 3 +2',
+  expl:(g,m)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map((r,i)=>`${MX.N(r[0])} + ${MX.N(r[1])} + ${g.indexOf(r)} = ${MX.N(r[2])}`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])} + ${MX.N(g[m.r][1])} + ${m.r} = ${MX.N(g[m.r][2])}.`,
+  tip2:()=>'Die Summe der ersten beiden Zahlen trifft die dritte fast – der Rest hängt von der Zeilennummer ab.'});
+MX.defN({id:'row_prod_plus_rowidx',L:4,kind:'num',
+  gen:()=>{const grid=[0,1,2].map(r=>{const a=rnd(2,9),b=rnd(2,9);return [a,b,a*b+r+1];});return {grid,p:{}};},
+  check:g=>g.every((r,i)=>MX.eq(r[0]*r[1]+i+1,r[2])),
+  miss:()=>true, rule:()=>'erste × zweite + Zeilennummer = dritte Zahl',
+  expl:(g,m)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map(r=>`${MX.N(r[0])} × ${MX.N(r[1])} + ${g.indexOf(r)+1} = ${MX.N(r[2])}`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])} × ${MX.N(g[m.r][1])} + ${m.r+1} = ${MX.N(g[m.r][2])}.`,
+  tip2:()=>'Das Produkt der ersten beiden Zahlen trifft die dritte fast – der Rest wächst von Zeile zu Zeile.'});
+MX.defN({id:'row_prod_minus_sum',L:4,kind:'num',
+  gen:()=>{const grid=[0,1,2].map(()=>{const a=rnd(3,9),b=rnd(3,9);return [a,b,a*b-a-b];});return {grid,p:{}};},
+  check:g=>g.every(r=>MX.eq(r[0]*r[1]-r[0]-r[1],r[2])),
+  miss:()=>true, rule:()=>'Produkt minus Summe: erste × zweite − (erste + zweite) = dritte Zahl',
+  expl:(g,m)=>`<b>Kontrolle:</b> ${g.filter((_,i)=>i!==m.r).map(r=>`${MX.N(r[0])}·${MX.N(r[1])} − (${MX.N(r[0])}+${MX.N(r[1])}) = ${MX.N(r[2])}`).join(' · ')}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])}·${MX.N(g[m.r][1])} − (${MX.N(g[m.r][0])}+${MX.N(g[m.r][1])}) = ${MX.N(g[m.r][2])}.`,
+  tip2:()=>'Bilde in einer vollständigen Zeile Produkt UND Summe der ersten beiden Zahlen – wie hängen sie mit der dritten zusammen?'});
+MX.defN({id:'sym_grid',L:4,kind:'num',
+  gen:()=>{const d=[rnd(1,9),rnd(1,9),rnd(1,9)],x=rnd(10,19),y=rnd(20,29),z=rnd(30,39);const grid=[[d[0],x,y],[x,d[1],z],[y,z,d[2]]];return {grid,p:{}};},
+  check:g=>MX.eq(g[0][1],g[1][0])&&MX.eq(g[0][2],g[2][0])&&MX.eq(g[1][2],g[2][1])&&g[0][1]!==g[0][2]&&g[0][1]!==g[1][2],
+  miss:(r,c)=>r!==c, rule:()=>'Die Matrix ist spiegelsymmetrisch zur Hauptdiagonale (Zeile i/Spalte j = Zeile j/Spalte i)',
+  expl:(g,m)=>`<b>Kontrolle:</b> ${MX.N(g[0][1])} steht in Zeile 1/Spalte 2 und in Zeile 2/Spalte 1. <b>Lücke:</b> Zeile ${m.r+1}/Spalte ${m.c+1} spiegelt Zeile ${m.c+1}/Spalte ${m.r+1} → ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Suche Zahlen, die doppelt vorkommen – ihre Positionen verraten die Struktur.'});
+MX.defN({id:'rows_shift',L:4,kind:'num',
+  gen:()=>{const k=rnd(3,12),r0=[rnd(1,20),rnd(1,20),rnd(1,20)];if(new Set(r0).size<2)r0[1]+=1;const grid=[r0,r0.map(v=>v+k),r0.map(v=>v+2*k)];return {grid,p:{k}};},
+  check:g=>{const k=g[1][0]-g[0][0];return k!==0&&g[0].every((v,c)=>MX.eq(g[1][c],v+k)&&MX.eq(g[2][c],v+2*k))&&!(MX.eq(g[0][1]-g[0][0],g[0][2]-g[0][1]));},
+  miss:()=>true, rule:p=>`Jede Zeile ist die Zeile darüber + ${p.k} (wachsender Parameter)`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> Spalte 1: ${g.map(r=>MX.N(r[0])).join(' → ')} (jeweils +${p.k}). <b>Lücke:</b> Spalte ${m.c+1}: ${m.r>0?`${MX.N(g[m.r-1][m.c])} + ${p.k}`:`${MX.N(g[1][m.c])} − ${p.k}`} = ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Vergleiche Zeile 2 mit Zeile 1, Zelle für Zelle – der Unterschied ist überall gleich.'});
+MX.opFam('row_sq_plus_b',4,'row',(a,b)=>a*a+b,l=>`${MX.N(l[0])}² + ${MX.N(l[1])} = ${MX.N(l[2])}`,'erste² + zweite = dritte Zahl',[2,9],{miss:(r,c)=>c===2});
+MX.defN({id:'magic_like',L:4,kind:'num',
+  gen:()=>{ // Konstruktion: Zeilen- und Spaltensummen gleich S; vier freie Zellen, Rest berechnet (kein auswendig gelerntes Standardquadrat)
+    const S=rnd(20,36);const x=rnd(2,10),y=rnd(2,10),z=rnd(2,10),w=rnd(2,10);const g=[[x,y,S-x-y],[z,w,S-z-w],[S-x-z,S-y-w,S-(S-x-y)-(S-z-w)]];
+    if(g.some(r=>r.some(v=>v<1||v>40)))return null;return {grid:g,p:{S}};},
+  check:g=>{const S=g[0][0]+g[0][1]+g[0][2];if(!g.every(r=>MX.eq(r[0]+r[1]+r[2],S)))return false;return MX.cols(g).every(c=>MX.eq(c[0]+c[1]+c[2],S));},
+  miss:()=>true, rule:p=>`Jede Zeile UND jede Spalte hat dieselbe Summe (${p.S})`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> Zeile 1: ${g[0].map(MX.N).join(' + ')} = ${p.S}; Spalte 1: ${g.map(r=>MX.N(r[0])).join(' + ')} = ${p.S}. <b>Lücke:</b> ${p.S} − ${MX.N(g[m.r][(m.c+1)%3])} − ${MX.N(g[m.r][(m.c+2)%3])} = ${MX.N(g[m.r][m.c])} (die Spalte bestätigt es).`,
+  tip2:()=>'Addiere eine vollständige Zeile und eine vollständige Spalte – beide liefern dieselbe Zahl.'});
+/* ===== L5 ===== */
+MX.defN({id:'affine_table',L:5,kind:'num',
+  gen:()=>{const k=pick([-2,-1,1,2,3]);const R=shuffle([2,3,4,5,6]).slice(0,3),C=shuffle([2,3,4,5,6,7]).slice(0,3);const grid=[0,1,2].map(r=>[0,1,2].map(c=>R[r]*C[c]+k));return {grid,p:{k}};},
+  check:g=>{for(let k=-3;k<=3;k++){if(k===0)continue;const h=g.map(r=>r.map(v=>v-k));if(h.some(r=>r.some(v=>v===0)))continue;let ok=true;for(let r=0;r<3&&ok;r++)for(let c=0;c<3;c++)if(!MX.eq(h[r][c]*h[0][0],h[r][0]*h[0][c])){ok=false;break;}if(ok&&h[0][1]!==h[0][0]&&h[1][0]!==h[0][0])return true;}return false;},
+  miss:()=>true, rule:p=>`Jede Zelle = Zeilenfaktor × Spaltenfaktor ${SER3.sgn(p.k)} (zwei gestapelte Transformationen; Zeile UND Spalte nötig)`,
+  expl:(g,m,p)=>`<b>Kontrolle:</b> Zieht man überall ${SER3.sgn(p.k).replace('+ ','').replace('− ','−')} ab, entsteht eine Multiplikationstafel: z. B. ${MX.N(g[0][0]-p.k)}, ${MX.N(g[0][1]-p.k)}, ${MX.N(g[0][2]-p.k)} in Zeile 1. <b>Lücke:</b> (${MX.N(g[m.r][(m.c+1)%3]-p.k)} × ${MX.N(g[(m.r+1)%3][m.c]-p.k)} ÷ ${MX.N(g[(m.r+1)%3][(m.c+1)%3]-p.k)}) ${SER3.sgn(p.k)} = ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Die Zahlen sehen fast nach einer Multiplikationstafel aus – vielleicht ist überall dieselbe kleine Zahl addiert.'});
+MX.defN({id:'alt_rows',L:5,kind:'num',
+  gen:()=>{const grid=[0,1,2].map(r=>{const a=rnd(2,9),b=rnd(2,9);return [a,b,r===1?a*b:a+b];});if(grid.some((r,i)=>i!==1&&MX.eq(r[0]*r[1],r[2]))||MX.eq(grid[1][0]+grid[1][1],grid[1][2]))return null;return {grid,p:{}};},
+  check:g=>MX.eq(g[0][0]+g[0][1],g[0][2])&&MX.eq(g[1][0]*g[1][1],g[1][2])&&MX.eq(g[2][0]+g[2][1],g[2][2]),
+  miss:(r)=>r!==1, evidence:(g,m)=>m.r!==1, rule:()=>'Die Rechenart wechselt pro Zeile: Zeile 1 Summe, Zeile 2 Produkt, Zeile 3 Summe',
+  expl:(g,m)=>`<b>Kontrolle:</b> Zeile 1: ${MX.N(g[0][0])} + ${MX.N(g[0][1])} = ${MX.N(g[0][2])}; Zeile 2: ${MX.N(g[1][0])} × ${MX.N(g[1][1])} = ${MX.N(g[1][2])}; Zeile 3: ${MX.N(g[2][0])} + ${MX.N(g[2][1])} = ${MX.N(g[2][2])}. <b>Lücke:</b> Zeile ${m.r+1} → ${m.r===1?'Produkt':'Summe'}: ${MX.N(g[m.r][m.c])}.`,
+  tip2:()=>'Nicht jede Zeile folgt derselben Rechenart – prüfe Summe und Produkt getrennt für jede Zeile.'});
+MX.defN({id:'alt_cols',L:5,kind:'num',
+  gen:()=>{const cols=[0,1,2].map(c=>{const a=rnd(2,9),b=rnd(2,9);return [a,b,c===1?a*b:a+b];});const grid=MX.cols(cols);if(cols.some((cc,i)=>i!==1&&MX.eq(cc[0]*cc[1],cc[2]))||MX.eq(cols[1][0]+cols[1][1],cols[1][2]))return null;return {grid,p:{}};},
+  check:g=>{const C=MX.cols(g);return MX.eq(C[0][0]+C[0][1],C[0][2])&&MX.eq(C[1][0]*C[1][1],C[1][2])&&MX.eq(C[2][0]+C[2][1],C[2][2]);},
+  miss:(r,c)=>c!==1, evidence:(g,m)=>m.c!==1, rule:()=>'Die Rechenart wechselt pro Spalte: Spalte 1 Summe, Spalte 2 Produkt, Spalte 3 Summe (oben ∘ Mitte = unten)',
+  expl:(g,m)=>{const C=MX.cols(g);return `<b>Kontrolle:</b> Spalte 1: ${MX.N(C[0][0])} + ${MX.N(C[0][1])} = ${MX.N(C[0][2])}; Spalte 2: ${MX.N(C[1][0])} × ${MX.N(C[1][1])} = ${MX.N(C[1][2])}; Spalte 3: ${MX.N(C[2][0])} + ${MX.N(C[2][1])} = ${MX.N(C[2][2])}. <b>Lücke:</b> Spalte ${m.c+1} → ${m.c===1?'Produkt':'Summe'}: ${MX.N(g[m.r][m.c])}.`;},
+  tip2:()=>'Nicht jede Spalte folgt derselben Rechenart – prüfe Summe und Produkt getrennt für jede Spalte.'});
+MX.defN({id:'row_fib_chain',L:5,kind:'num',
+  gen:()=>{const a=rnd(1,6),b=rnd(a+1,9);const r1=[a,b,a+b],r2=[b,a+b,a+2*b],r3=[a+b,a+2*b,2*a+3*b];return {grid:[r1,r2,r3],p:{}};},
+  check:g=>g.every(r=>MX.eq(r[0]+r[1],r[2]))&&MX.eq(g[1][0],g[0][1])&&MX.eq(g[1][1],g[0][2])&&MX.eq(g[2][0],g[1][1])&&MX.eq(g[2][1],g[1][2]),
+  miss:(r,c)=>c!==1, rule:()=>'Rekursiv: In jeder Zeile gilt erste + zweite = dritte, und jede Zeile beginnt mit den letzten beiden Zahlen der Zeile darüber',
+  expl:(g,m)=>`<b>Kontrolle:</b> Zeile 1: ${MX.N(g[0][0])} + ${MX.N(g[0][1])} = ${MX.N(g[0][2])}; Zeile 2 startet mit ${MX.N(g[0][1])}, ${MX.N(g[0][2])}. <b>Lücke:</b> Zeile ${m.r+1}: ${MX.N(g[m.r][0])} + ${MX.N(g[m.r][1])} = ${MX.N(g[m.r][2])}.`,
+  tip2:()=>'Die Zahlen wandern: Die Zeile darunter beginnt mit Zahlen der Zeile darüber – und innerhalb der Zeile wird addiert.'});
+MX.opFam('row_sum_sq',5,'row',(a,b)=>(a+b)*(a+b),l=>`(${MX.N(l[0])} + ${MX.N(l[1])})² = ${MX.N(l[2])}`,'(erste + zweite)² = dritte Zahl (zwei Transformationen: addieren, dann quadrieren)',[1,9],{miss:(r,c)=>c===2});
+MX.opFam('row_sq_diff',5,'row',(a,b)=>a*a-b*b,l=>`${MX.N(l[0])}² − ${MX.N(l[1])}² = ${MX.N(l[2])}`,'erste² − zweite² = dritte Zahl',[2,12],{miss:(r,c)=>c===2,valid:rows=>rows.every(r=>r[0]>r[1])});
+MX.opFam('row_pow',5,'row',(a,b)=>Math.pow(a,b),l=>`${MX.N(l[0])}^${MX.N(l[1])} = ${MX.N(l[2])}`,'erste hoch zweite = dritte Zahl',[2,5],{miss:(r,c)=>c===2,valid:rows=>rows.every(r=>r[2]<=400&&!(r[0]===2&&r[1]===4)&&!(r[0]===4&&r[1]===2))});
+MX.defN({id:'cross_rule',L:5,kind:'num',
+  gen:()=>{const R=[rnd(1,9),rnd(10,19),rnd(20,29)],C=[rnd(1,9),rnd(10,19)];const grid=[[0,C[0],C[1]],[R[0],R[0]+C[0],R[0]+C[1]],[R[1],R[1]+C[0],R[1]+C[1]]];grid[0][0]=rnd(1,9);return {grid,p:{}};},
+  check:g=>{for(let r=1;r<3;r++)for(let c=1;c<3;c++)if(!MX.eq(g[r][c],g[r][0]+g[0][c]))return false;return g[0][1]!==g[0][2]&&g[1][0]!==g[2][0];},
+  miss:(r,c)=>!(r===0&&c===0), rule:()=>'Erste Zeile und erste Spalte sind Kopfzeilen: innere Zelle = Zeilenkopf + Spaltenkopf',
+  expl:(g,m)=>`<b>Kontrolle:</b> Zeile 2/Spalte 2: ${MX.N(g[1][0])} + ${MX.N(g[0][1])} = ${MX.N(g[1][1])}. <b>Lücke:</b> ${m.r>0&&m.c>0?`${MX.N(g[m.r][0])} + ${MX.N(g[0][m.c])} = ${MX.N(g[m.r][m.c])}`:m.r===0?`Spaltenkopf: ${MX.N(g[1][m.c])} − ${MX.N(g[1][0])} = ${MX.N(g[0][m.c])}`:`Zeilenkopf: ${MX.N(g[m.r][1])} − ${MX.N(g[0][1])} = ${MX.N(g[m.r][0])}`}.`,
+  tip2:()=>'Betrachte die erste Zeile und die erste Spalte als Beschriftung – wie entstehen die inneren Zahlen daraus?'});
+MX.defN({id:'cross_mult',L:5,kind:'num',
+  gen:()=>{const R=shuffle([2,3,4,5,6,7]).slice(0,2),C=shuffle([2,3,4,5,6,8,9]).slice(0,2);const grid=[[rnd(1,9),C[0],C[1]],[R[0],R[0]*C[0],R[0]*C[1]],[R[1],R[1]*C[0],R[1]*C[1]]];return {grid,p:{}};},
+  check:g=>{for(let r=1;r<3;r++)for(let c=1;c<3;c++)if(!MX.eq(g[r][c],g[r][0]*g[0][c]))return false;return g[0][1]!==g[0][2]&&g[1][0]!==g[2][0]&&g[0][1]>1&&g[1][0]>1;},
+  miss:(r,c)=>!(r===0&&c===0), rule:()=>'Erste Zeile und erste Spalte sind Kopfzeilen: innere Zelle = Zeilenkopf × Spaltenkopf',
+  expl:(g,m)=>`<b>Kontrolle:</b> Zeile 2/Spalte 2: ${MX.N(g[1][0])} × ${MX.N(g[0][1])} = ${MX.N(g[1][1])}. <b>Lücke:</b> ${m.r>0&&m.c>0?`${MX.N(g[m.r][0])} × ${MX.N(g[0][m.c])} = ${MX.N(g[m.r][m.c])}`:m.r===0?`Spaltenkopf: ${MX.N(g[1][m.c])} ÷ ${MX.N(g[1][0])} = ${MX.N(g[0][m.c])}`:`Zeilenkopf: ${MX.N(g[m.r][1])} ÷ ${MX.N(g[0][1])} = ${MX.N(g[m.r][0])}`}.`,
+  tip2:()=>'Betrachte die erste Zeile und die erste Spalte als Beschriftung einer Tafel – welche Rechenart erzeugt die inneren Zahlen?'});
+MX.defN({id:'pascal_grid',L:5,kind:'num',
+  gen:()=>{const g=[[rnd(1,5),rnd(1,6),rnd(1,6)],[rnd(1,6),0,0],[rnd(1,6),0,0]];for(let r=1;r<3;r++)for(let c=1;c<3;c++)g[r][c]=g[r-1][c]+g[r][c-1];return {grid:g,p:{}};},
+  check:g=>{for(let r=1;r<3;r++)for(let c=1;c<3;c++)if(!MX.eq(g[r][c],g[r-1][c]+g[r][c-1]))return false;return true;},
+  miss:(r,c)=>!(r===0&&c===0), rule:()=>'Jede innere Zelle = Zelle darüber + Zelle links davon',
+  expl:(g,m)=>`<b>Kontrolle:</b> Zeile 2/Spalte 2: ${MX.N(g[0][1])} (darüber) + ${MX.N(g[1][0])} (links) = ${MX.N(g[1][1])}. <b>Lücke:</b> ${m.r>0&&m.c>0?`${MX.N(g[m.r-1][m.c])} + ${MX.N(g[m.r][m.c-1])} = ${MX.N(g[m.r][m.c])}`:m.r===0?`${MX.N(g[1][m.c])} − ${MX.N(g[1][m.c-1])} = ${MX.N(g[0][m.c])}`:`${MX.N(g[m.r][1])} − ${MX.N(g[m.r-1][1])} = ${MX.N(g[m.r][0])}`}.`,
+  tip2:()=>'Die Zahlen wachsen nach rechts unten – jede Zelle hängt von zwei Nachbarn ab.'});
+/* ---------- Figurale Matrizen: Zustände → Inline-SVG ----------
+   Attribut-Zustand: {shape, n (1–4), rot (0/90/180/270; nur bei triangle/arrow/semi bedeutsam), fill (0/1), dots (0–3), size (0/1/2)}
+   Mengen-Zustand:   {set:[b,b,b,b]} – vier Positionen (2×2), Element vorhanden/nicht vorhanden. */
+MX.SHAPES=['circle','square','triangle','diamond','arrow','semi'];
+MX.ASYM={triangle:1,arrow:1,semi:1};
+MX.SHAPE_NAME={circle:['Kreis','Kreise','m'],square:['Quadrat','Quadrate','n'],triangle:['Dreieck','Dreiecke','n'],diamond:['Raute','Rauten','f'],arrow:['Pfeil','Pfeile','m'],semi:['Halbkreis','Halbkreise','m']};
+MX.ADJ={m:['gefüllter','leerer'],n:['gefülltes','leeres'],f:['gefüllte','leere'],p:['gefüllte','leere']};
+MX.ROT_NAME={0:'nach oben',90:'nach rechts',180:'nach unten',270:'nach links'};
+MX.SIZE_NAME=['klein','mittel','groß'];
+MX.st=(o)=>{const s={shape:o.shape||'circle',n:o.n||1,rot:o.rot||0,fill:o.fill?1:0,dots:o.dots||0,size:o.size==null?1:o.size}; if(!MX.ASYM[s.shape])s.rot=0; s.rot=((s.rot%360)+360)%360; return s;};
+MX.key=s=>s.set?('S'+s.set.map(b=>b?1:0).join('')):`${s.shape}|${s.n}|${s.rot}|${s.fill}|${s.dots}|${s.size}`;
+MX.same=(a,b)=>MX.key(a)===MX.key(b);
+MX.describe=s=>{ if(s.set){ const names=['oben links','oben rechts','unten links','unten rechts']; const on=names.filter((_,i)=>s.set[i]); return on.length?`Felder: ${on.join(', ')}`:'kein Feld markiert'; }
+  const sn=MX.SHAPE_NAME[s.shape], nm=sn[s.n===1?0:1], adj=MX.ADJ[s.n===1?sn[2]:'p'][s.fill?0:1]; let t=`${s.n} ${adj} ${nm}`;
+  if(MX.ASYM[s.shape])t+=`, ${MX.ROT_NAME[s.rot]}`; if(s.dots)t+=`, ${s.dots} Punkt${s.dots>1?'e':''}`; if(s.size!==1)t+=`, ${MX.SIZE_NAME[s.size]}`; return t; };
+MX.shapeSvg=(shape,x,y,r,rot,fill)=>{ const f=fill?'currentColor':'none'; const a=`fill="${f}" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"`; const tr=rot?` transform="rotate(${rot} ${x} ${y})"`:''; const R=v=>Math.round(v*10)/10;
+  if(shape==='circle')return `<circle cx="${R(x)}" cy="${R(y)}" r="${R(r)}" ${a}/>`;
+  if(shape==='square')return `<rect x="${R(x-r)}" y="${R(y-r)}" width="${R(2*r)}" height="${R(2*r)}" rx="1.5" ${a}/>`;
+  if(shape==='triangle')return `<polygon points="${R(x)},${R(y-r)} ${R(x-r*0.95)},${R(y+r*0.75)} ${R(x+r*0.95)},${R(y+r*0.75)}" ${a}${tr}/>`;
+  if(shape==='diamond')return `<polygon points="${R(x)},${R(y-r)} ${R(x+r)},${R(y)} ${R(x)},${R(y+r)} ${R(x-r)},${R(y)}" ${a}/>`;
+  if(shape==='arrow')return `<polygon points="${R(x)},${R(y-r)} ${R(x+r*0.85)},${R(y+r*0.05)} ${R(x+r*0.32)},${R(y+r*0.05)} ${R(x+r*0.32)},${R(y+r)} ${R(x-r*0.32)},${R(y+r)} ${R(x-r*0.32)},${R(y+r*0.05)} ${R(x-r*0.85)},${R(y+r*0.05)}" ${a}${tr}/>`;
+  if(shape==='semi')return `<path d="M ${R(x-r)} ${R(y+r*0.35)} A ${R(r)} ${R(r)} 0 0 1 ${R(x+r)} ${R(y+r*0.35)} Z" ${a}${tr}/>`;
+  return ''; };
+MX.LAYOUT={1:[[30,27,16]],2:[[17,27,11],[43,27,11]],3:[[30,15,9.5],[17,37,9.5],[43,37,9.5]],4:[[18,15,9],[42,15,9],[18,37,9],[42,37,9]]};
+MX.SIZE_F=[0.62,0.85,1.08];
+MX.svg=(s,cls)=>{ let body='';
+  if(s.set){ const P=[[18,18],[42,18],[18,42],[42,42]]; body=P.map((p,i)=>`<rect x="${p[0]-8}" y="${p[1]-8}" width="16" height="16" rx="2" fill="${s.set[i]?'currentColor':'none'}" stroke="currentColor" stroke-width="2" opacity="${s.set[i]?'1':'0.25'}"/>`).join(''); }
+  else { const lay=MX.LAYOUT[s.n]||MX.LAYOUT[1], f=MX.SIZE_F[s.size]||0.85; body=lay.map(p=>MX.shapeSvg(s.shape,p[0],p[1],p[2]*f,s.rot,s.fill)).join('');
+    for(let i=0;i<s.dots;i++){ const x=30+(i-(s.dots-1)/2)*9; body+=`<circle cx="${x}" cy="54" r="2.4" fill="currentColor"/>`; } }
+  return `<svg class="${cls||'mxs'}" viewBox="0 0 60 60" width="56" height="56" role="img" aria-label="${MX.describe(s)}"><title>${MX.describe(s)}</title>${body}</svg>`; };
+/* ---- Prüf-Hilfen ---- */
+MX.isAttr=s=>!!(s&&!s.set);
+MX.allAttr=g=>g.every(r=>r.every(MX.isAttr));
+MX.allSet=g=>g.every(r=>r.every(s=>s&&s.set));
+MX.constIn=(cells,keys)=>keys.every(k=>cells.every(s=>s[k]===cells[0][k]));
+MX.constGrid=(g,keys)=>MX.constIn(g.flat(),keys);
+MX.constRows=(g,keys)=>g.every(r=>MX.constIn(r,keys));
+MX.constCols=(g,keys)=>MX.cols(g).every(c=>MX.constIn(c,keys));
+MX.ALL=['shape','n','rot','fill','dots','size'];
+MX.others=(...k)=>MX.ALL.filter(a=>!k.includes(a));
+MX.rowsDistinct=(g,k)=>new Set(g.map(r=>r[0][k])).size===3;
+MX.colsDistinct=(g,k)=>new Set(g[0].map(s=>s[k])).size===3;
+MX.rndAttr=(o)=>MX.st(Object.assign({shape:pick(MX.SHAPES),n:rnd(1,3),rot:pick([0,90,180,270]),fill:rnd(0,1),dots:rnd(0,2),size:1},o||{}));
+MX.base=()=>MX.rndAttr({n:1,dots:0,rot:0});                       // neutraler Grundzustand
+MX.grid=f=>[0,1,2].map(r=>[0,1,2].map(c=>MX.st(f(r,c))));
+MX.defV=o=>{o.kind='vis';MX.VIS.push(o);};
+(function(){
+const CYC=['circle','square','triangle'];
+/* ===== L1 ===== */
+MX.defV({id:'v_count_row',L:1,
+  gen:()=>{const b=MX.base();return {grid:MX.grid((r,c)=>Object.assign({},b,{n:c+1})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('n'))&&g.every(r=>r[1].n===r[0].n+1&&r[2].n===r[0].n+2),
+  miss:()=>true, rule:()=>'Von links nach rechts kommt in jeder Zeile eine Form hinzu; alles andere bleibt gleich',
+  tip2:()=>'Zähle die Formen in jedem Feld einer vollständigen Zeile.'});
+MX.defV({id:'v_count_col',L:1,
+  gen:()=>{const b=MX.base();return {grid:MX.grid((r,c)=>Object.assign({},b,{n:r+1})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('n'))&&MX.cols(g).every(c=>c[1].n===c[0].n+1&&c[2].n===c[0].n+2),
+  miss:()=>true, rule:()=>'Von oben nach unten kommt in jeder Spalte eine Form hinzu; alles andere bleibt gleich',
+  tip2:()=>'Zähle die Formen in jedem Feld einer vollständigen Spalte.'});
+MX.defV({id:'v_rot_row',L:1,
+  gen:()=>{const b=MX.rndAttr({shape:pick(['arrow','triangle','semi']),n:1,dots:0});const st=[0,90,180];return {grid:MX.grid((r,c)=>Object.assign({},b,{rot:st[r]+90*c})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.ASYM[g[0][0].shape]&&MX.constGrid(g,MX.others('rot'))&&g.every(r=>r[1].rot===(r[0].rot+90)%360&&r[2].rot===(r[0].rot+180)%360),
+  miss:()=>true, rule:()=>'In jeder Zeile dreht sich die Form von Feld zu Feld um 90° im Uhrzeigersinn',
+  tip2:()=>'Achte nur auf die Richtung der Form – wohin zeigt sie in Feld 1, 2, 3 einer Zeile?'});
+MX.defV({id:'v_rot_col',L:1,
+  gen:()=>{const b=MX.rndAttr({shape:pick(['arrow','triangle','semi']),n:1,dots:0});const st=[0,90,180];return {grid:MX.grid((r,c)=>Object.assign({},b,{rot:st[c]+90*r})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.ASYM[g[0][0].shape]&&MX.constGrid(g,MX.others('rot'))&&MX.cols(g).every(c=>c[1].rot===(c[0].rot+90)%360&&c[2].rot===(c[0].rot+180)%360),
+  miss:()=>true, rule:()=>'In jeder Spalte dreht sich die Form von oben nach unten um 90° im Uhrzeigersinn',
+  tip2:()=>'Achte nur auf die Richtung der Form – wohin zeigt sie in einer Spalte von oben nach unten?'});
+MX.defV({id:'v_fill_alt_row',L:1,
+  gen:()=>{const b=MX.rndAttr({n:rnd(1,2),dots:0,rot:0});const f0=rnd(0,1);return {grid:MX.grid((r,c)=>Object.assign({},b,{fill:(f0+c)%2})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('fill'))&&g.every(r=>r[0].fill!==r[1].fill&&r[2].fill===r[0].fill)&&g.every(r=>r[0].fill===g[0][0].fill),
+  miss:()=>true, rule:()=>'In jeder Zeile wechselt die Füllung von Feld zu Feld: gefüllt, leer, gefüllt (oder umgekehrt)',
+  tip2:()=>'Vergleiche nur gefüllt/leer entlang einer Zeile.'});
+/* ===== L2 ===== */
+MX.defV({id:'v_shape_cycle_row',L:2,
+  gen:()=>{const b=MX.rndAttr({n:rnd(1,2),dots:0,rot:0});const st=shuffle([0,1,2]);return {grid:MX.grid((r,c)=>Object.assign({},b,{shape:CYC[(st[r]+c)%3]})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('shape'))&&g.every(r=>{const i=CYC.indexOf(r[0].shape);return i>=0&&r[1].shape===CYC[(i+1)%3]&&r[2].shape===CYC[(i+2)%3];})&&MX.rowsDistinct(g,'shape'),
+  miss:()=>true, rule:()=>'Die Formen folgen in jeder Zeile dem Zyklus Kreis → Quadrat → Dreieck → Kreis …; jede Zeile beginnt an anderer Stelle',
+  tip2:()=>'Welche Form folgt in den vollständigen Zeilen jeweils auf den Kreis, welche auf das Quadrat?'});
+MX.defV({id:'v_dots_row',L:2,
+  gen:()=>{const b=MX.rndAttr({n:1,rot:0});const d0=rnd(0,1);return {grid:MX.grid((r,c)=>Object.assign({},b,{dots:d0+c})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('dots'))&&g.every(r=>r[1].dots===r[0].dots+1&&r[2].dots===r[0].dots+2)&&g.every(r=>r[0].dots===g[0][0].dots),
+  miss:()=>true, rule:()=>'Von links nach rechts kommt in jeder Zeile ein Punkt hinzu; die Form bleibt gleich',
+  tip2:()=>'Zähle die kleinen Punkte unter der Form in jedem Feld.'});
+MX.defV({id:'v_shape_latin',L:2,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s]).concat(['triangle'])).slice(0,3);const b=MX.rndAttr({n:1,dots:0,rot:0});const p=shuffle([0,1,2]);return {grid:MX.grid((r,c)=>Object.assign({},b,{shape:sh[(p[r]+c)%3]})),p:{}};},
+  check:g=>{if(!MX.allAttr(g)||!MX.constGrid(g,MX.others('shape')))return false;const set=new Set(g[0].map(s=>s.shape));if(set.size!==3)return false;return g.every(r=>new Set(r.map(s=>s.shape)).size===3&&r.every(s=>set.has(s.shape)))&&MX.cols(g).every(c=>new Set(c.map(s=>s.shape)).size===3);},
+  miss:()=>true, rule:()=>'Jede Zeile und jede Spalte enthält jede der drei Formen genau einmal',
+  tip2:()=>'Welche Form fehlt in der Zeile der Lücke – und welche in ihrer Spalte?'});
+MX.defV({id:'v_size_row',L:2,
+  gen:()=>{const b=MX.rndAttr({n:1,dots:0,rot:0});return {grid:MX.grid((r,c)=>Object.assign({},b,{size:c})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('size'))&&g.every(r=>r[0].size===0&&r[1].size===1&&r[2].size===2),
+  miss:()=>true, rule:()=>'Von links nach rechts wird die Form in jeder Zeile größer: klein, mittel, groß',
+  tip2:()=>'Vergleiche die Größe der Formen innerhalb einer Zeile.'});
+/* ===== L3 (zwei Attribute) ===== */
+MX.defV({id:'v_count_col_shape_row',L:3,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s])).slice(0,3);const b=MX.rndAttr({dots:0,rot:0});return {grid:MX.grid((r,c)=>Object.assign({},b,{shape:sh[r],n:c+1})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('shape','n'))&&MX.constRows(g,['shape'])&&MX.rowsDistinct(g,'shape')&&g.every(r=>r[0].n===1&&r[1].n===2&&r[2].n===3),
+  miss:()=>true, rule:()=>'Die Form hängt von der Zeile ab, die Anzahl von der Spalte (1, 2, 3)',
+  tip2:()=>'Zwei Dinge ändern sich: Welche Eigenschaft ist in einer Zeile gleich, welche in einer Spalte?'});
+MX.defV({id:'v_rot_row_fill_col',L:3,
+  gen:()=>{const b=MX.rndAttr({shape:pick(['arrow','triangle','semi']),n:1,dots:0});const st=[0,90,180],fl=[rnd(0,1),rnd(0,1),rnd(0,1)];if(fl[0]===fl[1]&&fl[1]===fl[2])fl[1]=1-fl[1];return {grid:MX.grid((r,c)=>Object.assign({},b,{rot:st[r]+90*c,fill:fl[c]})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.ASYM[g[0][0].shape]&&MX.constGrid(g,MX.others('rot','fill'))&&MX.constCols(g,['fill'])&&!MX.constGrid(g,['fill'])&&g.every(r=>r[1].rot===(r[0].rot+90)%360&&r[2].rot===(r[0].rot+180)%360),
+  miss:()=>true, rule:()=>'In jeder Zeile dreht sich die Form um 90° weiter; die Füllung hängt von der Spalte ab',
+  tip2:()=>'Prüfe Drehung und Füllung getrennt: Die eine folgt der Zeile, die andere der Spalte.'});
+MX.defV({id:'v_count_row_dots_col',L:3,
+  gen:()=>{const b=MX.rndAttr({rot:0});return {grid:MX.grid((r,c)=>Object.assign({},b,{n:c+1,dots:r})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('n','dots'))&&g.every(r=>r[0].n===1&&r[1].n===2&&r[2].n===3)&&g.every((r,i)=>r.every(s=>s.dots===i)),
+  miss:()=>true, rule:()=>'Die Anzahl der Formen folgt der Spalte (1, 2, 3), die Anzahl der Punkte der Zeile (0, 1, 2)',
+  tip2:()=>'Zähle Formen und Punkte getrennt – das eine ändert sich nach rechts, das andere nach unten.'});
+MX.defV({id:'v_shape_latin_fill_row',L:3,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s]).concat(['triangle'])).slice(0,3);const b=MX.rndAttr({n:1,dots:0,rot:0});const p=shuffle([0,1,2]);const f0=rnd(0,1);return {grid:MX.grid((r,c)=>Object.assign({},b,{shape:sh[(p[r]+c)%3],fill:(f0+r)%2})),p:{}};},
+  check:g=>{if(!MX.allAttr(g)||!MX.constGrid(g,MX.others('shape','fill'))||!MX.constRows(g,['fill'])||g[0][0].fill===g[1][0].fill||g[1][0].fill===g[2][0].fill)return false;const set=new Set(g[0].map(s=>s.shape));if(set.size!==3)return false;return g.every(r=>new Set(r.map(s=>s.shape)).size===3&&r.every(s=>set.has(s.shape)))&&MX.cols(g).every(c=>new Set(c.map(s=>s.shape)).size===3);},
+  miss:()=>true, rule:()=>'Jede Zeile und Spalte enthält jede Form genau einmal; die Füllung wechselt von Zeile zu Zeile',
+  tip2:()=>'Welche Form fehlt in Zeile und Spalte der Lücke – und ist diese Zeile gefüllt oder leer?'});
+MX.defV({id:'v_size_row_count_col',L:3,
+  gen:()=>{const b=MX.rndAttr({dots:0,rot:0});return {grid:MX.grid((r,c)=>Object.assign({},b,{size:c,n:r+1})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('size','n'))&&g.every((r,i)=>r.every(s=>s.n===i+1)&&r[0].size===0&&r[1].size===1&&r[2].size===2),
+  miss:()=>true, rule:()=>'Nach rechts wird die Form größer, nach unten kommt eine Form hinzu',
+  tip2:()=>'Größe und Anzahl ändern sich – aber in verschiedenen Richtungen.'});
+MX.defV({id:'v_shape_row_rot_col',L:3,
+  gen:()=>{const sh=shuffle(['triangle','arrow','semi']);const b=MX.rndAttr({n:1,dots:0});return {grid:MX.grid((r,c)=>Object.assign({},b,{shape:sh[r],rot:90*c})),p:{}};},
+  check:g=>MX.allAttr(g)&&g.flat().every(s=>MX.ASYM[s.shape])&&MX.constGrid(g,MX.others('shape','rot'))&&MX.constRows(g,['shape'])&&MX.rowsDistinct(g,'shape')&&g.every(r=>r[0].rot===0&&r[1].rot===90&&r[2].rot===180),
+  miss:()=>true, rule:()=>'Die Form hängt von der Zeile ab, die Drehung von der Spalte (oben, rechts, unten)',
+  tip2:()=>'Form und Richtung getrennt betrachten: Die Form ist in der Zeile gleich, die Richtung in der Spalte.'});
+/* ===== L4 (Mengen-Operationen, Kombinationen) ===== */
+const SETOPS={union:(a,b)=>a||b,diff:(a,b)=>a&&!b,xor:(a,b)=>a!==b,inter:(a,b)=>a&&b};
+const SETNAME={union:'Vereinigung: Feld 3 enthält alles, was in Feld 1 ODER Feld 2 markiert ist',diff:'Differenz: Feld 3 enthält, was in Feld 1, aber nicht in Feld 2 markiert ist',xor:'Entweder-oder: Feld 3 enthält, was in genau einem der Felder 1 und 2 markiert ist',inter:'Schnitt: Feld 3 enthält nur, was in Feld 1 UND Feld 2 markiert ist'};
+const rndSet=()=>{const s=[0,1,2,3].map(()=>Math.random()<0.5);return s;};
+const setOpFam=(id,L,op,orient)=>{ const f=SETOPS[op]; const lines=g=>orient==='row'?g:MX.cols(g);
+  MX.defV({id,L,gen:()=>{ for(let t=0;t<40;t++){ const ls=[0,1,2].map(()=>{const a=rndSet(),b=rndSet();return [a,b,a.map((x,i)=>f(x,b[i]))];});
+      const nontriv=ls.every(l=>l[2].some(Boolean)||op==='diff')&&ls.some(l=>l[0].join()!==l[1].join())&&ls.every(l=>l[0].some(Boolean)&&l[1].some(Boolean));
+      if(!nontriv)continue; const cells=ls.map(l=>l.map(s=>({set:s}))); return {grid:orient==='row'?cells:MX.cols(cells),p:{}}; } return null; },
+    check:g=>MX.allSet(g)&&lines(g).every(l=>l[2].set.every((v,i)=>v===f(l[0].set[i],l[1].set[i]))),
+    miss:(r,c)=>op==='xor'?true:(orient==='row'?c===2:r===2),
+    rule:()=>(orient==='row'?'In jeder Zeile – ':'In jeder Spalte (oben, Mitte, unten) – ')+SETNAME[op],
+    tip2:()=>'Vergleiche Feld für Feld die markierten Positionen der ersten beiden Felder mit dem dritten: Welche Positionen bleiben, welche verschwinden?'}); };
+setOpFam('v_union_row',4,'union','row'); setOpFam('v_diff_row',4,'diff','row'); setOpFam('v_xor_row',4,'xor','row'); setOpFam('v_inter_row',4,'inter','row');
+MX.defV({id:'v_count_sum_row',L:4,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s])).slice(0,3);const b=MX.rndAttr({dots:0,rot:0});const rv=[0,1,2].map(()=>[rnd(1,2),rnd(1,2)]);return {grid:MX.grid((r,c)=>{const a=rv[r][0],bb=rv[r][1];const n=c===0?a:c===1?bb:a+bb;return Object.assign({},b,{shape:sh[r],n});}),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('shape','n'))&&MX.constRows(g,['shape'])&&g.every(r=>r[2].n===r[0].n+r[1].n),
+  miss:()=>true, rule:()=>'In jeder Zeile ist die Anzahl im dritten Feld die Summe der Anzahlen aus Feld 1 und Feld 2',
+  tip2:()=>'Zähle die Formen in Feld 1 und Feld 2 einer vollständigen Zeile – und vergleiche mit Feld 3.'});
+MX.defV({id:'v_rot_plus_count',L:4,
+  gen:()=>{const b=MX.rndAttr({shape:pick(['arrow','triangle','semi']),dots:0});return {grid:MX.grid((r,c)=>Object.assign({},b,{rot:90*c,n:r+1})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.ASYM[g[0][0].shape]&&MX.constGrid(g,MX.others('rot','n'))&&g.every((r,i)=>r.every(s=>s.n===i+1)&&r[0].rot===0&&r[1].rot===90&&r[2].rot===180),
+  miss:()=>true, rule:()=>'Nach rechts dreht sich die Form um 90°, nach unten kommt eine Form hinzu',
+  tip2:()=>'Drehung und Anzahl ändern sich in verschiedenen Richtungen – prüfe beide getrennt.'});
+MX.defV({id:'v_dots_sum_row',L:4,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s])).slice(0,3);const b=MX.rndAttr({n:1,rot:0});const rv=[0,1,2].map(()=>{const a=rnd(0,2);return [a,rnd(0,3-a)];});return {grid:MX.grid((r,c)=>{const a=rv[r][0],bb=rv[r][1];const d=c===0?a:c===1?bb:a+bb;return Object.assign({},b,{shape:sh[r],dots:d});}),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('shape','dots'))&&MX.constRows(g,['shape'])&&g.every(r=>r[2].dots===r[0].dots+r[1].dots),
+  miss:()=>true, rule:()=>'In jeder Zeile ist die Zahl der Punkte im dritten Feld die Summe der Punkte aus Feld 1 und Feld 2',
+  tip2:()=>'Zähle die Punkte in Feld 1 und 2 einer vollständigen Zeile und vergleiche mit Feld 3.'});
+/* ===== L5 ===== */
+MX.defV({id:'v_row_col_transform',L:5,
+  gen:()=>{const b=MX.rndAttr({shape:pick(['arrow','triangle','semi']),n:1,dots:0});const r0=pick([0,90]);return {grid:MX.grid((r,c)=>Object.assign({},b,{rot:r0+90*c+180*r})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.ASYM[g[0][0].shape]&&MX.constGrid(g,MX.others('rot'))&&g.every((r,i)=>r.every((s,c)=>s.rot===(g[0][0].rot+90*c+180*i)%360)),
+  miss:()=>true, rule:()=>'Zeile und Spalte wirken zugleich: nach rechts +90°, nach unten +180° Drehung',
+  tip2:()=>'Vergleiche die Richtung nach rechts (eine Vierteldrehung) und nach unten (eine halbe Drehung).'});
+MX.defV({id:'v_three_attr',L:5,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s])).slice(0,3);const b=MX.rndAttr({dots:0,rot:0});const f0=rnd(0,1);return {grid:MX.grid((r,c)=>Object.assign({},b,{shape:sh[r],n:c+1,fill:(f0+r+c)%2})),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('shape','n','fill'))&&MX.constRows(g,['shape'])&&MX.rowsDistinct(g,'shape')&&g.every((r,i)=>r.every((s,c)=>s.n===c+1&&s.fill===(g[0][0].fill+i+c)%2)),
+  miss:()=>true, rule:()=>'Drei Eigenschaften: Form nach Zeile, Anzahl nach Spalte, Füllung im Schachbrettmuster',
+  tip2:()=>'Prüfe nacheinander Form, Anzahl und Füllung – jede folgt einer eigenen Regel.'});
+MX.defV({id:'v_shape_dots_latin',L:5,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s]).concat(['triangle'])).slice(0,3);const b=MX.rndAttr({n:1,rot:0});const p=shuffle([0,1,2]),q=shuffle([0,1,2]);if(p.join()===q.join())q.reverse();return {grid:MX.grid((r,c)=>Object.assign({},b,{shape:sh[(p[r]+c)%3],dots:(q[r]+c)%3})),p:{}};},
+  check:g=>{if(!MX.allAttr(g)||!MX.constGrid(g,MX.others('shape','dots')))return false;const lat=k=>{const set=new Set(g[0].map(s=>s[k]));return set.size===3&&g.every(r=>new Set(r.map(s=>s[k])).size===3&&r.every(s=>set.has(s[k])))&&MX.cols(g).every(c=>new Set(c.map(s=>s[k])).size===3);};return lat('shape')&&lat('dots');},
+  miss:()=>true, rule:()=>'Zwei Eigenschaften zugleich: Jede Zeile und Spalte enthält jede Form genau einmal UND jede Punktzahl (0, 1, 2) genau einmal',
+  tip2:()=>'Welche Form fehlt in Zeile und Spalte der Lücke? Und welche Punktzahl fehlt dort?'});
+setOpFam('v_xor_col',5,'xor','col'); setOpFam('v_union_col',5,'union','col');
+MX.defV({id:'v_count_diff_row',L:5,
+  gen:()=>{const sh=shuffle(MX.SHAPES.filter(s=>!MX.ASYM[s])).slice(0,3);const b=MX.rndAttr({dots:0,rot:0});const rv=[0,1,2].map(()=>{const a=rnd(3,4);return [a,rnd(1,a-1)];});return {grid:MX.grid((r,c)=>{const a=rv[r][0],bb=rv[r][1];const n=c===0?a:c===1?bb:a-bb;return Object.assign({},b,{shape:sh[r],n});}),p:{}};},
+  check:g=>MX.allAttr(g)&&MX.constGrid(g,MX.others('shape','n'))&&MX.constRows(g,['shape'])&&g.every(r=>r[2].n===r[0].n-r[1].n&&r[2].n>=1),
+  miss:()=>true, rule:()=>'In jeder Zeile ist die Anzahl im dritten Feld die Differenz der Anzahlen aus Feld 1 und Feld 2',
+  tip2:()=>'Zähle die Formen in Feld 1 und 2 einer vollständigen Zeile – wie entsteht daraus Feld 3?'});
+MX.defV({id:'v_fill_latin_count_row',L:5,
+  gen:()=>{const b=MX.rndAttr({dots:0,rot:0});const p=shuffle([0,1,2]);return {grid:MX.grid((r,c)=>Object.assign({},b,{n:c+1,size:(p[r]+c)%3,fill:(r+c)%2})),p:{}};},
+  check:g=>{if(!MX.allAttr(g)||!MX.constGrid(g,MX.others('n','size','fill')))return false;const set=new Set(g[0].map(s=>s.size));if(set.size!==3)return false;const lat=g.every(r=>new Set(r.map(s=>s.size)).size===3)&&MX.cols(g).every(c=>new Set(c.map(s=>s.size)).size===3);return lat&&g.every((r,i)=>r.every((s,c)=>s.n===c+1&&s.fill===(g[0][0].fill+i+c)%2));},
+  miss:()=>true, rule:()=>'Anzahl nach Spalte, Größe als lateinisches Quadrat (jede Größe je Zeile und Spalte einmal), Füllung im Schachbrett',
+  tip2:()=>'Drei Regeln gleichzeitig: Anzahl, Größe und Füllung – prüfe sie einzeln.'});
+})();
+/* ---------- Eindeutigkeit, Distraktoren, Rendering, Builder ---------- */
+MX.numByLevel={}; MX.NUM.forEach(f=>{(MX.numByLevel[f.L]||(MX.numByLevel[f.L]=[])).push(f);});
+MX.visByLevel={}; MX.VIS.forEach(f=>{(MX.visByLevel[f.L]||(MX.visByLevel[f.L]=[])).push(f);});
+MX.REJ={}; MX._rej=(id,why)=>{MX.REJ[why]=(MX.REJ[why]||0)+1; MX.REJF=MX.REJF||{}; const k=id+':'+why; MX.REJF[k]=(MX.REJF[k]||0)+1;};
+MX.recent=[];
+/* Welche Werte akzeptiert irgendeine numerische Familie an der Lücke? (Kandidatenmenge: ganze und halbe Zahlen im Umfeld) */
+/* Pro Familie: Menge der Werte, die ihre Regel an der Lücke akzeptiert. Eine Familie zählt nur als „bestimmend“, wenn sie
+   höchstens 3 Werte zulässt (sonst legt ihre Regel die Zelle gar nicht fest, z. B. Symmetrie auf der Diagonale) und wenn ihre
+   Evidenz-Bedingung erfüllt ist (z. B. wechselnde Operation: die abweichende Zeile muss vollständig sichtbar sein). */
+MX.numAccepted=(grid,m,fams)=>{ const known=grid.flat().filter((v,i)=>!(Math.floor(i/grid[0].length)===m.r&&i%grid[0].length===m.c));
+  const mn=Math.min(...known),mx=Math.max(...known); const lo=Math.min(-20,mn-10), hi=Math.min(2500,Math.max(600,mx*2+20)); const g=MX.clone(grid); const acc=new Set();
+  for(const f of fams){ if((f.size||3)!==grid.length)continue; if(f.evidence&&!f.evidence(grid,m))continue; const mine=[];
+    for(let v=lo;v<=hi&&mine.length<=3;v+=0.5){ g[m.r][m.c]=v; let ok=false; try{ok=f.check(g);}catch(e){ok=false;} if(ok)mine.push(v); }
+    if(mine.length&&mine.length<=3)mine.forEach(v=>acc.add(v)); }
+  return [...acc]; };
+MX.visCandidates=(kindSet)=>{ const out=[]; if(kindSet){ for(let b=0;b<16;b++)out.push({set:[!!(b&1),!!(b&2),!!(b&4),!!(b&8)]}); return out; }
+  for(const shape of MX.SHAPES)for(let n=1;n<=4;n++)for(const rot of (MX.ASYM[shape]?[0,90,180,270]:[0]))for(const fill of [0,1])for(let dots=0;dots<=3;dots++)for(let size=0;size<=2;size++)out.push({shape,n,rot,fill,dots,size});
+  return out; };
+MX.VIS_CAND_ATTR=null; MX.VIS_CAND_SET=null;
+MX.visAccepted=(grid,m,fams)=>{ const isSet=!!grid[m.r][m.c].set; const cands=isSet?(MX.VIS_CAND_SET||(MX.VIS_CAND_SET=MX.visCandidates(true))):(MX.VIS_CAND_ATTR||(MX.VIS_CAND_ATTR=MX.visCandidates(false)));
+  const g=grid.map(r=>r.slice()); const acc=new Map();
+  for(const f of fams){ if(f.evidence&&!f.evidence(grid,m))continue; const mine=[]; for(const c of cands){ g[m.r][m.c]=c; let ok=false; try{ok=f.check(g);}catch(e){ok=false;} if(ok){mine.push(c); if(mine.length>3)break;} }
+    if(mine.length&&mine.length<=3)mine.forEach(c=>acc.set(MX.key(c),c)); }
+  return [...acc.values()]; };
+/* ---- Rendering ---- */
+MX.ariaNum=(grid,m)=>grid.map((r,i)=>`Zeile ${i+1}: ${r.map((v,c)=>(i===m.r&&c===m.c)?'unbekannt':MX.N(v)).join(', ')}.`).join(' ');
+MX.ariaVis=(grid,m)=>grid.map((r,i)=>`Zeile ${i+1}: ${r.map((s,c)=>(i===m.r&&c===m.c)?'unbekannt':MX.describe(s)).join('; ')}.`).join(' ');
+MX.htmlNum=(grid,m)=>`<div class="mx mx${grid.length}" role="img" aria-label="${MX.ariaNum(grid,m)}">${grid.map((r,i)=>r.map((v,c)=>(i===m.r&&c===m.c)?'<div class="mx-cell q" aria-hidden="true">?</div>':`<div class="mx-cell" aria-hidden="true">${MX.N(v)}</div>`).join('')).join('')}</div>`;
+MX.htmlVis=(grid,m)=>`<div class="mx mx3 vis" role="img" aria-label="${MX.ariaVis(grid,m)}">${grid.map((r,i)=>r.map((s,c)=>(i===m.r&&c===m.c)?'<div class="mx-cell q" aria-hidden="true">?</div>':`<div class="mx-cell" aria-hidden="true">${MX.svg(s)}</div>`).join('')).join('')}</div>`;
+MX.TIP1_NUM='Vergleiche zuerst die vollständigen Zeilen: Wie entsteht die dritte Zahl aus den ersten beiden? Prüfe dieselbe Idee danach in den Spalten.';
+MX.TIP1_VIS='Welche Eigenschaft ändert sich von Feld zu Feld – Anzahl, Form, Drehung, Füllung, Punkte? Vergleiche zuerst eine vollständige Zeile, dann eine Spalte.';
+/* ---- Distraktoren ---- */
+MX.numDistractors=(grid,m,ans,fams)=>{ const r=grid[m.r],C=MX.cols(grid)[m.c]; const o1=r.filter((_,c)=>c!==m.c),o2=C.filter((_,i)=>i!==m.r);
+  const raw=[o1[0]+o1[1],o1[0]*o1[1],Math.abs(o1[0]-o1[1]),2*o1[0]+o1[1],o1[0]+2*o1[1],o2[0]+o2[1],o2[0]*o2[1],Math.abs(o2[0]-o2[1]),ans+1,ans-1,ans+2,ans-2,ans+10,ans-10,ans*2,Math.round(ans/2)];
+  const g=MX.clone(grid); const bad=v=>{ if(!MX.ok(v)||!MX.isInt(v)||MX.eq(v,ans)||v<0)return true; g[m.r][m.c]=v; return fams.some(f=>{try{return (f.size||3)===grid.length&&f.check(g);}catch(e){return false;}}); };
+  const out=[]; for(const v of shuffle(raw)){ if(bad(v)||out.some(x=>MX.eq(x,v)))continue; out.push(v); } return out; };
+MX.visDistractors=(ans,fams,grid,m)=>{ const out=[]; const push=s=>{ const k=MX.key(s); if(k===MX.key(ans)||out.some(x=>MX.key(x)===k))return; out.push(s); };
+  if(ans.set){ for(let i=0;i<4;i++){const s=ans.set.slice();s[i]=!s[i];push({set:s});} for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){const s=ans.set.slice();s[i]=!s[i];s[j]=!s[j];push({set:s});} }
+  else { const v=(o)=>push(MX.st(Object.assign({},ans,o)));
+    if(ans.n<4)v({n:ans.n+1}); if(ans.n>1)v({n:ans.n-1}); v({fill:1-ans.fill}); if(MX.ASYM[ans.shape]){v({rot:ans.rot+90});v({rot:ans.rot+270});v({rot:ans.rot+180});}
+    shuffle(MX.SHAPES.filter(s=>s!==ans.shape)).slice(0,2).forEach(sh=>v({shape:sh,rot:MX.ASYM[sh]?ans.rot:0}));
+    if(ans.dots<3)v({dots:ans.dots+1}); if(ans.dots>0)v({dots:ans.dots-1}); if(ans.size<2)v({size:ans.size+1}); if(ans.size>0)v({size:ans.size-1}); }
+  const g=grid.map(r=>r.slice()); return shuffle(out).filter(s=>{ g[m.r][m.c]=s; return !fams.some(f=>{try{return f.check(g);}catch(e){return false;}}); }); };
+/* ---- Builder ---- */
+MX.pickFam=(pool)=>{ let c=pool.filter(f=>!MX.recent.includes(f.id)); if(!c.length)c=pool; return pick(c); };
+MX.build=function(L,opts){
+  opts=opts||{}; L=clamp(Math.round(L)||1,1,5);
+  let visP={1:0.35,2:0.4,3:0.45,4:0.5,5:0.5}[L];
+  if(opts.daily){ const dur=opts.duration||10; if(dur===5){L=Math.min(L,3); if(L>2)visP=0;} else if(dur===10){L=Math.min(L,4);} }   // 5′: keine komplexen figuralen Matrizen, L ≤ 3
+  if(opts.numericOnly)visP=0;
+  for(let t=0;t<40;t++){
+    const vis=Math.random()<visP; const pool=(vis?MX.visByLevel:MX.numByLevel)[L]; if(!pool||!pool.length)continue;
+    const fam=MX.pickFam(pool); let g=null; try{ g=fam.gen(); }catch(e){ g=null; } if(!g||!g.grid)continue;
+    const grid=g.grid, p=g.p||{}; let okFam=false; try{okFam=fam.check(grid);}catch(e){okFam=false;} if(!okFam){MX._rej(fam.id,'selfcheck');continue;}
+    const n=grid.length; const allowed=[]; for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(fam.miss(r,c,grid))allowed.push({r,c}); if(!allowed.length)continue;
+    let m; if(L<=2&&Math.random()<0.6&&allowed.some(x=>x.r===n-1&&x.c===n-1))m={r:n-1,c:n-1}; else m=pick(allowed);
+    const ans=grid[m.r][m.c];
+    const fams=vis?MX.VIS:MX.NUM;
+    const acc=vis?MX.visAccepted(grid,m,fams):MX.numAccepted(grid,m,fams);
+    if(vis){ if(acc.length!==1||!MX.same(acc[0],ans)){MX._rej(fam.id,acc.length>1?'ambiguous':'nosolver');continue;} }
+    else { if(acc.length!==1||!MX.eq(acc[0],ans)){MX._rej(fam.id,acc.length>1?'ambiguous':'nosolver');continue;} }
+    const rule=fam.rule(p,grid,m); const base={ruleId:fam.id,family:vis?'visual':'numeric',difficulty:L,matrixKind:vis?'visual':'numeric',missPos:[m.r,m.c],type:fam.id};
+    let item;
+    if(!vis){
+      const expl=`<b>Regel:</b> ${rule}. ${fam.expl(grid,m,p)}`;
+      const mc=L>=2&&Math.random()<0.25;
+      if(mc){ const dis=MX.numDistractors(grid,m,ans,fams).slice(0,3); if(dis.length<3){MX._rej(fam.id,'fewDistractors');continue;}
+        const opts=shuffle([ans].concat(dis)); item=Object.assign(base,{render:'choice',q:`${MX.htmlNum(grid,m)}<b>Welche Zahl gehört in das Feld mit dem Fragezeichen?</b>`,opts:opts.map(MX.N),c:opts.findIndex(v=>MX.eq(v,ans)),explain:expl}); }
+      else item=Object.assign(base,{render:'input',text:true,prompt:`${MX.htmlNum(grid,m)}<div class="mx-q">Welche Zahl gehört in das Feld mit dem Fragezeichen?</div>`,answer:ans,explain:expl});
+      if(ans<0)item.signed=true;
+      item.hints=[MX.TIP1_NUM,fam.tip2(grid,m,p)];
+    } else {
+      const dis=MX.visDistractors(ans,fams,grid,m); const want=L<=2?3:L<=4?4:5; if(dis.length<3){MX._rej(fam.id,'fewDistractors');continue;}
+      const opts=shuffle([ans].concat(dis.slice(0,want)));
+      item=Object.assign(base,{render:'choice',optsClass:'visual',q:`${MX.htmlVis(grid,m)}<b>Welches Feld gehört an die Stelle des Fragezeichens?</b>`,opts:opts.map(s=>MX.svg(s,'mxo')),c:opts.findIndex(s=>MX.same(s,ans)),
+        explain:`<b>Regel:</b> ${rule}. <b>Fehlendes Feld:</b> ${MX.describe(ans)}.`,hints:[MX.TIP1_VIS,fam.tip2(grid,m,p)],optDesc:opts.map(MX.describe)});
+    }
+    MX.recent.push(fam.id); if(MX.recent.length>4)MX.recent.shift();
+    return item;
+  }
+  MX._rej('_fallback','fallback');
+  const a=rnd(1,9),b=rnd(1,9),d=rnd(2,6); const grid=[[a,b,a+b],[a+d,b+d,a+b+2*d],[a+2*d,b+2*d,a+b+4*d]]; const m={r:2,c:2};  // sicherer Fallback: Zeilensumme
+  return {render:'input',text:true,prompt:`${MX.htmlNum(grid,m)}<div class="mx-q">Welche Zahl gehört in das Feld mit dem Fragezeichen?</div>`,answer:grid[2][2],
+    explain:`<b>Regel:</b> In jeder Zeile gilt: erste + zweite = dritte Zahl. <b>Lücke:</b> ${MX.N(grid[2][0])} + ${MX.N(grid[2][1])} = ${MX.N(grid[2][2])}.`,hints:[MX.TIP1_NUM,'Addiere die ersten beiden Zahlen einer vollständigen Zeile.'],
+    ruleId:'row_sum',family:'numeric',difficulty:L,matrixKind:'numeric',missPos:[2,2],type:'row_sum'};
+};
+/* __MX_END__ */
+
+/* LOGIC-Registry (Logik 3.0): Zahlenreihen/Buchstabenreihen/Matrizen über die neuen Engines, Analogien/Kategorien/Tatsache-Meinung
+   über die levelabhängigen Bänke. Reihenfolge = Reihenfolge im Hub und im Tagestraining (logic:matrix direkt nach den Reihen). */
 const LOGIC = {
-  series:{name:"Zahlenreihen", teaser:"Nächste Zahl finden",
-    tut:{concept:"Bei Zahlenreihen suchst du die Regel hinter der Abfolge. Hilfreich ist, die Differenzen oder Verhältnisse benachbarter Zahlen zu betrachten: konstant = fester Zuwachs oder Faktor, wachsend deutet auf Quadrate oder Summenmuster.",ex:"2, 5, 8, 11 → 14",example:"2 , 5 , 8 , 11 , ?",steps:["Differenzen ansehen: +3, +3, +3.","Das Muster ist konstant +3.","11 + 3 = 14."]},
-    gen:(L)=>seriesBuild(L)},
+  series:{name:"Zahlenreihen", teaser:"Regel erkennen · Lücke, Fehler, Regel finden",
+    tut:{concept:"Bei Zahlenreihen suchst du die Regel hinter der Abfolge. Kurze Strategie: 1) Differenzen bilden – konstant, wachsend oder selbst eine bekannte Folge? 2) Verhältnisse prüfen (Faktor ×2, ×3, ÷2). 3) Zweite Differenzen (Differenzen der Differenzen). 4) Mit bekannten Folgen vergleichen: Quadrat-, Primzahlen, Dreieckszahlen. 5) Abwechselnde Schritte oder verschachtelte Teilreihen (jede zweite Zahl). 6) Rekursion: entsteht jede Zahl aus den beiden davor?",ex:"2, 5, 8, 11 → 14",example:"2 , 5 , 8 , 11 , ?",steps:["Differenzen ansehen: +3, +3, +3.","Das Muster ist konstant +3.","11 + 3 = 14."]},
+    gen:(L,o)=>SER3.build(L,o)},
   letters:{name:"Buchstabenreihen", teaser:"Nächsten Buchstaben finden",
-    tut:{concept:"Buchstabenreihen funktionieren wie Zahlenreihen, nur über die Position im Alphabet (A = 1, B = 2, …). Zähle, wie viele Buchstaben jeweils übersprungen werden.",ex:"A, C, E, G → I",example:"A , C , E , G , ?",steps:["Positionen: 1, 3, 5, 7 → Schrittweite 2.","Nächste Position: 7 + 2 = 9.","Buchstabe Nr. 9 = I."]},
-    gen:(L)=>{const step=rnd(1,{1:2,2:3,3:4,4:5}[L]),start=rnd(0,12);const at=i=>String.fromCharCode(65+((start+i*step)%26));
-      const shown=[0,1,2,3,4].map(at).join(' , ');return{prompt:`${shown} , ?`,answer:at(5),hints:["Denke in Alphabet-Positionen statt in Buchstaben.","Zähle die Schritte zwischen den ersten beiden und setze sie fort."],explain:`Schrittweite ${step} im Alphabet → der nächste Buchstabe ist ${at(5)}.`};}},
+    tut:{concept:"Buchstabenreihen funktionieren wie Zahlenreihen, nur über die Position im Alphabet (A = 1, B = 2, …). Übersetze die Buchstaben in Zahlen, dann gelten dieselben Strategien: Schritte zählen, wachsende Schritte, verschachtelte Teilreihen, Spiegelpaare (A↔Z).",ex:"A, C, E, G → I",example:"A , C , E , G , ?",steps:["Positionen: 1, 3, 5, 7 → Schrittweite 2.","Nächste Position: 7 + 2 = 9.","Buchstabe Nr. 9 = I."]},
+    gen:(L)=>LET3.build(L)},
+  matrix:{name:"Matrizen", teaser:"Fehlendes Feld aus Zeilen und Spalten ableiten",
+    tut:{concept:"Bei Matrizen fehlt ein Feld. Die Regel steckt in den Zeilen, in den Spalten oder in beidem. Prüfe zuerst eine vollständige Zeile: Wie entsteht die dritte Zahl (oder Figur) aus den ersten beiden? Prüfe dann, ob die Regel auch in den anderen Zeilen gilt – und ob zusätzlich eine Spaltenregel nötig ist.",ex:"2 3 5 / 4 6 10 / 7 8 ? → 15",
+      example:'<div class="mx mx3" aria-label="Zeile 1: 2, 3, 5. Zeile 2: 4, 6, 10. Zeile 3: 7, 8, unbekannt."><div class="mx-cell">2</div><div class="mx-cell">3</div><div class="mx-cell">5</div><div class="mx-cell">4</div><div class="mx-cell">6</div><div class="mx-cell">10</div><div class="mx-cell">7</div><div class="mx-cell">8</div><div class="mx-cell q">?</div></div>',
+      steps:["Zeile 1 prüfen: 2 + 3 = 5.","Zeile 2 prüfen: 4 + 6 = 10 – die Regel „erste + zweite = dritte“ gilt.","Zeile 3 anwenden: 7 + 8 = 15."]},
+    gen:(L,o)=>MX.build(L,o), tutGen:(L)=>MX.build(L,{numericOnly:true})},
   analogien:{name:"Wort-Analogien", teaser:"Wortpaare sinnvoll ergänzen",
-    tut:{concept:"Bei Wort-Analogien stehen das erste und zweite Wort in einer bestimmten Beziehung. Finde dieselbe Beziehung für das dritte Wort und wähle das passende vierte.",ex:"Arzt : Krankenhaus = Lehrer : Schule",example:"Arzt : Krankenhaus = Lehrer : ?",steps:["Bestimme die Beziehung: Ein Arzt arbeitet im Krankenhaus (Arbeitsort).","Übertrage sie: Wo arbeitet ein Lehrer?","In der Schule – die Lösung ist „Schule“."]},
-    gen:(L)=>asChoice(nextAnalogie())},
+    tut:{concept:"Bei Wort-Analogien stehen das erste und zweite Wort in einer bestimmten Beziehung (z. B. Teil → Ganzes, Beruf → Werkzeug, Ursache → Wirkung). Finde dieselbe Beziehung für das dritte Wort und wähle das passende vierte.",ex:"Arzt : Krankenhaus = Lehrer : Schule",example:"Arzt : Krankenhaus = Lehrer : ?",steps:["Bestimme die Beziehung: Ein Arzt arbeitet im Krankenhaus (Arbeitsort).","Übertrage sie: Wo arbeitet ein Lehrer?","In der Schule – die Lösung ist „Schule“."]},
+    gen:(L)=>genAnalogie3(L)},
   oberbegriff:{name:"Oberbegriffe", teaser:"Gemeinsamen Oberbegriff finden",
-    tut:{concept:"Zwei Begriffe gehören zu einer gemeinsamen Kategorie. Finde den Oberbegriff, der beide umfasst.",ex:"Apfel & Birne → Obst",example:"Welcher Oberbegriff passt zu „Geige“ und „Trompete“?",steps:["Überlege, was beide Begriffe sind.","Geige und Trompete sind Musikinstrumente.","Wähle „Musikinstrumente“."]},
-    gen:(L)=>asChoice(genOberbegriff())},
+    tut:{concept:"Zwei Begriffe gehören zu einer gemeinsamen Kategorie. Finde den Oberbegriff, der beide umfasst. Auf höheren Leveln liegen die falschen Optionen thematisch nah – prüfe, ob wirklich beide Begriffe dazugehören.",ex:"Apfel & Birne → Obst",example:"Welcher Oberbegriff passt zu „Geige“ und „Trompete“?",steps:["Überlege, was beide Begriffe sind.","Geige und Trompete sind Musikinstrumente.","Wähle „Musikinstrumente“."]},
+    gen:(L)=>asChoice(genOberbegriff(L))},
   passend:{name:"Passende Begriffe", teaser:"Das zusammengehörende Paar finden",
-    tut:{concept:"Aus mehreren Begriffen gehören genau zwei zusammen, weil sie dieselbe Kategorie teilen. Die übrigen stammen aus verschiedenen Bereichen.",ex:"Fisch, Baum, Stein, Vogel … → Fisch & Vogel (Tiere)",example:"Fisch · Baum · Stein · Vogel · Haus · Wasser — welche zwei gehören zusammen?",steps:["Prüfe, welche zwei Begriffe in dieselbe Kategorie fallen.","Fisch und Vogel sind beide Tiere.","Die anderen Begriffe passen in keine gemeinsame Kategorie."]},
-    gen:(L)=>asChoice(genPassende())},
+    tut:{concept:"Aus mehreren Begriffen gehören genau zwei zusammen, weil sie dieselbe Kategorie teilen. Die übrigen stammen aus anderen Bereichen – auf höheren Leveln passt einer nur thematisch dazu, gehört aber nicht zur Kategorie.",ex:"Forelle, Buche, Zange, Hai … → Forelle & Hai (Fische)",example:"Forelle · Buche · Zange · Hai · Rose · Euro — welche zwei gehören zur selben Kategorie?",steps:["Prüfe, welche zwei Begriffe in dieselbe Kategorie fallen.","Forelle und Hai sind beide Fische.","Die anderen Begriffe passen in keine gemeinsame Kategorie."]},
+    gen:(L)=>asChoice(genPassende(L))},
   syllog:{name:"Syllogismen", teaser:"Gültige Schlussfolgerung wählen",
     tut:{concept:"Aus einer oder mehreren Aussagen (Prämissen) folgt logisch eine Schlussfolgerung. Wähle nur, was zwingend folgt – verlasse dich auf die Logik, nicht auf Weltwissen. Achtung: „Alle A sind B“ garantiert nicht, dass A überhaupt existieren.",ex:"Alle A sind B. Alle B sind C. → Alle A sind C.",example:"Alle Hunde sind orange. Bello ist ein Hund. → ?",steps:["Nimm die Prämissen als wahr an, egal wie absurd.","Alle Hunde sind orange; Bello ist ein Hund.","Also ist Bello orange – das folgt zwingend."]},
     gen:(L)=>sylGen(L)},
   fakt:{name:"Tatsache oder Meinung", teaser:"Aussage richtig einordnen",
-    tut:{concept:"Entscheide, ob eine Aussage eine Tatsache (objektiv überprüfbar, beweisbar) oder eine Meinung (persönliche Bewertung) ist.",ex:"„Wasser gefriert bei 0 °C“ = Tatsache · „Sommer ist am schönsten“ = Meinung",example:"„Bücher sind besser als Filme.“",steps:["Frage: Lässt sich das objektiv beweisen?","„Besser“ ist eine Bewertung, kein nachweisbarer Fakt.","Also: Meinung."]},
-    gen:(L)=>genFakt()},
+    tut:{concept:"Entscheide, ob eine Aussage eine Tatsache (objektiv überprüfbar – auch wenn sie falsch sein könnte) oder eine Meinung (Bewertung, Prognose, Forderung) ist. Auf höheren Leveln verstecken sich Werturteile in Tatsachensprache oder ein überprüfbarer Kern wird mit einer Forderung verknüpft.",ex:"„Wasser gefriert bei 0 °C“ = Tatsache · „Sommer ist am schönsten“ = Meinung",example:"„Bücher sind besser als Filme.“",steps:["Frage: Lässt sich das objektiv beweisen?","„Besser“ ist eine Bewertung, kein nachweisbarer Fakt.","Also: Meinung."]},
+    gen:(L)=>genFakt3(L)},
 };
 
 /* =========================================================
@@ -2268,7 +3431,14 @@ let PROFILE={};
 function loadProfile(){ PROFILE=Store.data.profile; migrateKonzWm(); }      // Referenz auf den Blob – Mutationen sind sofort im Store
 function saveProfile(){ Store.persist(); }
 function getProf(key){return PROFILE[key]||{attempts:0,correct:0,lastDiff:2,curDiff:2,errorRate:0,avgTime:0};}
-function curLevel(key){return clamp(Math.round((PROFILE[key]?.curDiff)??2),1,4);}
+/* __LOGIC_LEVEL_HELPERS__  Gruppenspezifische Level-Obergrenze (Logik 3.0).
+   Logik läuft Level 1–5, alle anderen Gruppen behalten ihr Maximum 4. Einzige zentrale
+   Stelle für die Obergrenze – kein verstreutes „4“ mehr in curLevel/updateAdaptiveProfile/
+   levelChips/trainGen/maybeAdaptInSession/startMixedTraining. */
+const GROUP_MAX_LEVEL={logic:5};
+function maxLevelForGroup(group){return GROUP_MAX_LEVEL[group]||4;}
+function maxLevelForKey(key){return maxLevelForGroup(String(key||'').split(':')[0]);}
+function curLevel(key){return clamp(Math.round((PROFILE[key]?.curDiff)??2),1,maxLevelForKey(key));}
 function updateAdaptiveProfile(result){
   const {key,ok,difficulty,timeMs}=result; if(!key)return;
   const p=PROFILE[key]||{attempts:0,correct:0,lastDiff:difficulty||2,curDiff:difficulty||2,errorRate:0,avgTime:0};
@@ -2277,7 +3447,7 @@ function updateAdaptiveProfile(result){
   if(difficulty!=null)p.lastDiff=difficulty;
   let d=(p.curDiff!=null?p.curDiff:(difficulty||2));
   d += ok ? 0.30 : -0.45;                 // sanft hoch, etwas schneller runter
-  p.curDiff=+clamp(d,1,4).toFixed(3);
+  p.curDiff=+clamp(d,1,maxLevelForKey(key)).toFixed(3);   // logic:* → 1–5, alle anderen Profile unverändert 1–4
   if(timeMs){p.avgTime=p.avgTime?Math.round(p.avgTime*0.7+timeMs*0.3):Math.round(timeMs);}
   PROFILE[key]=p; saveProfile();
 }
@@ -2303,7 +3473,7 @@ function groupLevel(group){
   const keys=allCategories().filter(c=>c.group===group).map(c=>c.key);
   const vals=keys.map(k=>PROFILE[k]?.curDiff).filter(v=>v!=null);
   if(!vals.length)return null;
-  return clamp(Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),1,4);
+  return clamp(Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),1,maxLevelForGroup(group));
 }
 function weightedPick(weighted){const tot=weighted.reduce((s,x)=>s+x.w,0);let r=Math.random()*tot;for(const x of weighted){r-=x.w;if(r<=0)return x.c;}return weighted[weighted.length-1].c;}
 /* ---- GMAT-PS im Tagestraining: adaptive Subtopic-/Difficulty-/Review-Auswahl (additiv) ----
@@ -2351,7 +3521,7 @@ function makeDailyItem(cat,L,dailyDuration){
   else if(cat.bank==='ps'){it=dailyGmatPsItem();}          // PS: adaptiv (Subtopic/Difficulty/Review)
   else if(cat.bank==='cr'){it=dailyCrItem();}              // CR: Level-Band (gmatTargetLevel) + Options-Shuffle
   else if(cat.bank){it=gmatItem(cat.bank);}                // DS: unverändert
-  else {it={render:'input',...cat.gen(L)};}
+  else {it={render:'input',...cat.gen(L,{daily:true,duration:dailyDuration})};}   // Zusatzargument wird von allen bisherigen Generatoren ignoriert; Logik-Matrizen kappen damit 5′/10′-Level
   it.cat=cat.key; it.group=cat.group; it.diff=L; return it;
 }
 function generateDailyAdaptivePool(duration){
@@ -2428,7 +3598,7 @@ function mixedLevelFor(group,key,manual){
 }
 function startMixedTraining(group,lv){
   const reg=regOf(group),ids=Object.keys(reg);
-  const manual=(lv==='A'||lv==='D'||lv==null)?null:clamp(+lv||2,1,4);
+  const manual=(lv==='A'||lv==='D'||lv==null)?null:clamp(+lv||2,1,maxLevelForGroup(group));   // Logik: 1–5, sonst 1–4
   const label=(GROUP_LABEL[group]||group)+' gemischt · '+(manual?'Level '+manual:'adaptiv');
   const list=[],used={};
   const capPer=Math.max(2,Math.ceil(ROUND/Math.min(ids.length,4)));      // Abwechslung: keine Subkategorie dominiert
@@ -2555,6 +3725,13 @@ function migrateKonzWm(){
     ss.dailySettings={enabledSubcategories:enabled};changed=true;
   }
   if('dailyGroups'in ss){delete ss.dailyGroups;changed=true;}
+  /* Logik 3.0: Bestandsnutzer bekommen die neue Subkategorie „Matrizen“ einmalig ins Tagestraining,
+     sofern sie bereits irgendeine Logik-Subkategorie aktiv haben (sonst bleibt Logik wie gewählt aus). */
+  if(ss.dailySettings&&Array.isArray(ss.dailySettings.enabledSubcategories)&&!ss.dailySettings.logicMatrixAdded){
+    const en=ss.dailySettings.enabledSubcategories;
+    if(en.some(k=>String(k).indexOf('logic:')===0)&&!en.includes('logic:matrix')){const i=en.indexOf('logic:letters');en.splice(i>=0?i+1:en.length,0,'logic:matrix');}
+    ss.dailySettings.logicMatrixAdded=true;changed=true;
+  }
   if(changed)Store.persist();
 }
 
@@ -6349,7 +7526,7 @@ function settingsScreen(){
 
 /* ---- LEVEL-CHIPS ---- */
 function levelChips(group){
-  const opts=[1,2,3,4,'A'];
+  const opts=[]; for(let l=1;l<=maxLevelForGroup(group);l++)opts.push(l); opts.push('A');   // Logik: 1–5 · sonst 1–4
   const mp=Store.data.mathProfile, diag=group==='math'&&mp&&mp.categoryStats;
   const chips=(diag?['D']:[]).concat(opts);
   return `<div class="seclabel">Schwierigkeit</div><div class="modes" id="lv">
@@ -6362,6 +7539,7 @@ function hub(group,reg,title){
   setHomeBtn(false); tag.textContent=title.toLowerCase();
   const mp=Store.data.mathProfile, cs=(group==='math'&&mp)?mp.categoryStats:null;
   if(group==='math'&&cs){ lastLevel='D'; } else if(lastLevel==='D'){ lastLevel=2; }
+  if(typeof lastLevel==='number'&&lastLevel>maxLevelForGroup(group))lastLevel=maxLevelForGroup(group);   // z. B. Logik L5 → Mathe-Hub: auf 4 kappen
   const rows=Object.entries(reg).map(([id,t])=>{const done=tutDone(group+':'+id);
     let badge='', hint='';
     if(cs){const stx=cs['math:'+id];if(stx){badge=` <span style="font-size:11px;color:var(--accent);font-weight:700">L${stx.level}</span> <span style="font-size:12px" title="${stx.mastery}">${stx.mastery==='mastered'?'●':stx.mastery==='learning'?'◐':'○'}</span>`; if(stx.nextRec==='lesson')hint=` · <span style="color:var(--bad);font-size:11px">Einführung empfohlen</span>`;}}
@@ -6369,7 +7547,7 @@ function hub(group,reg,title){
       <div class="topic-actions"><button class="mini${done?' done':''}" data-tut="${id}">Einführung${done?' ✓':''}</button><button class="mini solid" data-train="${id}">Üben ›</button></div></div>`;}).join("");
   const mtEntry=group==='math'?`<div class="topic mt-entry"><div class="topic-info"><b>Gedankentipps</b><span>Strategien, Eselsbrücken und schnellere Rechenwege</span></div>
       <div class="topic-actions"><button class="mini solid" id="goMentalTips">Öffnen ›</button></div></div><div style="height:14px"></div>`:'';
-  const mixEntry=(group==='math'||group==='deutsch')?`<div class="topic"><div class="topic-info"><b>Gemischtes Training</b><span>${group==='math'?'Alle Mathe-Themen':'Komma · Groß/Klein · Rechtschreibung'} · adaptiv oder nach Level gemischt</span></div>
+  const mixEntry=(group==='math'||group==='deutsch'||group==='logic')?`<div class="topic"><div class="topic-info"><b>Gemischtes Training</b><span>${group==='math'?'Alle Mathe-Themen':group==='logic'?'Zahlen · Matrizen · Sprache · Deduktion':'Komma · Groß/Klein · Rechtschreibung'} · adaptiv oder nach Level gemischt</span></div>
       <div class="topic-actions"><button class="mini solid" id="goMixed">Starten ›</button></div></div><div style="height:14px"></div>`:'';
   root.innerHTML=`<div class="card"><div class="head"><button class="back" id="bk">‹</button><h2>${title}</h2></div>
     ${group==='math'?mathNiveauCard():''}${mtEntry}${levelChips(group)}${mixEntry}<div class="seclabel">Themen</div><div class="topics">${rows}</div></div>`;
@@ -6482,7 +7660,7 @@ function dailyHub(){
 ========================================================= */
 function launchTut(group,id){const reg=regOf(group),t=reg[id];
   runTutorial({key:group+':'+id,title:t.name,concept:t.tut.concept,ex:t.tut.ex,example:t.tut.example,steps:t.tut.steps,
-    practice:{type:'qa',make:()=>({render:'input',...t.gen(1)})},
+    practice:{type:'qa',make:()=>({render:'input',...(t.tutGen||t.gen)(1)})},   // tutGen: optionaler Übungs-Generator (Logik-Matrizen: numerisch)
     startReal:()=>trainGen(group,id,1),backTo:()=>({math:mathHub,logic:logicHub,wm:wmHub,deutsch:deutschHub,elektro:elektroHub,cfa:cfaHub}[group]||logicHub)()});}
 function launchWmTut(id){const t=WM[id];
   runTutorial({key:'wm:'+id,title:t.name,concept:t.tut.concept,ex:t.tut.ex,example:t.tut.example,steps:t.tut.steps,
@@ -6521,7 +7699,7 @@ function runTutorial(cfg){
     const q=cfg.practice.make();let inner;
     if(q.render==='input') inner=(q.text?`<div class="q-text">${q.prompt}</div>`:`<div class="q-math">${q.prompt}</div>`)+`<input class="num-input" id="ans" placeholder="?"><button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
     else {const keys="ABCDEFG",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
-      inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;}
+      inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts${q.optsClass?' '+q.optsClass:''}" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;}
     shell(`<div class="seclabel">Geführter Versuch — der Tipp ist schon da</div>${inner}
       <div class="tip-text" style="margin-top:14px"><b>Tipp:</b> ${qHints(q)[0]||''}</div><div class="feedback" id="fb"></div><div id="nextrow"></div>`);
     if(q.render==='input'){const inp=document.getElementById('ans');inp.setAttribute('inputmode',typeof q.answer==='string'?'text':'numeric');inp.focus();
@@ -6555,10 +7733,13 @@ function runTutorial(cfg){
 /* ---- SESSION-START ---- */
 function trainGen(group,id,level){
   const reg=regOf(group),t=reg[id],key=group+':'+id;
-  if(level!=='D'&&level!=='A')level=clamp(Math.round(level)||2,1,4);   // Guard: Level außerhalb 1–4 (z. B. aus Altdaten) sicher kappen
+  const maxL=maxLevelForGroup(group);                                     // Logik 1–5, sonst 1–4
+  if(level!=='D'&&level!=='A')level=clamp(Math.round(level)||2,1,maxL);   // Guard: Level außerhalb des Gruppenbereichs (z. B. aus Altdaten) sicher kappen
   if(level==='D'){ const st=mathStatFor(key), gl=st?levelToGenLevel(st.level):2;
-    startSession({kind:'agen',gen:t.gen,group,aLevel:gl,goodStreak:0,total:ROUND,label:t.name+' · Mein Niveau (L'+(st?st.level:'–')+')',key,restart:()=>trainGen(group,id,'D')}); return; }
-  if(level==='A') startSession({kind:'agen',gen:t.gen,group,aLevel:2,goodStreak:0,total:ROUND,label:t.name+' · adaptiv',key,restart:()=>trainGen(group,id,'A')});
+    startSession({kind:'agen',gen:t.gen,group,aLevel:gl,maxLevel:maxL,goodStreak:0,total:ROUND,label:t.name+' · Mein Niveau (L'+(st?st.level:'–')+')',key,restart:()=>trainGen(group,id,'D')}); return; }
+  /* Adaptiv: Logik startet auf dem persistenten Subkategorie-Level (1–5), damit L5 in einer
+     Session erreichbar ist; alle anderen Gruppen starten unverändert bei Level 2. */
+  if(level==='A') startSession({kind:'agen',gen:t.gen,group,aLevel:group==='logic'?curLevel(key):2,maxLevel:maxL,goodStreak:0,total:ROUND,label:t.name+' · adaptiv',key,restart:()=>trainGen(group,id,'A')});
   else startSession({kind:'list',list:Array.from({length:ROUND},()=>{const q={render:'input',...t.gen(level)};q.cat=key;q.group=group;q.diff=level;return q;}),total:ROUND,label:t.name+' · L'+level,key,restart:()=>trainGen(group,id,level)});
 }
 function trainBank(id){const list=buildGmatList(id).map(o=>{o.cat=id;o.group='gmat';o.diff=2;return o;});
@@ -7472,7 +8653,7 @@ function fillQA(q){
       +field+`<button class="btn" id="sub" style="margin-top:12px">Prüfen</button>`;
   } else {
     const keys="ABCDEFG",stmts=q.stmts?`<span class="stmt">(1) ${q.stmts[0]}</span><span class="stmt">(2) ${q.stmts[1]}</span>`:"";
-    inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;
+    inner=`<div class="q-text">${q.q}${stmts}</div><div class="opts${q.optsClass?' '+q.optsClass:''}" id="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}"><span class="key">${keys[k]}</span><span>${o}</span></button>`).join("")}</div>`;   // optsClass: generischer Hook (Logik-Matrizen: 2×2-Raster für figurale Optionen)
   }
   body.innerHTML=`<div class="qkind">${state.label}</div>${inner}
     <div class="tiprow">${qHints(q).length?`<button class="tip-btn" id="tip">💡 Tipp anzeigen</button><div class="tip-text" id="tiptext" hidden></div>`:""}</div>
@@ -7816,7 +8997,7 @@ function dispAns(q){if(q.disp!=null)return q.disp;if(typeof q.answer==='string')
   if(typeof q.decimals==='number'&&isFinite(q.decimals))return q.answer.toLocaleString('de-DE',{minimumFractionDigits:q.decimals,maximumFractionDigits:q.decimals});
   return fmt(q.answer);}
 function maybeAdaptInSession(ok){
-  if(state.kind==='agen'){if(ok){state.goodStreak++;if(state.goodStreak>=2&&state.aLevel<4){state.aLevel++;state.goodStreak=0;}}else{state.aLevel=Math.max(1,state.aLevel-1);state.goodStreak=0;}}
+  if(state.kind==='agen'){const top=state.maxLevel||4;if(ok){state.goodStreak++;if(state.goodStreak>=2&&state.aLevel<top){state.aLevel++;state.goodStreak=0;}}else{state.aLevel=Math.max(1,state.aLevel-1);state.goodStreak=0;}}
   else if(state.kind==='span'){const cur=state.list[state.i];if(ok){state.maxSpan=Math.max(state.maxSpan,cur.len);state.spanLen=clamp(state.spanLen+1,3,9);}else state.spanLen=clamp(state.spanLen-1,3,9);}
 }
 function record(q,ok){
